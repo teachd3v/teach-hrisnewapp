@@ -9,7 +9,7 @@
     "build": "npm run build -w web",
     "typecheck": "npm run typecheck -ws --if-present",
     "db:generate": "npm run db:generate -w api",
-    "deploy": "npm run build && wrangler pages deploy web/dist"
+    "deploy": "npm run build && wrangler pages deploy web/dist --project-name teach-hris-spa --branch main"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
