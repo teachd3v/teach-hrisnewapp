@@ -1,12 +1,12 @@
-import { useQuery } from '@tanstack/react-query';
-import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
 
 export default function Home() {
-  const health = useQuery({ queryKey: ['health'], queryFn: () => api<{ ok: boolean }>('/health') });
+  const { user, logout } = useAuth();
   return (
     <main className="mx-auto max-w-sm p-6">
       <h1 className="text-xl font-semibold">Beranda</h1>
-      <p className="mt-2 text-sm">API: {health.isPending ? 'memeriksa…' : health.isError ? 'tidak terjangkau' : 'OK'}</p>
+      <p className="mt-2 text-sm">Halo, {user?.name}</p>
+      <button className="mt-4 rounded border px-3 py-1 text-sm" onClick={() => void logout()}>Keluar</button>
     </main>
   );
 }

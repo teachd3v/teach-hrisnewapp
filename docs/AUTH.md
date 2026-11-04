@@ -20,11 +20,11 @@ Tanpa cookie, karena aplikasi Tauri memuat SPA dari origin lain.
 - Role dibaca dari klaim token (maks. 15 menit basi). Aksi sensitif sebaiknya cek ulang role dari D1.
 
 ## Penyimpanan di klien
-- Web: access token di memori, refresh token di `localStorage` untuk sementara (TODO: pertimbangkan alternatif).
+- Web: access token di memori, refresh token lewat `web/src/lib/session.ts` (sementara `localStorage`; satu-satunya titik yang diganti di Tauri). `web/src/lib/api.ts` me-refresh otomatis sekali saat 401 (satu permintaan refresh pada satu waktu).
 - Tauri: refresh token di penyimpanan aman perangkat (Keychain/Keystore) — dikerjakan di spike Tauri.
 
 ## Super admin pertama
 `api/scripts/seed-super-admin.mjs` mencetak SQL; jalankan manual ke D1, jangan simpan hasilnya di repo.
 
 ## Belum dikerjakan
-- Pembatasan laju per IP, reset password oleh admin, UI login di `web/`.
+- Pembatasan laju per IP, reset password oleh admin.
