@@ -5,7 +5,7 @@
   "workspaces": ["shared", "api", "web"],
   "scripts": {
     "dev:web": "npm run dev -w web",
-    "dev:api": "wrangler pages dev web/dist --d1=DB --r2=STORAGE --compatibility-date=2026-08-01 --compatibility-flag=nodejs_compat",
+    "dev:api": "wrangler pages dev web/dist --compatibility-date=2026-08-01 --compatibility-flag=nodejs_compat",
     "build": "npm run build -w web",
     "typecheck": "npm run typecheck -ws --if-present",
     "db:generate": "npm run db:generate -w api",
