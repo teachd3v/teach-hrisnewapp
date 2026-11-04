@@ -4,6 +4,7 @@ import type { AppEnv } from './env';
 import { auth } from './routes/auth';
 import { leave } from './routes/leave';
 import { files } from './routes/files';
+import { admin } from './routes/admin';
 import { notificationRoutes } from './routes/notifications';
 
 // Origin aplikasi Tauri (Android: http(s)://tauri.localhost, iOS/macOS: tauri://localhost)
@@ -28,6 +29,7 @@ app.get('/health', (c) => c.json({ ok: true }));
 app.route('/auth', auth);
 app.route('/leave', leave);
 app.route('/files', files);
+app.route('/admin', admin);
 app.route('/notifications', notificationRoutes);
 
 app.notFound((c) => c.json({ error: 'Tidak ditemukan' }, 404));

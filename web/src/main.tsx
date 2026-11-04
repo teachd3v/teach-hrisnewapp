@@ -12,6 +12,9 @@ import Leave from './pages/Leave';
 import Approvals from './pages/Approvals';
 import AdminLeave from './pages/AdminLeave';
 import Notifications from './pages/Notifications';
+import AdminEmployees from './pages/AdminEmployees';
+import AdminQuotas from './pages/AdminQuotas';
+import AdminHolidays from './pages/AdminHolidays';
 
 const queryClient = new QueryClient();
 
@@ -38,6 +41,9 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/cuti" element={<RequireAuth><Leave /></RequireAuth>} />
             <Route path="/persetujuan" element={<RequireAuth><Approvals /></RequireAuth>} />
             <Route path="/admin/cuti" element={<RequireAuth><AdminLeave /></RequireAuth>} />
+            <Route path="/admin/karyawan" element={<RequireAuth><AdminEmployees /></RequireAuth>} />
+            <Route path="/admin/kuota" element={<RequireAuth><AdminQuotas /></RequireAuth>} />
+            <Route path="/admin/libur" element={<RequireAuth><AdminHolidays /></RequireAuth>} />
             <Route path="/notifikasi" element={<RequireAuth><Notifications /></RequireAuth>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

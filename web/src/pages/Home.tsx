@@ -11,7 +11,14 @@ export default function Home() {
   const links = [
     { to: '/cuti', label: 'Cuti' },
     { to: '/persetujuan', label: 'Persetujuan Cuti' },
-    ...(user && isAdmin(user.role) ? [{ to: '/admin/cuti', label: 'Cuti (HC)' }] : []),
+    ...(user && isAdmin(user.role)
+      ? [
+          { to: '/admin/cuti', label: 'Cuti (HC)' },
+          { to: '/admin/karyawan', label: 'Karyawan' },
+          { to: '/admin/kuota', label: 'Kuota Cuti' },
+          { to: '/admin/libur', label: 'Hari Libur' },
+        ]
+      : []),
     { to: '/notifikasi', label: unread ? `Notifikasi (${unread})` : 'Notifikasi' },
   ];
   return (
