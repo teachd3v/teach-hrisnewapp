@@ -1,4 +1,65 @@
 @import "tailwindcss";
 
+/* Token desain semantik. Tema terang (sesuai kesepakatan: latar putih, teks hitam, ringkas). */
+@theme {
+  --color-bg: #ffffff;
+  --color-surface: #ffffff;
+  --color-sub: #f3f4f6;
+  --color-fg: #111827;
+  --color-muted: #4b5563; /* 7.5:1 di atas putih */
+  --color-line: #e5e7eb; /* pemisah dekoratif */
+  --color-field: #8a8f98; /* batas kolom isian, >= 3:1 */
+  --color-primary: #111827;
+  --color-primary-fg: #ffffff;
+  --color-ok: #166534;
+  --color-ok-bg: #dcfce7;
+  --color-warn: #92400e;
+  --color-warn-bg: #fef3c7;
+  --color-bad: #b91c1c;
+  --color-bad-bg: #fee2e2;
+  --color-info: #1e40af;
+  --color-info-bg: #dbeafe;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Inset aman (poni, status bar, indikator gestur). */
+@utility pt-safe { padding-top: env(safe-area-inset-top); }
+@utility pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+@utility pl-safe { padding-left: env(safe-area-inset-left); }
+@utility pr-safe { padding-right: env(safe-area-inset-right); }
+
 :root { color-scheme: light; }
-body { @apply bg-white text-black antialiased; }
+
+html, body, #root { height: 100%; }
+
+body {
+  @apply bg-bg text-fg antialiased;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  /* Rasa aplikasi native: tanpa sorotan ketuk, tanpa tarik-untuk-muat-ulang browser, tanpa jeda ketuk 300 ms. */
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+input, textarea, select, [data-selectable] { -webkit-user-select: text; user-select: text; }
+
+/* Cincin fokus terlihat untuk keyboard/pembaca layar; tidak muncul saat disentuh. */
+:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+
+/* Kolom isian 16px: iOS tidak memperbesar halaman otomatis saat fokus. */
+input, textarea, select { font-size: 16px; }
+
+@keyframes screen-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes scrim-in { from { opacity: 0; } to { opacity: 1; } }
+.screen-in { animation: screen-in 180ms ease-out; }
+.sheet-in { animation: sheet-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.scrim-in { animation: scrim-in 180ms ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}

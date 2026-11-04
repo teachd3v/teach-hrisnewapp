@@ -1,8 +1,12 @@
-import { Link, useNavigate } from 'react-router';
+import { useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { BellOff } from 'lucide-react';
 import { api } from '../lib/api';
+import { Button, Empty, ErrorNote, Spinner } from '../ui';
 
 interface Notif { id: string; title: string; body: string | null; href: string | null; created_at: string; read_at: string | null }
+
+const when = (iso: string) => new Date(iso).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 export default function Notifications() {
   const qc = useQueryClient();
@@ -13,23 +17,26 @@ export default function Notifications() {
   const readOne = useMutation({ mutationFn: (id: string) => api(`/notifications/${id}/read`, { method: 'POST' }), onSuccess: refresh });
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-3 p-4">
-      <header className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Notifikasi</h1>
-        <Link to="/" className="text-sm underline">Beranda</Link>
-      </header>
-      {q.data && q.data.unread > 0 && <button className="self-start text-sm underline" onClick={() => readAll.mutate()}>Tandai semua dibaca</button>}
-      {q.data?.items.length === 0 && <p className="text-sm text-gray-500">Belum ada notifikasi.</p>}
-      {q.data?.items.map((n) => (
-        <button
-          key={n.id}
-          className={`rounded border p-3 text-left text-sm ${n.read_at ? '' : 'border-black'}`}
-          onClick={() => { readOne.mutate(n.id); if (n.href) navigate(n.href); }}
-        >
-          <div className="font-medium">{n.title}</div>
-          {n.body && <div className="text-gray-600">{n.body}</div>}
-        </button>
-      ))}
-    </main>
+    <div className="flex flex-col gap-3">
+      {q.isPending && <Spinner />}
+      <ErrorNote error={q.error} />
+      {q.data && q.data.unread > 0 && <Button variant="secondary" loading={readAll.isPending} onClick={() => readAll.mutate()}>Tandai semua dibaca ({q.data.unread})</Button>}
+      {q.data?.items.length === 0 && <Empty icon={<BellOff className="size-10" />}>Belum ada notifikasi.</Empty>}
+      <ul className="flex flex-col gap-2">
+        {q.data?.items.map((n) => (
+          <li key={n.id}>
+            <button onClick={() => { if (!n.read_at) readOne.mutate(n.id); if (n.href) navigate(n.href); }}
+              className="flex min-h-16 w-full items-start gap-3 rounded-2xl border border-line bg-surface p-3 text-left active:bg-sub">
+              <span className={`mt-2 size-2.5 shrink-0 rounded-full ${n.read_at ? 'bg-transparent' : 'bg-info'}`} aria-hidden="true" />
+              <span className="flex-1">
+                <span className={`block ${n.read_at ? 'font-medium' : 'font-bold'}`}>{n.read_at ? '' : <span className="sr-only">Belum dibaca: </span>}{n.title}</span>
+                {n.body && <span className="block text-sm text-muted">{n.body}</span>}
+                <span className="block text-xs text-muted">{when(n.created_at)}</span>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

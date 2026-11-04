@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ClipboardCheck } from 'lucide-react';
 import { api } from '../lib/api';
-import DecisionBox from '../components/DecisionBox';
-import { STATUS_LABEL, fmtRange, type LeaveItem } from '../lib/leave-types';
+import DecisionSheet from '../components/DecisionSheet';
 import AttachmentLink from '../components/AttachmentLink';
+import { STATUS_LABEL, STATUS_TONE, fmtRange, type LeaveItem } from '../lib/leave-types';
+import { Button, Card, Chip, Empty, ErrorNote, Segmented, Spinner } from '../ui';
 
 /** Persetujuan atasan langsung: tab Menunggu dan Riwayat. */
 export default function Approvals() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<'pending' | 'history'>('pending');
+  const [decision, setDecision] = useState<{ item: LeaveItem; approve: boolean } | null>(null);
   const list = useQuery({ queryKey: ['approvals', tab], queryFn: () => api<LeaveItem[]>(`/leave/approvals?tab=${tab}`) });
   const decide = useMutation({
     mutationFn: ({ id, approve, notes }: { id: string; approve: boolean; notes: string }) =>
@@ -18,32 +20,40 @@ export default function Approvals() {
   });
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-3 p-4">
-      <header className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Persetujuan Cuti</h1>
-        <Link to="/" className="text-sm underline">Beranda</Link>
-      </header>
-      <div className="flex gap-2 text-sm">
-        {(['pending', 'history'] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`rounded border px-3 py-1 ${tab === t ? 'bg-black text-white' : ''}`}>{t === 'pending' ? 'Menunggu' : 'Riwayat'}</button>
+    <div className="flex flex-col gap-4">
+      <Segmented value={tab} onChange={setTab} options={[{ value: 'pending', label: 'Menunggu' }, { value: 'history', label: 'Riwayat' }]} />
+      {list.isPending && <Spinner />}
+      <ErrorNote error={list.error} />
+      {list.data?.length === 0 && <Empty icon={<ClipboardCheck className="size-10" />}>{tab === 'pending' ? 'Tidak ada pengajuan yang menunggu Anda.' : 'Belum ada riwayat.'}</Empty>}
+      <ul className="flex flex-col gap-3">
+        {list.data?.map((r) => (
+          <li key={r.id}>
+            <Card>
+              <div className="flex items-start justify-between gap-2">
+                <div><p className="font-semibold">{r.employeeName}</p><p className="text-sm text-muted">{r.leave_type}</p></div>
+                {tab === 'history' && <Chip tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Chip>}
+              </div>
+              <p className="mt-2 text-sm">{fmtRange(r)} · <b>{r.total_days} hari</b>{r.start_time && <> · {r.start_time}–{r.end_time}</>}</p>
+              {r.reason && <p className="mt-2 text-sm text-muted" data-selectable>{r.reason}</p>}
+              {r.attachment_key && <div className="mt-1"><AttachmentLink fileKey={r.attachment_key} /></div>}
+              {tab === 'history' && r.hc_override && <p className="mt-2 text-sm text-muted">Diambil alih HC.</p>}
+              {tab === 'pending' && (
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <Button variant="secondary" onClick={() => setDecision({ item: r, approve: false })}>Tolak</Button>
+                  <Button onClick={() => setDecision({ item: r, approve: true })}>Setujui</Button>
+                </div>
+              )}
+            </Card>
+          </li>
         ))}
-      </div>
-      {list.isError && <p role="alert" className="text-sm text-red-600">{(list.error as Error).message}</p>}
-      {list.data?.length === 0 && <p className="text-sm text-gray-500">{tab === 'pending' ? 'Tidak ada pengajuan yang menunggu.' : 'Belum ada riwayat.'}</p>}
-      {list.data?.map((r) => (
-        <article key={r.id} className="rounded border p-3 text-sm">
-          <div className="flex justify-between"><b>{r.employeeName}</b><span>{r.leave_type}</span></div>
-          <div className="text-gray-600">{fmtRange(r)} · {r.total_days} hari</div>
-          {r.start_time && <div className="text-xs">Jam {r.start_time}–{r.end_time}</div>}
-          <p className="mt-1">{r.reason}</p>
-          {r.attachment_key && <AttachmentLink fileKey={r.attachment_key} />}
-          {tab === 'pending' ? (
-            <DecisionBox onDecide={(approve, notes) => decide.mutateAsync({ id: r.id, approve, notes })} />
-          ) : (
-            <div className="mt-1 text-xs text-gray-600">{STATUS_LABEL[r.status]}{r.hc_override ? ' · diambil alih HC' : ''}</div>
-          )}
-        </article>
-      ))}
-    </main>
+      </ul>
+
+      <DecisionSheet
+        open={Boolean(decision)} onClose={() => setDecision(null)} approve={decision?.approve ?? true}
+        title={decision?.approve ? 'Setujui pengajuan?' : 'Tolak pengajuan?'}
+        summary={decision ? `${decision.item.employeeName} · ${decision.item.leave_type} · ${fmtRange(decision.item)}` : undefined}
+        onConfirm={(notes) => decide.mutateAsync({ id: decision!.item.id, approve: decision!.approve, notes })}
+      />
+    </div>
   );
 }

@@ -43,3 +43,11 @@ export const fmtDate = (iso: string) =>
 
 export const fmtRange = (r: Pick<LeaveItem, 'start_date' | 'end_date'>) =>
   r.start_date === r.end_date ? fmtDate(r.start_date) : `${fmtDate(r.start_date)} – ${fmtDate(r.end_date)}`;
+
+export const STATUS_TONE: Record<LeaveStatus, 'ok' | 'warn' | 'bad' | 'info' | 'neutral'> = {
+  pending_manager: 'warn',
+  pending_hc: 'info',
+  approved: 'ok',
+  rejected: 'bad',
+  cancelled: 'neutral',
+};

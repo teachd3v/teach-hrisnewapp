@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../lib/auth';
+import { Button, Field, Input, Spinner } from '../ui';
 
 export default function Login() {
   const { user, loading, mustChangePassword, login } = useAuth();
@@ -12,7 +13,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  if (loading) return <p className="p-6 text-sm text-gray-500">Memuat…</p>;
+  if (loading) return <Spinner />;
   if (user) return <Navigate to={mustChangePassword ? '/ganti-password' : from} replace />;
 
   async function onSubmit(e: FormEvent) {
@@ -23,28 +24,27 @@ export default function Login() {
       await login(email.trim(), password);
       navigate(from, { replace: true });
     } catch (err) {
-      setError(err instanceof TypeError ? 'Tidak dapat terhubung ke server' : (err as Error).message);
+      setError(err instanceof TypeError ? 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.' : (err as Error).message);
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-4 p-6">
-      <h1 className="text-2xl font-semibold">HRIS TEACH</h1>
-      <form className="flex flex-col gap-3" onSubmit={onSubmit}>
-        <input
-          className="rounded border p-2" type="email" placeholder="Email" autoComplete="username"
-          required value={email} onChange={(e) => setEmail(e.target.value)}
-        />
-        <input
-          className="rounded border p-2" type="password" placeholder="Password" autoComplete="current-password"
-          required value={password} onChange={(e) => setPassword(e.target.value)}
-        />
-        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-        <button className="rounded bg-black p-2 text-white disabled:opacity-50" type="submit" disabled={busy}>
-          {busy ? 'Memproses…' : 'Masuk'}
-        </button>
+    <main className="pt-safe pb-safe mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-8 px-6 py-8">
+      <div>
+        <div className="mb-4 grid size-14 place-items-center rounded-2xl bg-primary text-xl font-bold text-primary-fg" aria-hidden="true">HT</div>
+        <h1 className="text-3xl font-bold">HRIS TEACH</h1>
+        <p className="mt-1 text-muted">Masuk dengan akun karyawan Anda.</p>
+      </div>
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <Field label="Email">
+          {(id) => <Input id={id} type="email" inputMode="email" autoComplete="username" autoCapitalize="none" autoCorrect="off" required value={email} onChange={(e) => setEmail(e.target.value)} />}
+        </Field>
+        <Field label="Password" error={error}>
+          {(id, d) => <Input id={id} aria-describedby={d} type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />}
+        </Field>
+        <Button type="submit" loading={busy} className="mt-2">Masuk</Button>
       </form>
     </main>
   );

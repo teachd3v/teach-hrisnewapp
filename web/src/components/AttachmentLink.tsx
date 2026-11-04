@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { Paperclip } from 'lucide-react';
 import { api } from '../lib/api';
 
-/** Minta tautan bertanda tangan (berumur 5 menit) lalu membukanya di tab baru. */
+/** Minta tautan bertanda tangan (berumur 5 menit) lalu membukanya. Target sentuh 44 px. */
 export default function AttachmentLink({ fileKey }: { fileKey: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,9 +22,11 @@ export default function AttachmentLink({ fileKey }: { fileKey: string }) {
   }
 
   return (
-    <span>
-      <button type="button" disabled={busy} onClick={() => void open()} className="text-xs underline disabled:opacity-50">{busy ? 'Membuka…' : 'Lihat lampiran'}</button>
-      {error && <span role="alert" className="ml-2 text-xs text-red-600">{error}</span>}
-    </span>
+    <div>
+      <button type="button" disabled={busy} onClick={() => void open()} className="-ml-2 inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-medium underline active:bg-sub disabled:opacity-50">
+        <Paperclip className="size-4" aria-hidden="true" />{busy ? 'Membuka…' : 'Lihat lampiran'}
+      </button>
+      {error && <p role="alert" className="text-sm text-bad">{error}</p>}
+    </div>
   );
 }

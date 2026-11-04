@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router';
 import { useAuth } from '../lib/auth';
+import { Button, Field, Input } from '../ui';
 
 export default function ChangePassword() {
   const { user, mustChangePassword, changePassword } = useAuth();
@@ -29,19 +30,18 @@ export default function ChangePassword() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-4 p-6">
-      <h1 className="text-xl font-semibold">Ganti password</h1>
-      {mustChangePassword && <p className="text-sm text-gray-600">Demi keamanan, ganti password awal Anda sebelum melanjutkan.</p>}
-      <form className="flex flex-col gap-3" onSubmit={onSubmit}>
-        <input className="rounded border p-2" type="password" placeholder="Password saat ini" autoComplete="current-password" required value={current} onChange={(e) => setCurrent(e.target.value)} />
-        <input className="rounded border p-2" type="password" placeholder="Password baru (min. 8, huruf & angka)" autoComplete="new-password" required value={next} onChange={(e) => setNext(e.target.value)} />
-        <input className="rounded border p-2" type="password" placeholder="Ulangi password baru" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-        <button className="rounded bg-black p-2 text-white disabled:opacity-50" type="submit" disabled={busy}>
-          {busy ? 'Menyimpan…' : 'Simpan'}
-        </button>
+    <main className="pt-safe pb-safe mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 px-6 py-8">
+      <div>
+        <h1 className="text-2xl font-bold">Ganti password</h1>
+        <p className="mt-1 text-muted">{mustChangePassword ? 'Demi keamanan, ganti password awal Anda sebelum melanjutkan.' : 'Setelah disimpan, Anda perlu masuk lagi dengan password baru.'}</p>
+      </div>
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <Field label="Password saat ini">{(id) => <Input id={id} type="password" autoComplete="current-password" required value={current} onChange={(e) => setCurrent(e.target.value)} />}</Field>
+        <Field label="Password baru" hint="Minimal 8 karakter, berisi huruf dan angka.">{(id, d) => <Input id={id} aria-describedby={d} type="password" autoComplete="new-password" required value={next} onChange={(e) => setNext(e.target.value)} />}</Field>
+        <Field label="Ulangi password baru" error={error}>{(id, d) => <Input id={id} aria-describedby={d} type="password" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} />}</Field>
+        <Button type="submit" loading={busy} className="mt-2">Simpan</Button>
+        {!mustChangePassword && <Button variant="ghost" onClick={() => navigate(-1)}>Batal</Button>}
       </form>
-      <p className="text-xs text-gray-500">Setelah disimpan, Anda perlu masuk lagi dengan password baru.</p>
     </main>
   );
 }
