@@ -15,3 +15,9 @@ Diputuskan 2026-11-04 (menindaklanjuti "Keputusan yang masih terbuka" di HANDOFF
 ## Masih terbuka
 - Kebijakan cuti bersama, geofence, jam masuk/keterlambatan (lihat handoff).
 - Kesiapan akun toko dan Mac (butir 7).
+
+## Sumber daya Cloudflare (dibuat 2026-11-04)
+- D1 `hris-spa-db` (id `50cdf64e-466e-49e9-abdc-51949f9d5b9b`, wilayah APAC); migrasi 0000-0002 sudah diterapkan ke remote.
+- R2 `hris-spa-storage`.
+- Belum ada: project Pages, secret (`JWT_SECRET`, `URL_SIGNING_SECRET`), super admin pertama.
+- Migrasi baru diterapkan manual: `npx wrangler d1 migrations apply hris-spa-db --remote` (sebelum merge PR yang membutuhkannya).

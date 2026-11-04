@@ -8,8 +8,7 @@
 		{
 			"binding": "DB",
 			"database_name": "hris-spa-db",
-			// Isi setelah `wrangler d1 create hris-spa-db`
-			"database_id": "00000000-0000-0000-0000-000000000000",
+			"database_id": "50cdf64e-466e-49e9-abdc-51949f9d5b9b",
 			"migrations_dir": "api/migrations"
 		}
 	],
