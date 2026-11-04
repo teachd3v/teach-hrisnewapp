@@ -1,0 +1,4 @@
+# Salin ke .dev.vars (tidak masuk repo). Secret produksi: `wrangler pages secret put NAMA`
+JWT_SECRET=ganti-dengan-string-acak-panjang
+URL_SIGNING_SECRET=ganti-dengan-string-acak-panjang
+WEB_ORIGIN=http://localhost:5173

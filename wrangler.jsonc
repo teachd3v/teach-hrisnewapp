@@ -1,0 +1,20 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "teach-hris-spa",
+	"pages_build_output_dir": "web/dist",
+	"compatibility_date": "2026-08-01",
+	"compatibility_flags": ["nodejs_compat"],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "hris-spa-db",
+			// Isi setelah `wrangler d1 create hris-spa-db`
+			"database_id": "00000000-0000-0000-0000-000000000000",
+			"migrations_dir": "api/migrations"
+		}
+	],
+	"r2_buckets": [{ "binding": "STORAGE", "bucket_name": "hris-spa-storage" }],
+	"vars": {
+		"WEB_ORIGIN": "https://app.hrteach.site"
+	}
+}

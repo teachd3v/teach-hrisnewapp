@@ -1,0 +1,19 @@
+{
+  "name": "@hris/api",
+  "private": true,
+  "type": "module",
+  "main": "src/app.ts",
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@hris/shared": "*",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.9.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260101.0",
+    "drizzle-kit": "^0.31.10"
+  }
+}
