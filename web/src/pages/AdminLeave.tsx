@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import DecisionBox from '../components/DecisionBox';
 import { STATUS_LABEL, fmtRange, type LeaveItem } from '../lib/leave-types';
+import AttachmentLink from '../components/AttachmentLink';
 
 const TABS = [
   { key: 'pending_hc', label: 'Menunggu HC' },
@@ -39,6 +40,7 @@ export default function AdminLeave() {
           <div className="flex justify-between"><b>{r.employeeName}</b><span>{r.leave_type}</span></div>
           <div className="text-gray-600">{fmtRange(r)} · {r.total_days} hari</div>
           <p className="mt-1">{r.reason}</p>
+          {r.attachment_key && <AttachmentLink fileKey={r.attachment_key} />}
           {r.status === 'pending_hc' && (
             <DecisionBox onDecide={(approve, text) => decide.mutateAsync({ id: r.id, approve, text, override: false })} />
           )}

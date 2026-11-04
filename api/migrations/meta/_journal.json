@@ -22,6 +22,13 @@
       "when": 1793818572743,
       "tag": "0002_leave_top_leader",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793819369841,
+      "tag": "0003_leave_attachment_unique",
+      "breakpoints": true
     }
   ]
 }

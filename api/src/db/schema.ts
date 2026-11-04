@@ -98,7 +98,7 @@ export const leave_requests = sqliteTable('leave_requests', {
   end_time: text('end_time'),
   total_days: real('total_days').notNull(),
   reason: text('reason'),
-  attachment_key: text('attachment_key'), // kunci R2
+  attachment_key: text('attachment_key'), // kunci R2; satu berkas hanya untuk satu pengajuan
   // pending_manager -> pending_hc -> approved | rejected | cancelled
   status: text('status', {
     enum: ['pending_manager', 'pending_hc', 'approved', 'rejected', 'cancelled'],
@@ -117,6 +117,7 @@ export const leave_requests = sqliteTable('leave_requests', {
 }, (t) => ({
   employeeIdx: index('leave_requests_employee_idx').on(t.employee_id, t.start_date),
   statusIdx: index('leave_requests_status_idx').on(t.status),
+  attachmentUnique: uniqueIndex('leave_requests_attachment_unique').on(t.attachment_key),
 }));
 
 export const attendances = sqliteTable('attendances', {

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import DecisionBox from '../components/DecisionBox';
 import { STATUS_LABEL, fmtRange, type LeaveItem } from '../lib/leave-types';
+import AttachmentLink from '../components/AttachmentLink';
 
 /** Persetujuan atasan langsung: tab Menunggu dan Riwayat. */
 export default function Approvals() {
@@ -35,6 +36,7 @@ export default function Approvals() {
           <div className="text-gray-600">{fmtRange(r)} · {r.total_days} hari</div>
           {r.start_time && <div className="text-xs">Jam {r.start_time}–{r.end_time}</div>}
           <p className="mt-1">{r.reason}</p>
+          {r.attachment_key && <AttachmentLink fileKey={r.attachment_key} />}
           {tab === 'pending' ? (
             <DecisionBox onDecide={(approve, notes) => decide.mutateAsync({ id: r.id, approve, notes })} />
           ) : (

@@ -18,18 +18,21 @@ Pucuk pimpinan (`employees.is_top_leader`) langsung `pending_hc`. Karyawan lain 
 | `GET /admin?status=pending_hc\|pending_manager\|all` | admin | daftar |
 | `POST /:id/hc-decision` `{approve, notes}` | admin | keputusan final |
 | `POST /:id/hc-override` `{approve, reason}` | admin | ambil alih yang tertahan di atasan; alasan wajib, final, tercatat di audit |
+| `POST /attachments` (multipart `file`), `DELETE /attachments?key=` | pengaju | unggah lampiran (PDF/JPG/PNG/WEBP, maks. 5 MB, tipe dicek dari isi berkas) dan buang unggahan yang batal dipakai |
+| `POST /api/files/link` `{key}` → `GET /api/files/get?...` | pemilik, admin, atasan langsung | tautan bertanda tangan berumur 5 menit; akses selain pemilik dicatat di audit (`file.access`) |
 | `GET /api/notifications`, `POST /read-all`, `POST /:id/read` | semua | notifikasi dalam aplikasi |
 
 ## Aturan yang ditegakkan server
 - Durasi dihitung server: hari kerja Senin–Jumat di luar `holidays`.
 - Tanggal valid, tidak bentrok dengan pengajuan aktif lain, kuota cukup (dicek lagi saat HC menyetujui), jenis berbatas gender, izin jam-jaman wajib jam.
+- Jenis Sakit wajib lampiran. Satu berkas hanya untuk satu pengajuan; lampiran pengajuan yang dibatalkan dihapus dari R2.
 - Tidak boleh memutuskan pengajuan sendiri. Atasan harus atasan langsung pengaju; peran admin dibaca ulang dari D1, bukan dari token.
 - Keputusan memakai update bersyarat pada status, jadi dua keputusan bersamaan tidak sama-sama lolos.
 - Kuota bawaan: Cuti Tahunan 12, Ganti Hari 0, jenis lain tanpa batas; jatah khusus di `leave_quotas`.
 - Notifikasi tidak memuat alasan cuti. Notifikasi "perlu aksi" ditandai selesai saat pengajuan diputuskan/dibatalkan.
 
 ## Belum ada
-- **Lampiran** (surat sakit): butuh unggah ke R2. Aturan "Sakit wajib lampiran" belum dipaksa (ada TODO di `routes/leave.ts`).
+- Unggahan yang tidak pernah dipakai pengajuan (aplikasi ditutup di tengah proses) tertinggal di R2; belum ada pembersihan terjadwal (butuh Worker cron atau aturan lifecycle R2).
 - Push (FCM/Web Push); baru notifikasi dalam aplikasi.
 - Admin: kelola kuota dan hari libur, atur atasan/`is_top_leader` (sementara lewat SQL).
 - Keputusan + audit + notifikasi belum satu transaksi: keputusan dicatat dulu (update bersyarat), lalu audit dan notifikasi dalam satu batch. Bila batch kedua gagal, keputusan tetap tercatat tanpa notifikasi.

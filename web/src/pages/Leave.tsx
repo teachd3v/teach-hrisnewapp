@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LEAVE_TYPES, PENDING_STATUSES, calculateLeaveDuration, validateLeaveDates, type LeaveCategory } from '@hris/shared';
 import { api } from '../lib/api';
 import { STATUS_LABEL, fmtRange, type LeaveItem, type LeaveMeta } from '../lib/leave-types';
+import AttachmentLink from '../components/AttachmentLink';
 
 export default function Leave() {
   const qc = useQueryClient();
@@ -13,6 +14,8 @@ export default function Leave() {
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [reason, setReason] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [fileInputKey, setFileInputKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const year = start ? Number(start.slice(0, 4)) : new Date().getFullYear();
@@ -28,9 +31,23 @@ export default function Leave() {
   const genderBlocked = Boolean(typeMeta.gender && meta.data?.gender && meta.data.gender !== typeMeta.gender);
 
   const submit = useMutation({
-    mutationFn: () => api('/leave', { method: 'POST', json: { leaveType: type, startDate: start, endDate: end, startTime, endTime, reason } }),
+    mutationFn: async () => {
+      let attachmentKey = '';
+      if (file) {
+        const fd = new FormData();
+        fd.append('file', file);
+        attachmentKey = (await api<{ key: string }>('/leave/attachments', { method: 'POST', body: fd })).key;
+      }
+      try {
+        return await api('/leave', { method: 'POST', json: { leaveType: type, startDate: start, endDate: end, startTime, endTime, reason, attachmentKey } });
+      } catch (e) {
+        // Pengajuan gagal: buang unggahan yang tidak terpakai.
+        if (attachmentKey) await api(`/leave/attachments?key=${encodeURIComponent(attachmentKey)}`, { method: 'DELETE' }).catch(() => {});
+        throw e;
+      }
+    },
     onSuccess: () => {
-      setStart(''); setEnd(''); setReason(''); setStartTime(''); setEndTime(''); setError(null);
+      setStart(''); setEnd(''); setReason(''); setFile(null); setFileInputKey((k) => k + 1); setStartTime(''); setEndTime(''); setError(null);
       void qc.invalidateQueries({ queryKey: ['leave-mine'] });
       void qc.invalidateQueries({ queryKey: ['leave-meta'] });
     },
@@ -48,7 +65,7 @@ export default function Leave() {
     submit.mutate();
   }
 
-  const blocked = !start || !end || !reason.trim() || Boolean(dateError) || overQuota || genderBlocked || meta.data?.canSubmit === false || submit.isPending
+  const blocked = !start || !end || !reason.trim() || Boolean(dateError) || overQuota || genderBlocked || meta.data?.canSubmit === false || submit.isPending || (typeMeta.requiresAttachment && !file)
     || (typeMeta.timeBased && (!startTime || !endTime));
 
   return (
@@ -92,7 +109,11 @@ export default function Leave() {
         {!dateError && days > 0 && <p className="text-sm">Durasi: <b>{days} hari kerja</b></p>}
         {overQuota && <p role="alert" className="text-xs text-red-600">Melebihi sisa kuota ({Math.max(balance!.remaining!, 0)} hari). Pengajuan tidak dapat dikirim.</p>}
         {genderBlocked && <p role="alert" className="text-xs text-red-600">{typeMeta.label} hanya untuk karyawan {typeMeta.gender}.</p>}
-        {typeMeta.requiresAttachment && <p className="text-xs text-amber-700">Unggah surat keterangan belum tersedia di versi ini.</p>}
+        <label className="text-xs">
+          {typeMeta.requiresAttachment ? 'Lampiran (wajib, surat keterangan)' : 'Lampiran (opsional)'}
+          <input key={fileInputKey} className="mt-1 w-full text-sm" type="file" accept="application/pdf,image/jpeg,image/png,image/webp"
+            onChange={(e) => { const f = e.target.files?.[0] ?? null; setFile(f && f.size > 5 * 1024 * 1024 ? null : f); if (f && f.size > 5 * 1024 * 1024) setError('Berkas terlalu besar (maks. 5 MB)'); }} />
+        </label>
         <textarea className="rounded border p-2 text-sm" rows={3} maxLength={1000} placeholder="Alasan" value={reason} onChange={(e) => setReason(e.target.value)} />
         {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
         <button type="submit" disabled={blocked} className="rounded bg-black p-2 text-white disabled:opacity-40">{submit.isPending ? 'Mengirim…' : 'Kirim'}</button>
@@ -105,6 +126,7 @@ export default function Leave() {
           <article key={r.id} className="rounded border p-3 text-sm">
             <div className="flex justify-between"><b>{r.leave_type}</b><span>{STATUS_LABEL[r.status]}</span></div>
             <div className="text-gray-600">{fmtRange(r)} · {r.total_days} hari</div>
+            {r.attachment_key && <AttachmentLink fileKey={r.attachment_key} />}
             {r.manager_notes && <div className="mt-1 text-xs">Atasan: {r.manager_notes}</div>}
             {r.hc_override && <div className="mt-1 text-xs">Diputuskan langsung oleh HC.</div>}
             {r.hc_notes && <div className="mt-1 text-xs">HC: {r.hc_notes}</div>}

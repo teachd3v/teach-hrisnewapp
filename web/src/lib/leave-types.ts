@@ -10,6 +10,7 @@ export interface LeaveItem {
   end_time: string | null;
   total_days: number;
   reason: string | null;
+  attachment_key: string | null;
   status: LeaveStatus;
   manager_notes: string | null;
   hc_notes: string | null;

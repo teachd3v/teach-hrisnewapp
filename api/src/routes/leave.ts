@@ -21,10 +21,13 @@ import { audit_log, employees, holidays, leave_requests } from '../db/schema';
 import { auditRow } from '../lib/audit';
 import { adminRecipientIds, getBalances, loadHolidayDates, notifyStmts, resolveStmt, type Db } from '../lib/leave-db';
 import { requireAuth } from '../middleware/auth';
+import { DOCUMENT_KINDS, MB, validateUpload } from '../lib/upload';
 
 export const leave = new Hono<AppEnv>();
 leave.use('*', requireAuth);
 
+const ATTACH_PREFIX = 'leave_attachments/';
+const ATTACHMENT_MAX = 5 * MB;
 const REASON_MAX = 1000;
 const NOTES_MAX = 500;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -116,7 +119,17 @@ leave.post('/', async (c) => {
   if (meta.timeBased && (!startTime || !endTime || !TIME_RE.test(startTime) || !TIME_RE.test(endTime))) {
     return c.json({ error: 'Detail jam wajib diisi dengan format yang benar' }, 400);
   }
-  // TODO(lampiran): jenis requiresAttachment (Sakit) belum bisa dipaksa sebelum unggah berkas ke R2 ada.
+  // Lampiran: harus berkas milik sendiri yang sudah diunggah dan belum dipakai pengajuan lain.
+  const attachmentKey = str('attachmentKey') || null;
+  if (attachmentKey) {
+    if (!attachmentKey.startsWith(`${ATTACH_PREFIX}${me.id}/`) || attachmentKey.includes('..')) return c.json({ error: 'Lampiran tidak valid' }, 400);
+    if (!(await c.env.STORAGE.head(attachmentKey))) return c.json({ error: 'Lampiran tidak ditemukan, unggah ulang' }, 400);
+    if (await one(db.select({ id: leave_requests.id }).from(leave_requests).where(eq(leave_requests.attachment_key, attachmentKey)).limit(1))) {
+      return c.json({ error: 'Lampiran sudah dipakai pengajuan lain' }, 400);
+    }
+  } else if (meta.requiresAttachment) {
+    return c.json({ error: 'Dokumen lampiran (surat keterangan) wajib diunggah' }, 400);
+  }
 
   const overlap = await one(db.select({ id: leave_requests.id }).from(leave_requests).where(and(
     eq(leave_requests.employee_id, me.id),
@@ -144,13 +157,41 @@ leave.post('/', async (c) => {
     db.insert(leave_requests).values({
       id, employee_id: me.id, leave_type: type, start_date: start, end_date: end,
       start_time: meta.timeBased ? startTime : null, end_time: meta.timeBased ? endTime : null,
-      total_days: days, reason, status: me.manager_id ? 'pending_manager' : 'pending_hc',
+      total_days: days, reason, attachment_key: attachmentKey, status: me.manager_id ? 'pending_manager' : 'pending_hc',
       created_at: now, updated_at: now,
     }),
     db.insert(audit_log).values(auditRow({ actorId: me.id, actorName: me.name, action: 'leave.submitted', targetType: 'leave_request', targetId: id, details: { type, start, end, days } })),
     ...notifyStmts(db, notes),
   ]);
   return c.json({ id }, 201);
+});
+
+/** Unggah lampiran (multipart, field `file`). Mengembalikan kunci untuk dilampirkan saat mengajukan. */
+leave.post('/attachments', async (c) => {
+  const meId = c.get('user').id;
+  const declared = Number(c.req.header('Content-Length'));
+  if (Number.isFinite(declared) && declared > ATTACHMENT_MAX + 64 * 1024) return c.json({ error: 'Berkas terlalu besar (maks. 5 MB)' }, 413);
+  const form = await c.req.parseBody().catch(() => null);
+  const file = form?.file;
+  if (!(file instanceof File)) return c.json({ error: 'Berkas tidak ada' }, 400);
+  const v = await validateUpload(file, { maxBytes: ATTACHMENT_MAX, kinds: DOCUMENT_KINDS });
+  if (!v.ok) return c.json({ error: v.error }, 400);
+  const key = `${ATTACH_PREFIX}${meId}/${crypto.randomUUID()}.${v.ext}`;
+  await c.env.STORAGE.put(key, v.buffer, { httpMetadata: { contentType: v.contentType } });
+  return c.json({ key }, 201);
+});
+
+/** Hapus unggahan yang batal dipakai (hanya milik sendiri dan belum terkait pengajuan). */
+leave.delete('/attachments', async (c) => {
+  const meId = c.get('user').id;
+  const key = c.req.query('key') ?? '';
+  if (!key.startsWith(`${ATTACH_PREFIX}${meId}/`) || key.includes('..')) return c.json({ error: 'Lampiran tidak valid' }, 400);
+  const db = drizzle(c.env.DB);
+  if (await one(db.select({ id: leave_requests.id }).from(leave_requests).where(eq(leave_requests.attachment_key, key)).limit(1))) {
+    return c.json({ error: 'Lampiran sudah dipakai pengajuan' }, 409);
+  }
+  await c.env.STORAGE.delete(key);
+  return c.json({ ok: true });
 });
 
 /** Batalkan selama masih menunggu. Baris tidak dihapus (jejak audit), statusnya jadi 'cancelled'. */
@@ -166,10 +207,12 @@ leave.post('/:id/cancel', async (c) => {
 
   // Update bersyarat: mencegah balapan dengan persetujuan
   const done = await db.update(leave_requests)
-    .set({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .set({ status: 'cancelled', attachment_key: null, updated_at: new Date().toISOString() })
     .where(and(eq(leave_requests.id, id), inArray(leave_requests.status, PENDING_STATUSES)))
     .returning({ id: leave_requests.id });
   if (!done.length) return c.json({ error: 'Pengajuan sudah diproses, tidak dapat dibatalkan' }, 409);
+  // Lampiran pengajuan yang dibatalkan tidak perlu disimpan (bisa berisi data kesehatan).
+  if (req.attachment_key) await c.env.STORAGE.delete(req.attachment_key).catch((e) => console.error('hapus lampiran gagal', e));
 
   await batch(db, [
     resolveStmt(db, id),

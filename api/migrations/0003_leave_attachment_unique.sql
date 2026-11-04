@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `leave_requests_attachment_unique` ON `leave_requests` (`attachment_key`);
