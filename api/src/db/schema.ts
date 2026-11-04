@@ -18,6 +18,8 @@ export const employees = sqliteTable('employees', {
   role: text('role', { enum: ['employee', 'admin', 'super_admin'] }).notNull().default('employee'),
   // Atasan langsung. Null hanya untuk pucuk pimpinan (cuti langsung ke HC).
   manager_id: text('manager_id'),
+  // Pucuk pimpinan: tanpa atasan, pengajuan cuti langsung ke HC. Karyawan lain tanpa atasan tidak boleh mengajukan.
+  is_top_leader: integer('is_top_leader', { mode: 'boolean' }).notNull().default(false),
   active: integer('active', { mode: 'boolean' }).notNull().default(true),
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull(),

@@ -1,0 +1,1 @@
+ALTER TABLE `employees` ADD `is_top_leader` integer DEFAULT false NOT NULL;

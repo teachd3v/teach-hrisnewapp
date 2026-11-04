@@ -15,6 +15,13 @@
       "when": 1793816987018,
       "tag": "0001_audit_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793818572743,
+      "tag": "0002_leave_top_leader",
+      "breakpoints": true
     }
   ]
 }

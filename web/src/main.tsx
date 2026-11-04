@@ -8,6 +8,10 @@ import Login from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
 import Home from './pages/Home';
 import Spike from './pages/Spike';
+import Leave from './pages/Leave';
+import Approvals from './pages/Approvals';
+import AdminLeave from './pages/AdminLeave';
+import Notifications from './pages/Notifications';
 
 const queryClient = new QueryClient();
 
@@ -31,6 +35,10 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/spike" element={<Spike />} />
             <Route path="/ganti-password" element={<ChangePassword />} />
             <Route path="/" element={<RequireAuth><Home /></RequireAuth>} />
+            <Route path="/cuti" element={<RequireAuth><Leave /></RequireAuth>} />
+            <Route path="/persetujuan" element={<RequireAuth><Approvals /></RequireAuth>} />
+            <Route path="/admin/cuti" element={<RequireAuth><AdminLeave /></RequireAuth>} />
+            <Route path="/notifikasi" element={<RequireAuth><Notifications /></RequireAuth>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
