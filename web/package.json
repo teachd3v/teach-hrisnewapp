@@ -5,17 +5,24 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -p . && vite build",
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p .",
+    "predev": "node scripts/copy-mediapipe.mjs",
+    "prebuild": "node scripts/copy-mediapipe.mjs",
+    "tauri": "tauri"
   },
   "dependencies": {
     "@hris/shared": "*",
+    "@mediapipe/tasks-vision": "^1.2.2",
     "@tanstack/react-query": "^5.90.0",
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-geolocation": "^2.5.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router": "^7.9.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.0",
+    "@tauri-apps/cli": "^2.12.4",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.0",

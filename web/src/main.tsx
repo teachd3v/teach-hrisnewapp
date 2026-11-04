@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from './lib/auth';
 import Login from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
 import Home from './pages/Home';
+import Spike from './pages/Spike';
 
 const queryClient = new QueryClient();
 
@@ -27,6 +28,7 @@ createRoot(document.getElementById('root')!).render(
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/spike" element={<Spike />} />
             <Route path="/ganti-password" element={<ChangePassword />} />
             <Route path="/" element={<RequireAuth><Home /></RequireAuth>} />
             <Route path="*" element={<Navigate to="/" replace />} />
