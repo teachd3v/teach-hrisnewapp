@@ -34,4 +34,4 @@ Foto di R2 `attendance/{id}/{tanggal}/…`, dibuka lewat tautan bertanda tangan 
 - Lupa presensi pulang: baris tetap "Belum pulang"; belum ada koreksi oleh HC atau penutupan otomatis.
 - Presensi di hari cuti/libur/akhir pekan ditandai, tidak dicegah. Hari libur mengikuti tabel Hari Libur; tidak ada kalender kerja per karyawan.
 - Izin Keterlambatan membebaskan seluruh hari itu; jam estimasi yang diisi pada izin belum dibandingkan dengan jam presensi.
-- Belum diuji di HP nyata: kamera, GPS, dan deteksi wajah. Di emulasi browser, kamera dan GPS dipalsukan untuk menguji alur, jadi deteksi wajah nyata belum teruji.
+- Alur kamera, GPS, dan deteksi wajah sudah dicoba di browser HP nyata oleh pemilik dan berfungsi baik (2026-11-05). Belum diuji di dalam aplikasi Tauri (menunggu spike).
