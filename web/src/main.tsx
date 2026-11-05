@@ -19,6 +19,7 @@ import AdminEmployees from './pages/AdminEmployees';
 import AdminEmployeeForm from './pages/AdminEmployeeForm';
 import AdminQuotas from './pages/AdminQuotas';
 import AdminHolidays from './pages/AdminHolidays';
+import AdminMaster from './pages/AdminMaster';
 import Spike from './pages/Spike';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: true } } });
@@ -55,6 +56,7 @@ const router = createBrowserRouter(
           <Route path="/admin/cuti" element={<AdminLeave />} handle={{ title: 'Cuti (HC)', back: '/akun' }} />
           <Route path="/admin/karyawan" element={<AdminEmployees />} handle={{ title: 'Karyawan', back: '/akun' }} />
           <Route path="/admin/karyawan/:id" element={<AdminEmployeeForm />} handle={{ title: 'Data karyawan', back: '/admin/karyawan' }} />
+          <Route path="/admin/master" element={<AdminMaster />} handle={{ title: 'Data master', back: '/akun' }} />
           <Route path="/admin/kuota" element={<AdminQuotas />} handle={{ title: 'Kuota cuti', back: '/akun' }} />
           <Route path="/admin/libur" element={<AdminHolidays />} handle={{ title: 'Hari libur', back: '/akun' }} />
         </Route>

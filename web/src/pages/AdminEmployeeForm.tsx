@@ -6,12 +6,13 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { BottomBar, Button, Card, ErrorNote, Field, Input, Select, Spinner } from '../ui';
 import { ROLE_LABEL, useEmployees, type Emp } from './AdminEmployees';
+import { MASTER_LABEL_LONG, optionsOf, useMaster, type MasterKind } from '../lib/master';
 
 type Form = Record<string, string | boolean>;
 const toForm = (e?: Emp): Form => ({
   name: e?.name ?? '', email: e?.email ?? '', phone: e?.phone ?? '', gender: e?.gender ?? '', employee_code: e?.employee_code ?? '',
   manager_id: e?.manager_id ?? '', is_top_leader: e?.is_top_leader ?? false,
-  title: e?.title ?? '', dept: e?.dept ?? '', level: e?.level ?? '', employment_status: e?.employment_status ?? '', join_date: e?.join_date ?? '',
+  title: e?.title ?? '', department_id: e?.department_id ?? '', level_id: e?.level_id ?? '', employment_status_id: e?.employment_status_id ?? '', join_date: e?.join_date ?? '',
   role: e?.role ?? 'employee', active: e?.active ?? true, password: '',
 });
 
@@ -23,6 +24,7 @@ export default function AdminEmployeeForm() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const list = useEmployees();
+  const master = useMaster();
   const target = isNew ? undefined : list.data?.find((e) => e.id === id);
   const [form, setForm] = useState<Form | null>(isNew ? toForm() : null);
   const [resetPw, setResetPw] = useState('');
@@ -39,7 +41,7 @@ export default function AdminEmployeeForm() {
     mutationFn: async () => {
       if (isNew) {
         const body: Form = { ...f };
-        if (!isSuper) for (const k of ['title', 'dept', 'level', 'employment_status', 'join_date', 'role', 'active']) delete body[k];
+        if (!isSuper) for (const k of ['title', 'department_id', 'level_id', 'employment_status_id', 'join_date', 'role', 'active']) delete body[k];
         return api('/admin/employees', { method: 'POST', json: body });
       }
       const orig = toForm(target);
@@ -54,6 +56,20 @@ export default function AdminEmployeeForm() {
     onSuccess: () => { setNotice('Password diatur ulang dan semua sesi dicabut. Sampaikan password sementara ke karyawan; ia wajib menggantinya saat masuk.'); setResetPw(''); },
   });
   const onSubmit = (e: FormEvent) => { e.preventDefault(); save.mutate(); };
+  // Dropdown dari data master: hanya yang aktif, ditambah nilai karyawan saat ini walau sudah dinonaktifkan.
+  const pick = (k: string, kind: MasterKind) => {
+    const opts = optionsOf(master.data, kind).filter((o) => o.active || o.id === f[k]);
+    return (
+      <Field label={MASTER_LABEL_LONG[kind]} hint={master.data && opts.length === 0 ? 'Belum ada pilihan. Super admin menambahkannya di Akun > Data master.' : undefined}>
+        {(fid, d) => (
+          <Select id={fid} aria-describedby={d} disabled={restricted || lockedAdmin} value={String(f[k])} onChange={(e) => set(k, e.target.value)}>
+            <option value="">(belum dipilih)</option>
+            {opts.map((o) => <option key={o.id} value={o.id}>{o.name}{o.active ? '' : ' (nonaktif)'}</option>)}
+          </Select>
+        )}
+      </Field>
+    );
+  };
   const text = (k: string, label: string, opts: { type?: string; disabled?: boolean; hint?: string; mode?: 'email' | 'tel' } = {}) => (
     <Field label={label} hint={opts.hint}>{(fid, d) => <Input id={fid} aria-describedby={d} type={opts.type ?? 'text'} inputMode={opts.mode} disabled={opts.disabled || lockedAdmin} value={String(f[k] ?? '')} onChange={(e) => set(k, e.target.value)} />}</Field>
   );
@@ -85,9 +101,9 @@ export default function AdminEmployeeForm() {
         <fieldset disabled={restricted || lockedAdmin} className="flex flex-col gap-4 rounded-2xl border border-line p-4">
           <legend className="px-1 text-sm font-semibold text-muted">Kepegawaian{restricted ? ' (hanya super admin)' : ''}</legend>
           {text('title', 'Jabatan', { disabled: restricted })}
-          {text('dept', 'Departemen', { disabled: restricted })}
-          {text('level', 'Level', { disabled: restricted })}
-          {text('employment_status', 'Status kepegawaian', { disabled: restricted })}
+          {pick('department_id', 'department')}
+          {pick('level_id', 'level')}
+          {pick('employment_status_id', 'employment_status')}
           {text('join_date', 'Tanggal masuk', { type: 'date', disabled: restricted })}
           <Field label="Peran">{(fid) => <Select id={fid} value={String(f.role)} onChange={(e) => set('role', e.target.value as Role)}>{(Object.keys(ROLE_LABEL) as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</Select>}</Field>
           {!isNew && (

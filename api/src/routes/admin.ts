@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/d1';
 import { and, asc, eq, gte, isNull, lte, ne, sql } from 'drizzle-orm';
 import { LEAVE_TYPES, isAdmin, parseIsoDate, type Role } from '@hris/shared';
 import type { AppEnv } from '../env';
-import { audit_log, credentials, employees, holidays, leave_quotas, refresh_tokens } from '../db/schema';
+import { audit_log, credentials, employees, holidays, leave_quotas, master_options, refresh_tokens } from '../db/schema';
 import { auditRow } from '../lib/audit';
 import { getBalances, type Db } from '../lib/leave-db';
 import { hashPassword, validateNewPassword } from '../lib/password';
@@ -23,7 +23,18 @@ type Ctx = Context<AppEnv>;
 const ROLES: Role[] = ['employee', 'admin', 'super_admin'];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const GENDERS = ['Laki-laki', 'Perempuan'];
-const KEPEGAWAIAN = ['title', 'dept', 'level', 'employment_status', 'join_date'] as const;
+// Data kepegawaian (hanya super admin). Tiga kolom *_id menunjuk ke master_options (lihat routes/master.ts).
+const MASTER_FIELDS = { department_id: 'department', level_id: 'level', employment_status_id: 'employment_status' } as const;
+const KEPEGAWAIAN = ['title', 'join_date', 'department_id', 'level_id', 'employment_status_id'] as const;
+const MASTER_LABEL = { department_id: 'Departemen', level_id: 'Level', employment_status_id: 'Status kepegawaian' } as const;
+
+/** Id master harus ada, sejenis, dan aktif. Mempertahankan nilai lama (walau sudah nonaktif) tetap boleh. */
+async function masterError(db: Db, field: keyof typeof MASTER_FIELDS, value: string | null, current: string | null): Promise<string | null> {
+  if (!value || value === current) return null;
+  const row = await one(db.select({ active: master_options.active, kind: master_options.kind }).from(master_options).where(eq(master_options.id, value)).limit(1));
+  if (!row || row.kind !== MASTER_FIELDS[field]) return `${MASTER_LABEL[field]} tidak valid`;
+  return row.active ? null : `${MASTER_LABEL[field]} yang dipilih sudah nonaktif`;
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const batch = (db: Db, stmts: any[]) => db.batch(stmts as [any, ...any[]]);
@@ -45,8 +56,8 @@ admin.get('/employees', async (c) => {
   if (!(await adminActor(c, db))) return c.json({ error: 'Tidak diizinkan' }, 403);
   const rows = await db.select({
     id: employees.id, employee_code: employees.employee_code, name: employees.name, email: employees.email, phone: employees.phone,
-    gender: employees.gender, title: employees.title, dept: employees.dept, level: employees.level,
-    employment_status: employees.employment_status, join_date: employees.join_date, role: employees.role,
+    gender: employees.gender, title: employees.title, department_id: employees.department_id, level_id: employees.level_id,
+    employment_status_id: employees.employment_status_id, join_date: employees.join_date, role: employees.role,
     manager_id: employees.manager_id, is_top_leader: employees.is_top_leader, active: employees.active,
   }).from(employees).orderBy(asc(employees.name));
   return c.json(rows);
@@ -90,6 +101,10 @@ admin.post('/employees', async (c) => {
   if (role !== 'employee' && !superAdmin) return c.json({ error: 'Hanya super admin yang dapat membuat akun admin' }, 403);
   if (!superAdmin && KEPEGAWAIAN.some((k) => text(b[k], 100))) return c.json({ error: 'Data kepegawaian hanya dapat diisi super admin' }, 403);
 
+  for (const f of Object.keys(MASTER_FIELDS) as (keyof typeof MASTER_FIELDS)[]) {
+    const err = await masterError(db, f, text(b[f], 64) || null, null);
+    if (err) return c.json({ error: err }, 400);
+  }
   const email = text(b.email, 120).toLowerCase();
   if (await one(db.select({ id: employees.id }).from(employees).where(eq(employees.email, email)).limit(1))) {
     return c.json({ error: 'Email sudah terdaftar' }, 409);
@@ -105,8 +120,8 @@ admin.post('/employees', async (c) => {
     db.insert(employees).values({
       id, name: text(b.name, 100), email, phone: text(b.phone, 30) || null, gender: text(b.gender, 20) || null,
       employee_code: text(b.employee_code, 30) || null,
-      title: text(b.title, 100) || null, dept: text(b.dept, 100) || null, level: text(b.level, 50) || null,
-      employment_status: text(b.employment_status, 50) || null, join_date: text(b.join_date, 10) || null,
+      title: text(b.title, 100) || null, join_date: text(b.join_date, 10) || null,
+      department_id: text(b.department_id, 64) || null, level_id: text(b.level_id, 64) || null, employment_status_id: text(b.employment_status_id, 64) || null,
       role, manager_id: managerId, is_top_leader: Boolean(b.is_top_leader) && !managerId, active: true, created_at: now, updated_at: now,
     }),
     db.insert(credentials).values({ employee_id: id, password_hash: await hashPassword(password), must_change_password: true }),
@@ -150,7 +165,15 @@ admin.patch('/employees/:id', async (c) => {
   // Data kepegawaian, peran, dan status aktif: hanya super admin.
   const restricted = KEPEGAWAIAN.some((k) => k in b) || 'role' in b || 'active' in b;
   if (restricted && !superAdmin) return c.json({ error: 'Perubahan data kepegawaian, peran, dan status akun hanya dapat dilakukan super admin' }, 403);
-  for (const k of KEPEGAWAIAN) if (k in b) assign(k, text(b[k], 100) || null);
+  for (const k of KEPEGAWAIAN) {
+    if (!(k in b)) continue;
+    const v = text(b[k], 100) || null;
+    if (k in MASTER_FIELDS) {
+      const err = await masterError(db, k as keyof typeof MASTER_FIELDS, v, target[k as keyof typeof MASTER_FIELDS]);
+      if (err) return c.json({ error: err }, 400);
+    }
+    assign(k, v);
+  }
   if ('role' in b) {
     if (target.role === 'super_admin' && b.role !== 'super_admin') {
       const others = await one(db.select({ n: sql<number>`count(*)` }).from(employees).where(and(eq(employees.role, 'super_admin'), eq(employees.active, true), ne(employees.id, id))));

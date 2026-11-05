@@ -144,7 +144,7 @@ auth.get('/me', requireAuth, async (c) => {
   const db = drizzle(c.env.DB);
   const [emp] = await db.select().from(employees).where(eq(employees.id, c.get('user').id)).limit(1);
   if (!emp || !emp.active) return c.json({ error: 'Sesi berakhir' }, 401);
-  return c.json({ id: emp.id, name: emp.name, email: emp.email, role: emp.role, title: emp.title, dept: emp.dept });
+  return c.json({ id: emp.id, name: emp.name, email: emp.email, role: emp.role, title: emp.title });
 });
 
 /** Ganti password: mencabut semua sesi; klien harus login ulang. */

@@ -5,10 +5,11 @@ import { ChevronRight, Plus, SearchX } from 'lucide-react';
 import type { Role } from '@hris/shared';
 import { api } from '../lib/api';
 import { Chip, Empty, ErrorNote, Input, Spinner } from '../ui';
+import { nameOf, useMaster } from '../lib/master';
 
 export interface Emp {
   id: string; employee_code: string | null; name: string; email: string; phone: string | null; gender: string | null;
-  title: string | null; dept: string | null; level: string | null; employment_status: string | null; join_date: string | null;
+  title: string | null; department_id: string | null; level_id: string | null; employment_status_id: string | null; join_date: string | null;
   role: Role; manager_id: string | null; is_top_leader: boolean; active: boolean;
 }
 export const ROLE_LABEL: Record<Role, string> = { employee: 'Karyawan', admin: 'Admin (HC)', super_admin: 'Super Admin' };
@@ -16,6 +17,7 @@ export const useEmployees = () => useQuery({ queryKey: ['admin-employees'], quer
 
 export default function AdminEmployees() {
   const list = useEmployees();
+  const master = useMaster();
   const [search, setSearch] = useState('');
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -35,7 +37,7 @@ export default function AdminEmployees() {
             <Link to={`/admin/karyawan/${e.id}`} className={`flex min-h-16 items-center gap-3 rounded-2xl border border-line bg-surface p-3 active:bg-sub ${e.active ? '' : 'opacity-60'}`}>
               <span className="flex-1">
                 <span className="flex items-center gap-2"><b>{e.name}</b>{!e.active && <Chip>Nonaktif</Chip>}{e.role !== 'employee' && <Chip tone="info">{ROLE_LABEL[e.role]}</Chip>}</span>
-                <span className="block text-sm text-muted">{e.email}</span>
+                <span className="block text-sm text-muted">{[nameOf(master.data, e.department_id), nameOf(master.data, e.level_id)].filter(Boolean).join(' · ') || e.email}</span>
                 <span className="block text-sm text-muted">{e.is_top_leader ? 'Pucuk pimpinan' : e.manager_id ? `Atasan: ${byId.get(e.manager_id)?.name ?? '-'}` : 'Atasan belum ditetapkan'}</span>
               </span>
               <ChevronRight className="size-5 text-muted" aria-hidden="true" />

@@ -10,9 +10,9 @@ export const employees = sqliteTable('employees', {
   phone: text('phone'),
   gender: text('gender'), // 'Laki-laki' | 'Perempuan'
   title: text('title'), // jabatan
-  dept: text('dept'),
-  level: text('level'),
-  employment_status: text('employment_status'),
+  department_id: text('department_id'),
+  level_id: text('level_id'),
+  employment_status_id: text('employment_status_id'),
   join_date: text('join_date'),
   photo_key: text('photo_key'), // kunci objek R2
   role: text('role', { enum: ['employee', 'admin', 'super_admin'] }).notNull().default('employee'),
@@ -164,4 +164,18 @@ export const push_devices = sqliteTable('push_devices', {
 }, (t) => ({
   tokenUnique: uniqueIndex('push_devices_token_unique').on(t.token),
   employeeIdx: index('push_devices_employee_idx').on(t.employee_id),
+}));
+
+// Data master pilihan dropdown (departemen, level, status kepegawaian). Dikelola super admin.
+// Karyawan menyimpan id-nya, jadi mengganti nama berlaku ke semua karyawan. Item yang dipakai tidak dihapus, hanya dinonaktifkan.
+export const MASTER_KINDS = ['department', 'level', 'employment_status'] as const;
+export const master_options = sqliteTable('master_options', {
+  id: text('id').primaryKey(),
+  kind: text('kind', { enum: MASTER_KINDS }).notNull(),
+  name: text('name').notNull(),
+  sort_order: integer('sort_order').notNull().default(0),
+  active: integer('active', { mode: 'boolean' }).notNull().default(true),
+  created_at: text('created_at').notNull(),
+}, (t) => ({
+  kindIdx: index('master_options_kind_idx').on(t.kind, t.sort_order),
 }));

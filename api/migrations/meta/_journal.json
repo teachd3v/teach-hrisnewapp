@@ -29,6 +29,20 @@
       "when": 1793819369841,
       "tag": "0003_leave_attachment_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793845218048,
+      "tag": "0004_master_options",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793845233456,
+      "tag": "0005_drop_employee_text_options",
+      "breakpoints": true
     }
   ]
 }

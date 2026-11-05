@@ -224,11 +224,10 @@ leave.post('/:id/cancel', async (c) => {
 // ---------------------------------------------------------------- atasan
 
 const withEmployee = (db: Db) =>
-  db.select({ req: leave_requests, name: employees.name, dept: employees.dept, title: employees.title })
+  db.select({ req: leave_requests, name: employees.name })
     .from(leave_requests).innerJoin(employees, eq(leave_requests.employee_id, employees.id));
 
-const shape = (r: { req: LeaveRow; name: string | null; dept: string | null; title: string | null }) =>
-  ({ ...r.req, employeeName: r.name, dept: r.dept, title: r.title });
+const shape = (r: { req: LeaveRow; name: string | null }) => ({ ...r.req, employeeName: r.name });
 
 /** `?tab=pending` (default): menunggu atasan ini. `?tab=history`: sudah diputuskan atasan ini atau diambil alih HC. */
 leave.get('/approvals', async (c) => {
@@ -304,7 +303,7 @@ leave.get('/admin', async (c) => {
   if (filter === null) return c.json({ error: 'Status tidak valid' }, 400);
 
   const rows = await db
-    .select({ req: leave_requests, name: employees.name, dept: employees.dept, title: employees.title, managerId: employees.manager_id })
+    .select({ req: leave_requests, name: employees.name, managerId: employees.manager_id })
     .from(leave_requests).innerJoin(employees, eq(leave_requests.employee_id, employees.id))
     .where(filter).orderBy(q === 'all' ? desc(leave_requests.created_at) : asc(leave_requests.created_at)).limit(500);
 
