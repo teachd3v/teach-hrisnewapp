@@ -69,7 +69,8 @@ async function annotate(db: Db, rows: Row[]) {
   const ctx = await contexts(db, rows.map((r) => ({ employee_id: r.employee_id, date: r.date })));
   return rows.map((r) => {
     const c = ctx.get(`${r.employee_id}|${r.date}`)!;
-    const flags: AttendanceFlags = { lateMinutes: lateMinutes(r.clock_in), ...c };
+    // Batas 09:00 hanya berlaku di hari kerja (bukan akhir pekan/libur).
+    const flags: AttendanceFlags = { lateMinutes: c.dayOff ? 0 : lateMinutes(r.clock_in), ...c };
     return { ...shape(r), flags };
   });
 }

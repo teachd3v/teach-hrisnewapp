@@ -25,6 +25,7 @@ import AttendanceCapture from './pages/AttendanceCapture';
 import AdminAttendance from './pages/AdminAttendance';
 import AttendanceCorrection from './pages/AttendanceCorrection';
 import AdminCorrections from './pages/AdminCorrections';
+import AdminReport from './pages/AdminReport';
 import Spike from './pages/Spike';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: true } } });
@@ -61,6 +62,7 @@ const router = createBrowserRouter(
           <Route path="/admin/koreksi-presensi" element={<AdminCorrections />} handle={{ title: 'Koreksi presensi (HC)', back: '/akun' }} />
           <Route path="/presensi/ambil/:type" element={<AttendanceCapture />} handle={{ title: 'Presensi', back: '/presensi' }} />
           <Route path="/persetujuan" element={<Approvals />} handle={{ title: 'Persetujuan', back: '/cuti' }} />
+          <Route path="/admin/rekap" element={<AdminReport />} handle={{ title: 'Rekap presensi & cuti', back: '/akun' }} />
           <Route path="/admin/presensi" element={<AdminAttendance />} handle={{ title: 'Presensi (HC)', back: '/akun' }} />
           <Route path="/cuti/ajukan" element={<LeaveForm />} handle={{ title: 'Ajukan cuti', back: '/cuti' }} />
           <Route path="/admin/cuti" element={<AdminLeave />} handle={{ title: 'Cuti (HC)', back: '/akun' }} />

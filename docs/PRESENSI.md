@@ -5,6 +5,7 @@
 - **Jam masuk paling lambat 09:00 WIB, tanpa toleransi** (09:00:00 tepat waktu, 09:00:01 terlambat 1 menit). Satu aturan untuk semua karyawan (`WORK_START_SECONDS` di `shared/src/attendance.ts`).
   - Pengecualian: **Izin Keterlambatan (menu Cuti) yang sudah disetujui** pada tanggal itu. Izin yang masih menunggu belum membebaskan.
   - Terlambat **dihitung saat dibaca, tidak disimpan**, jadi izin yang disetujui sesudah presensi otomatis ikut berlaku.
+  - Batas 09:00 hanya berlaku di **hari kerja** (Senin-Jumat di luar hari libur); presensi di akhir pekan/libur tidak dihitung terlambat.
   - Presensi tidak diblokir; ditandai: Terlambat N mnt (merah), Terlambat (izin disetujui), Disetujui: {Cuti/Sakit/Dinas Luar Kota/…}, Libur: {nama}, Akhir pekan. Ringkasan terlambat tampil di layar HC.
   - Jam pulang dan durasi kerja hanya dicatat (belum ada aturan jam pulang).
 - **Foto selfie wajib** saat masuk dan pulang.
@@ -44,3 +45,11 @@ Karyawan mengajukan, **HC memutuskan** (satu tahap). Menu: Presensi → "Lupa pr
 - Presensi di hari cuti/libur/akhir pekan ditandai, tidak dicegah. Hari libur mengikuti tabel Hari Libur; tidak ada kalender kerja per karyawan.
 - Izin Keterlambatan membebaskan seluruh hari itu; jam estimasi yang diisi pada izin belum dibandingkan dengan jam presensi.
 - Alur kamera, GPS, dan deteksi wajah sudah dicoba di browser HP nyata oleh pemilik dan berfungsi baik (2026-11-05). Belum diuji di dalam aplikasi Tauri (menunggu spike).
+
+## Rekap & ekspor Excel (HC)
+Akun → Rekap & ekspor Excel. HC memilih **rentang tanggal bebas** (dari - sampai; pilihan cepat: bulan ini, bulan lalu, 7 dan 30 hari terakhir; maksimal 92 hari, tidak melewati hari ini) dan, bila perlu, satu departemen. Layar menampilkan ringkasan per karyawan, lalu **Unduh Excel** (.xlsx, dibuat di perangkat tanpa dependensi rentan).
+- Lembar **Ringkasan** per karyawan: hari kerja, hadir, tidak hadir, terlambat (hari dan total menit), terlambat berizin, belum pulang, dikoreksi, di luar kantor, tanpa lokasi, total jam kerja, cuti (Tahunan, Sakit, Dinas Luar Kota, lainnya), izin terlambat/pulang cepat (kali).
+- Lembar **Rincian** per hari: jam masuk/pulang, durasi, menit terlambat, status, keterangan (libur, cuti, tidak hadir), tanda koreksi, lokasi.
+- Aturan sama dengan layar: batas 09:00, izin terlambat disetujui, libur dari tabel Hari Libur. "Tidak hadir" = hari kerja tanpa presensi dan tanpa cuti/izin sehari penuh yang disetujui, dihitung sampai kemarin (hari ini belum selesai) dan sejak tanggal masuk kerja karyawan.
+- API `GET /api/reports/range?from=&to=&department=` hanya untuk admin; setiap pengambilan tercatat di audit (`report.range`).
+- Di aplikasi Tauri, unduh berkas butuh plugin tambahan (belum dikerjakan); di browser/PWA berfungsi.
