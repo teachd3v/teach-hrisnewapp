@@ -20,8 +20,10 @@ Aplikasi ini target utamanya **aplikasi HP (Tauri)**; web hanya cadangan. Semua 
 - Animasi singkat (180-220 ms) dan mati bila `prefers-reduced-motion`.
 - Ikon: `lucide-react` (satu keluarga, garis), dekoratif disembunyikan dari pembaca layar, kontrol ikon punya nama aksesibel.
 
+- **Tarik-untuk-segarkan** (`web/src/lib/pull-to-refresh.tsx`): tarik ke bawah saat layar di paling atas memuat ulang data layar aktif (TanStack Query), bukan seluruh halaman. Tidak aktif bila layar sedang tergulir, saat mulai dari kolom isian/lembar, atau tarikan pendek. Data juga otomatis segar saat aplikasi kembali dibuka (`refetchOnWindowFocus`) dan notifikasi tiap 60 detik.
+
 ## Belum dikerjakan
 - Mode gelap (sengaja ditunda; tema terang disepakati).
-- Tarik-untuk-segarkan di daftar, gestur geser, haptics (butuh plugin Tauri), splash screen dan ikon aplikasi.
+- Gestur geser, haptics (butuh plugin Tauri), splash screen dan ikon aplikasi resmi.
 - Uji di perangkat nyata: inset aman (poni, indikator gestur), keyboard menutupi kolom, ukuran font sistem terbesar, TalkBack/VoiceOver. Yang sudah dicek hanya emulasi 375 x 812 di browser.
 - Halaman Spike (`/spike`) masih tampilan lama (halaman uji, bukan fitur).

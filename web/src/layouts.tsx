@@ -1,8 +1,22 @@
+import { useRef, type ReactNode } from 'react';
 import { Outlet, NavLink, useLocation, useMatches, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Bell, CalendarDays, ChevronLeft, House, ScanFace, UserRound } from 'lucide-react';
 import { api } from './lib/api';
 import { cx } from './ui';
+import { PullIndicator, usePullToRefresh } from './lib/pull-to-refresh';
+
+/** Area isi bergulir + tarik-untuk-segarkan. Dipasang ulang per rute (animasi masuk + pendengar sentuh baru). */
+function Screen({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLElement>(null);
+  const { pull, refreshing } = usePullToRefresh(ref);
+  return (
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <PullIndicator pull={pull} refreshing={refreshing} />
+      <main ref={ref} className="screen-in flex flex-1 flex-col overflow-y-auto overscroll-contain px-[max(1rem,env(safe-area-inset-left),env(safe-area-inset-right))] py-4">{children}</main>
+    </div>
+  );
+}
 
 export interface RouteHandle { title?: string; back?: string }
 
@@ -45,9 +59,7 @@ export function TabLayout() {
       <header className="pt-safe pl-safe pr-safe border-b border-line bg-surface">
         <h1 className="flex h-14 items-center px-4 text-xl font-bold">{title}</h1>
       </header>
-      <main key={location.pathname} className="screen-in flex flex-1 flex-col overflow-y-auto overscroll-contain px-[max(1rem,env(safe-area-inset-left),env(safe-area-inset-right))] py-4">
-        <Outlet />
-      </main>
+      <Screen key={location.pathname}><Outlet /></Screen>
       <nav aria-label="Menu utama" className="pb-safe pl-safe pr-safe border-t border-line bg-surface">
         <ul className="grid grid-cols-5">
           {TABS.map(({ to, label, icon: Icon, ...rest }) => (
@@ -83,9 +95,7 @@ export function StackLayout() {
           <h1 className="truncate text-lg font-semibold">{title}</h1>
         </div>
       </header>
-      <main key={location.pathname} className="screen-in flex flex-1 flex-col overflow-y-auto overscroll-contain px-[max(1rem,env(safe-area-inset-left),env(safe-area-inset-right))] py-4">
-        <Outlet />
-      </main>
+      <Screen key={location.pathname}><Outlet /></Screen>
     </div>
   );
 }
