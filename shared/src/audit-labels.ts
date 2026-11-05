@@ -17,6 +17,7 @@ export const AUDIT_GROUPS: { key: AuditGroup; label: string }[] = [
 export const AUDIT_ACTIONS: Record<string, { label: string; attention?: boolean }> = {
   'auth.login': { label: 'Masuk' },
   'auth.login_failed': { label: 'Gagal masuk', attention: true },
+  'auth.ip_blocked': { label: 'Alamat IP diblokir sementara (terlalu banyak gagal masuk)', attention: true },
   'auth.login_locked': { label: 'Akun terkunci (percobaan masuk)', attention: true },
   'auth.refresh_reuse_detected': { label: 'Token sesi dipakai ulang (sesi dicabut)', attention: true },
   'auth.password_changed': { label: 'Ganti password' },

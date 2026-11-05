@@ -1,15 +1,17 @@
 import { Hono } from 'hono';
 import { drizzle, type DrizzleD1Database } from 'drizzle-orm/d1';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, gte, isNull, sql } from 'drizzle-orm';
 import {
   ACCESS_TOKEN_TTL_SECONDS,
+  IP_BLOCK_MINUTES,
   LOCKOUT_MINUTES,
   MAX_FAILED_LOGINS,
+  MAX_FAILED_LOGINS_PER_IP,
   REFRESH_TOKEN_TTL_DAYS,
   type Role,
 } from '@hris/shared';
 import type { AppEnv } from '../env';
-import { credentials, employees, refresh_tokens } from '../db/schema';
+import { audit_log, credentials, employees, refresh_tokens } from '../db/schema';
 import { burnPasswordCheck, hashPassword, validateNewPassword, verifyPassword } from '../lib/password';
 import { newRefreshToken, sha256, signAccessToken } from '../lib/tokens';
 import { writeAudit } from '../lib/audit';
@@ -55,6 +57,22 @@ auth.post('/login', async (c) => {
 
   const db = drizzle(c.env.DB);
   const ip = clientIp(c.req);
+
+  // Pembatas per alamat IP: terlalu banyak gagal masuk dari satu IP -> tolak tanpa menghitung PBKDF2 (hemat CPU).
+  // Tanpa IP (mis. pengembangan lokal) pembatas dilewati; batas per akun tetap berlaku.
+  if (ip) {
+    const since = new Date(Date.now() - IP_BLOCK_MINUTES * 60_000).toISOString();
+    const [r] = await db.select({ n: sql<number>`count(*)` }).from(audit_log)
+      .where(and(eq(audit_log.action, 'auth.login_failed'), eq(audit_log.ip, ip), gte(audit_log.at, since)));
+    if (Number(r?.n ?? 0) >= MAX_FAILED_LOGINS_PER_IP) {
+      // Catat pemblokiran sekali per jendela agar log tidak dibanjiri oleh percobaan yang ditolak.
+      const [seen] = await db.select({ id: audit_log.id }).from(audit_log)
+        .where(and(eq(audit_log.action, 'auth.ip_blocked'), eq(audit_log.ip, ip), gte(audit_log.at, since))).limit(1);
+      if (!seen) await writeAudit(db, { action: 'auth.ip_blocked', ip, details: { failures: Number(r?.n), windowMinutes: IP_BLOCK_MINUTES } });
+      return c.json({ error: `Terlalu banyak percobaan masuk yang gagal dari jaringan ini. Coba lagi dalam ${IP_BLOCK_MINUTES} menit.` }, 429, { 'Retry-After': String(IP_BLOCK_MINUTES * 60) });
+    }
+  }
+
   const [row] = await db
     .select({ emp: employees, cred: credentials })
     .from(employees)
