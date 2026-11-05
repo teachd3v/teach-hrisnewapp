@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { CalendarCog, CalendarHeart, ChevronRight, ClipboardList, KeyRound, FilePen, FileSpreadsheet, ListTree, LogOut, ScanFace, Users } from 'lucide-react';
+import { CalendarCog, CalendarHeart, ChevronRight, ClipboardList, KeyRound, FilePen, FileSpreadsheet, ListTree, LogOut, ScanFace, ScrollText, Users } from 'lucide-react';
 import { isAdmin, type Role } from '@hris/shared';
 import { useAuth } from '../lib/auth';
 import { Button, Card, Chip, Sheet } from '../ui';
@@ -43,6 +43,7 @@ export default function Account() {
             <MenuRow to="/admin/koreksi-presensi" icon={<FilePen className="size-5" />} label="Koreksi presensi (HC)" />
             <MenuRow to="/admin/presensi" icon={<ScanFace className="size-5" />} label="Presensi (HC)" />
             <MenuRow to="/admin/karyawan" icon={<Users className="size-5" />} label="Karyawan" />
+            {user.role === 'super_admin' && <MenuRow to="/admin/audit" icon={<ScrollText className="size-5" />} label="Log audit" />}
             {user.role === 'super_admin' && <MenuRow to="/admin/master" icon={<ListTree className="size-5" />} label="Data master" />}
             <MenuRow to="/admin/kuota" icon={<CalendarCog className="size-5" />} label="Kuota cuti" />
             <MenuRow to="/admin/libur" icon={<CalendarHeart className="size-5" />} label="Hari libur" />
