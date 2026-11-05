@@ -31,7 +31,8 @@ export default function Login() {
   }
 
   return (
-    <main className="pt-safe pb-safe mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-8 px-6 py-8">
+    <main className="pt-safe pb-safe mx-auto flex min-h-dvh max-w-md flex-col gap-8 px-6 py-8">
+      <div className="my-auto flex flex-col gap-8">
       <div>
         <img src="/icons/logo-mark-256.png" alt="" height={64} className="mb-4 h-16 w-auto" />
         <h1 className="text-3xl font-bold">HRIS TEACH</h1>
@@ -46,6 +47,8 @@ export default function Login() {
         </Field>
         <Button type="submit" loading={busy} className="mt-2">Masuk</Button>
       </form>
+      </div>
+      <footer className="text-center text-xs text-muted">IT TEACH GREAT Edunesia . 2026 v2.0</footer>
     </main>
   );
 }
