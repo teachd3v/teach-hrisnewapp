@@ -5,6 +5,7 @@ import { isAdmin, type Role } from '@hris/shared';
 import { useAuth } from '../lib/auth';
 import { Button, Card, Chip, Sheet } from '../ui';
 import { PushCard } from '../components/PushCard';
+import { InstallRow } from '../components/Install';
 
 const ROLE_LABEL: Record<Role, string> = { employee: 'Karyawan', admin: 'Admin (HC)', super_admin: 'Super Admin' };
 
@@ -31,6 +32,7 @@ export default function Account() {
       <PushCard />
 
       <section aria-label="Akun" className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
+        <InstallRow />
         <MenuRow to="/ganti-password" icon={<KeyRound className="size-5" />} label="Ganti password" />
       </section>
 

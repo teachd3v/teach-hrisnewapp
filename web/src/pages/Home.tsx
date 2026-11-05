@@ -9,6 +9,7 @@ import type { LeaveMeta } from '../lib/leave-types';
 import { Button, Card, Spinner } from '../ui';
 import { TodayCard } from './Attendance';
 import { PushPrompt } from '../components/PushCard';
+import { InstallCard } from '../components/Install';
 
 function Row({ to, icon, title, sub }: { to: string; icon: React.ReactNode; title: string; sub: string }) {
   return (
@@ -38,6 +39,7 @@ export default function Home() {
         <p className="text-2xl font-bold">{user?.name}</p>
       </div>
 
+      <InstallCard />
       <PushPrompt />
 
       <TodayCard />

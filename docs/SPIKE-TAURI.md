@@ -1,5 +1,7 @@
 # Spike Tauri (Android dulu)
 
+> **DITUNDA (2026-11-05):** fokus ke PWA, lihat `docs/DECISIONS.md`. Dokumen dan `web/src-tauri` dipertahankan sebagai arsip. Halaman uji `/spike` sudah dicabut dari aplikasi (ada di riwayat git: `web/src/pages/Spike.tsx`).
+
 Tujuan: membuktikan di HP asli sebelum membangun penuh. Halaman ujinya: `web/src/pages/Spike.tsx`, rute `/spike`.
 
 ## Status

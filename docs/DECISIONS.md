@@ -34,3 +34,9 @@ Diputuskan 2026-11-04 (menindaklanjuti "Keputusan yang masih terbuka" di HANDOFF
 - Secret `CRON_SECRET` (nilai sama) di Pages `teach-hris-spa` dan Worker `teach-hris-cron`; tidak di repo/chat. `CRON_ALLOW_NOW` tidak diset di produksi.
 - Worker `teach-hris-cron` (`cron/`, `npm run deploy:cron`) berjadwal `*/5 * * * *`, tanpa alamat publik (`workers_dev: false`). Detail dan batasan: `docs/REMINDERS.md`.
 - Pengingat yang dipilih pemilik: belum presensi masuk 08:45, belum pulang 8 jam setelah masuk, pengajuan menunggu > 24 jam (09:30); saklar per pengguna di Akun.
+
+## Fokus PWA, aplikasi Android native (Tauri) ditunda (2026-11-05)
+- Aplikasi ini internal. Pengguna: sekitar 20-30 Android dan 5-6 iPhone. PWA sudah mencakup keduanya (satu basis kode, tanpa toko aplikasi); Tauri hanya Android dan menambah beban (FCM, penandatanganan, distribusi APK).
+- Tauri **tidak dihapus**: `web/src-tauri` dan `docs/SPIKE-TAURI.md` dipertahankan sebagai arsip; cabang `__TAURI_INTERNALS__` di `geo.ts`/`push.ts` dibiarkan tidak aktif. Halaman uji `/spike` dicabut dari produksi.
+- Dibuka kembali bila ada kebutuhan yang PWA tidak bisa penuhi (mis. presensi latar belakang).
+- Penggantinya: panduan pasang PWA (Android: tombol pasang bawaan Chrome; iPhone: Safari > Bagikan > Tambahkan ke Layar Utama, syarat push di iOS) dan banner "ada versi baru" (`/version.json`, dicek saat aplikasi dibuka kembali dan tiap 10 menit).

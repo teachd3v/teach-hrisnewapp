@@ -27,7 +27,6 @@ import AttendanceCorrection from './pages/AttendanceCorrection';
 import AdminCorrections from './pages/AdminCorrections';
 import AdminReport from './pages/AdminReport';
 import AdminAudit from './pages/AdminAudit';
-import Spike from './pages/Spike';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: true } } });
 
@@ -48,7 +47,6 @@ const router = createBrowserRouter(
     <Route>
       <Route path="/login" element={<Login />} />
       <Route path="/ganti-password" element={<ChangePassword />} />
-      <Route path="/spike" element={<Spike />} />
 
       <Route element={<RequireAuth />}>
         <Route element={<TabLayout />}>

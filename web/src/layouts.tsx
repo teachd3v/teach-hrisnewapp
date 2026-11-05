@@ -5,6 +5,7 @@ import { Bell, CalendarDays, ChevronLeft, House, ScanFace, UserRound } from 'luc
 import { api } from './lib/api';
 import { cx } from './ui';
 import { PullIndicator, usePullToRefresh } from './lib/pull-to-refresh';
+import { useUpdateAvailable } from './lib/version';
 
 /** Area isi bergulir + tarik-untuk-segarkan. Dipasang ulang per rute (animasi masuk + pendengar sentuh baru). */
 function Screen({ children }: { children: ReactNode }) {
@@ -14,6 +15,18 @@ function Screen({ children }: { children: ReactNode }) {
     <div className="relative flex min-h-0 flex-1 flex-col">
       <PullIndicator pull={pull} refreshing={refreshing} />
       <main ref={ref} className="screen-in flex flex-1 flex-col overflow-y-auto overscroll-contain px-[max(1rem,env(safe-area-inset-left),env(safe-area-inset-right))] py-4">{children}</main>
+    </div>
+  );
+}
+
+/** Muncul bila ada deploy baru; memuat ulang mengambil JS terbaru. */
+function UpdateBanner() {
+  const available = useUpdateAvailable();
+  if (!available) return null;
+  return (
+    <div role="status" className="pl-safe pr-safe flex items-center justify-between gap-3 bg-primary px-4 py-2 text-sm text-white">
+      <span>Ada pembaruan aplikasi.</span>
+      <button onClick={() => location.reload()} className="min-h-10 rounded-lg bg-white/15 px-3 font-semibold active:bg-white/25">Muat ulang</button>
     </div>
   );
 }
@@ -59,6 +72,7 @@ export function TabLayout() {
       <header className="pt-safe pl-safe pr-safe border-b border-line bg-surface">
         <h1 className="flex h-14 items-center px-4 text-xl font-bold">{title}</h1>
       </header>
+      <UpdateBanner />
       <Screen key={location.pathname}><Outlet /></Screen>
       <nav aria-label="Menu utama" className="pb-safe pl-safe pr-safe border-t border-line bg-surface">
         <ul className="grid grid-cols-5">
@@ -95,6 +109,7 @@ export function StackLayout() {
           <h1 className="truncate text-lg font-semibold">{title}</h1>
         </div>
       </header>
+      <UpdateBanner />
       <Screen key={location.pathname}><Outlet /></Screen>
     </div>
   );
