@@ -28,10 +28,19 @@ kamera depan 3:4 (tampilan dicerminkan), kotak deteksi wajah kuning, foto otomat
 Aturan server: waktu dan tanggal dari server (bukan perangkat); satu presensi masuk per hari; pulang butuh masuk lebih dulu dan hanya sekali (update bersyarat, dua permintaan bersamaan tidak sama-sama lolos); foto dicek dari isi berkas (JPG/PNG/WEBP, maks. 3 MB); koordinat divalidasi; jarak dihitung server.
 Foto di R2 `attendance/{id}/{tanggal}/…`, dibuka lewat tautan bertanda tangan 5 menit. **Hanya pemilik dan admin** (atasan langsung tidak); akses admin tercatat di audit.
 
+## Koreksi presensi (lupa masuk/pulang)
+Karyawan mengajukan, **HC memutuskan** (satu tahap). Menu: Presensi → "Lupa presensi? Ajukan koreksi"; antrean HC di Akun → Koreksi presensi (HC).
+- Jenis ditentukan **server** dari data tanggal itu: tidak ada presensi -> masuk dan pulang diisi ("both"); ada masuk tanpa pulang -> hanya pulang ("out_only"); sudah lengkap -> ditolak. Lupa masuk berarti pulang juga kosong (tombol pulang butuh masuk).
+- Hanya tanggal yang sudah lewat, sampai 7 hari kalender ke belakang. Jam masuk dari presensi asli tidak pernah diubah. Pulang harus sesudah masuk, tanggal sama (WIB). Alasan wajib. Satu pengajuan menunggu per tanggal.
+- Disetujui -> menulis ke presensi dan menandainya "Dikoreksi HC" (tanpa foto/lokasi). Terlambat tetap dihitung dengan aturan 09:00 (koreksi masuk 09:45 tetap terlambat kecuali ada izin terlambat disetujui).
+- HC tidak bisa memutuskan koreksinya sendiri. Saat diputuskan keadaan data diperiksa lagi (mis. jam pulang sudah terisi -> setuju ditolak server, HC cukup menolak). Dua putusan bersamaan tidak sama-sama lolos.
+- Notifikasi: HC (perlu aksi) saat diajukan, pemohon saat diputuskan; tanpa alasan. Semua tercatat di audit.
+- API: `/api/attendance-corrections` (`POST /`, `GET /state?date=`, `GET /mine`, `POST /:id/cancel`, `GET /admin`, `POST /:id/decision`).
+
 ## Batasan yang perlu diketahui
 - "Wajah terdeteksi" berasal dari perangkat; bukan verifikasi identitas. Foto dilihat HC bila perlu.
 - Lokasi palsu (aplikasi mock GPS) dan jam perangkat tidak bisa dideteksi dari web; jam memang dari server, lokasi tidak.
-- Lupa presensi pulang: baris tetap "Belum pulang"; belum ada koreksi oleh HC atau penutupan otomatis.
+- Tidak ada penutupan otomatis untuk lupa pulang; baris tetap "Belum pulang" sampai dikoreksi (batas 7 hari). Koreksi tidak membuktikan kehadiran; mengandalkan penilaian HC.
 - Presensi di hari cuti/libur/akhir pekan ditandai, tidak dicegah. Hari libur mengikuti tabel Hari Libur; tidak ada kalender kerja per karyawan.
 - Izin Keterlambatan membebaskan seluruh hari itu; jam estimasi yang diisi pada izin belum dibandingkan dengan jam presensi.
 - Alur kamera, GPS, dan deteksi wajah sudah dicoba di browser HP nyata oleh pemilik dan berfungsi baik (2026-11-05). Belum diuji di dalam aplikasi Tauri (menunggu spike).

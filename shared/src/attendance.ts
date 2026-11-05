@@ -1,3 +1,5 @@
+import type { NotifyInput } from './leave-notifications';
+
 // Presensi: zona waktu WIB, jarak ke kantor. Dipakai server (penentu) dan klien (tampilan).
 
 /** Kantor. Sementara konstanta; geofence hanya dicatat (tidak memblokir). Pindah ke pengaturan bila perlu. */
@@ -64,4 +66,31 @@ export interface AttendanceFlags {
   leaveType: string | null;
   /** nama hari libur, "Akhir pekan", atau null */
   dayOff: string | null;
+}
+
+/** HH:MM WIB pada tanggal WIB -> waktu ISO UTC. */
+export const wibToIso = (ymd: string, hhmm: string): string => new Date(`${ymd}T${hhmm}:00+07:00`).toISOString();
+export const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+/** Koreksi presensi boleh diajukan sampai sekian hari kalender ke belakang. */
+export const CORRECTION_MAX_DAYS_BACK = 7;
+
+/** Tanggal WIB n hari sebelum tanggal WIB `ymd`. */
+export const wibDateMinusDays = (ymd: string, n: number): string => new Date(new Date(`${ymd}T00:00:00Z`).getTime() - n * 86_400_000).toISOString().slice(0, 10);
+
+// ----- notifikasi koreksi presensi (tanpa alasan; sama seperti cuti)
+const shortDate = (ymd: string) => new Date(`${ymd}T00:00:00Z`).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+export const correctionBrief = (date: string, inTime: string | null, outTime: string) => `${shortDate(date)} (${inTime ? `masuk ${inTime}, ` : ''}pulang ${outTime})`;
+
+export function planCorrectionRequested(ref: { id: string; requesterId: string; requesterName: string; brief: string; adminIds: string[] }): NotifyInput[] {
+  return ref.adminIds.filter((id) => id !== ref.requesterId).map((id) => ({
+    employeeId: id, type: 'attendance.correction_requested' as const, title: `Koreksi presensi dari ${ref.requesterName}`,
+    body: `${ref.brief}. Menunggu persetujuan HC.`, href: '/admin/koreksi-presensi', entityId: ref.id,
+  }));
+}
+
+export function planCorrectionDecided(ref: { id: string; requesterId: string; brief: string; approved: boolean }): NotifyInput[] {
+  return [{
+    employeeId: ref.requesterId, type: 'attendance.correction_decided', title: ref.approved ? 'Koreksi presensi disetujui' : 'Koreksi presensi ditolak',
+    body: ref.brief, href: '/presensi', entityId: ref.id,
+  }];
 }

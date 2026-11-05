@@ -5,7 +5,9 @@ export type NotificationType =
   | 'leave.manager_rejected'
   | 'leave.hc_approved'
   | 'leave.hc_rejected'
-  | 'leave.hc_override';
+  | 'leave.hc_override'
+  | 'attendance.correction_requested' // admin: perlu aksi
+  | 'attendance.correction_decided'; // pengaju: pemberitahuan
 
 export interface NotifyInput {
   employeeId: string;
@@ -17,7 +19,7 @@ export interface NotifyInput {
 }
 
 /** Notifikasi "perlu aksi": dianggap selesai begitu pengajuan diputuskan atau dibatalkan. */
-export const ACTIONABLE_TYPES: NotificationType[] = ['leave.submitted', 'leave.manager_approved'];
+export const ACTIONABLE_TYPES: NotificationType[] = ['leave.submitted', 'leave.manager_approved', 'attendance.correction_requested'];
 
 const HREF = { approver: '/persetujuan', admin: '/admin/cuti', mine: '/cuti' } as const;
 

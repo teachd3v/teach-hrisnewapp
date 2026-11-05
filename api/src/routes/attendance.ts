@@ -32,8 +32,8 @@ async function actor(c: Ctx, db: Db) {
 
 const shape = (r: Row) => ({
   id: r.id, employee_id: r.employee_id, date: r.date, clock_in: r.clock_in, clock_out: r.clock_out,
-  in: r.clock_in ? { lat: r.clock_in_lat, lng: r.clock_in_lng, accuracy: r.clock_in_accuracy, distance: r.clock_in_distance, face: r.clock_in_face, photo: r.clock_in_photo_key } : null,
-  out: r.clock_out ? { lat: r.clock_out_lat, lng: r.clock_out_lng, accuracy: r.clock_out_accuracy, distance: r.clock_out_distance, face: r.clock_out_face, photo: r.clock_out_photo_key } : null,
+  in: r.clock_in ? { lat: r.clock_in_lat, lng: r.clock_in_lng, accuracy: r.clock_in_accuracy, distance: r.clock_in_distance, face: r.clock_in_face, photo: r.clock_in_photo_key, corrected: r.clock_in_corrected } : null,
+  out: r.clock_out ? { lat: r.clock_out_lat, lng: r.clock_out_lng, accuracy: r.clock_out_accuracy, distance: r.clock_out_distance, face: r.clock_out_face, photo: r.clock_out_photo_key, corrected: r.clock_out_corrected } : null,
 });
 
 /** Konteks hari untuk pasangan (karyawan, tanggal): izin terlambat disetujui, pengajuan lain yang disetujui, hari libur/akhir pekan. */

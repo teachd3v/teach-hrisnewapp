@@ -130,6 +130,7 @@ export const attendances = sqliteTable('attendances', {
   clock_in_accuracy: real('clock_in_accuracy'), // meter (perkiraan perangkat)
   clock_in_distance: integer('clock_in_distance'), // meter dari kantor, dihitung server
   clock_in_face: integer('clock_in_face', { mode: 'boolean' }), // wajah terdeteksi di perangkat (bukan verifikasi identitas)
+  clock_in_corrected: integer('clock_in_corrected', { mode: 'boolean' }).notNull().default(false), // diisi lewat koreksi HC (tanpa foto/lokasi)
   clock_in_photo_key: text('clock_in_photo_key'),
   clock_out: text('clock_out'),
   clock_out_lat: real('clock_out_lat'),
@@ -137,6 +138,7 @@ export const attendances = sqliteTable('attendances', {
   clock_out_accuracy: real('clock_out_accuracy'),
   clock_out_distance: integer('clock_out_distance'),
   clock_out_face: integer('clock_out_face', { mode: 'boolean' }),
+  clock_out_corrected: integer('clock_out_corrected', { mode: 'boolean' }).notNull().default(false),
   clock_out_photo_key: text('clock_out_photo_key'),
   status: text('status'),
   created_at: text('created_at').notNull(),
@@ -184,4 +186,25 @@ export const master_options = sqliteTable('master_options', {
   created_at: text('created_at').notNull(),
 }, (t) => ({
   kindIdx: index('master_options_kind_idx').on(t.kind, t.sort_order),
+}));
+
+// Pengajuan koreksi presensi (lupa masuk/pulang). Karyawan mengajukan, HC memutuskan; hasilnya menulis ke attendances.
+// 'both': tidak ada presensi di tanggal itu (masuk dan pulang diisi). 'out_only': ada masuk, pulang kosong. Jenis ditentukan server dari keadaan data.
+export const attendance_corrections = sqliteTable('attendance_corrections', {
+  id: text('id').primaryKey(),
+  employee_id: text('employee_id').notNull(),
+  date: text('date').notNull(), // tanggal WIB yang dikoreksi
+  kind: text('kind', { enum: ['both', 'out_only'] }).notNull(),
+  clock_in_time: text('clock_in_time'), // HH:MM WIB (hanya untuk 'both')
+  clock_out_time: text('clock_out_time').notNull(), // HH:MM WIB
+  reason: text('reason').notNull(),
+  status: text('status', { enum: ['pending', 'approved', 'rejected', 'cancelled'] }).notNull(),
+  decided_by: text('decided_by'),
+  decided_at: text('decided_at'),
+  decision_notes: text('decision_notes'),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull(),
+}, (t) => ({
+  employeeIdx: index('attendance_corrections_employee_idx').on(t.employee_id, t.date),
+  statusIdx: index('attendance_corrections_status_idx').on(t.status),
 }));

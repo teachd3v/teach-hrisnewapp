@@ -4,7 +4,7 @@ import { Users } from 'lucide-react';
 import { workDuration } from '@hris/shared';
 import { api } from '../lib/api';
 import AttachmentLink from '../components/AttachmentLink';
-import { dayChips, fmtLongDate, fmtTime, locationFlag, type AttendanceRec } from '../lib/attendance-types';
+import { recordChips, fmtLongDate, fmtTime, locationFlag, type AttendanceRec } from '../lib/attendance-types';
 import { Card, Chip, Empty, ErrorNote, Field, Input, Spinner } from '../ui';
 
 const today = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
@@ -29,7 +29,7 @@ export default function AdminAttendance() {
           {q.data.rows.length === 0 && <Empty icon={<Users className="size-10" />}>Belum ada karyawan.</Empty>}
           <ul className="flex flex-col gap-2">
             {q.data.rows.map(({ employeeId, name, record: r }) => {
-              const flags = [...(r ? dayChips(r.flags) : []), ...[locationFlag(r?.in ?? null), locationFlag(r?.out ?? null)].filter((x) => x && x.tone === 'warn')] as { tone: 'ok' | 'warn' | 'bad' | 'info' | 'neutral'; text: string }[];
+              const flags = [...(r ? recordChips(r) : []), ...[locationFlag(r?.in ?? null), locationFlag(r?.out ?? null)].filter((x) => x && x.tone === 'warn')] as { tone: 'ok' | 'warn' | 'bad' | 'info' | 'neutral'; text: string }[];
               return (
                 <li key={employeeId}>
                   <Card className="!p-3">
