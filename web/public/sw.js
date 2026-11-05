@@ -8,6 +8,7 @@ self.addEventListener('push', (event) => {
   const options = {
     body: data.body || '',
     icon: '/icons/icon-192.png',
+    badge: '/icons/badge-96.png', // siluet putih untuk bilah status Android
     lang: 'id',
     data: { href: data.href || '/' },
   };

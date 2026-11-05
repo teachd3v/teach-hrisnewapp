@@ -24,6 +24,13 @@ Aplikasi ini target utamanya **aplikasi HP (Tauri)**; web hanya cadangan. Semua 
 
 ## Belum dikerjakan
 - Mode gelap (sengaja ditunda; tema terang disepakati).
-- Gestur geser, haptics (butuh plugin Tauri), splash screen dan ikon aplikasi resmi.
+- Gestur geser, haptics (butuh plugin Tauri), dan splash screen.
 - Uji di perangkat nyata: inset aman (poni, indikator gestur), keyboard menutupi kolom, ukuran font sistem terbesar, TalkBack/VoiceOver. Yang sudah dicek hanya emulasi 375 x 812 di browser.
 - Halaman Spike (`/spike`) masih tampilan lama (halaman uji, bukan fitur).
+
+## Logo dan ikon
+Sumber logo: `design/logo-source.png` (400 x 400, hitam di atas latar putih keabu-abuan). Semua ikon dibuat ulang dengan `python scripts/make-icons.py` (butuh Pillow): logo diubah menjadi mask tinta (derau dibuang, dipotong rapat, diperbesar dan ditajamkan) lalu ditempel ke tiap kanvas.
+- `web/public/icons/`: `icon-192/512.png` (aplikasi terpasang), `icon-maskable-512.png` (di dalam zona aman), `apple-touch-icon.png`, `favicon-32.png`, `badge-96.png` (siluet putih transparan untuk bilah status Android), `logo-mark-256.png` (lambang transparan untuk layar login); `web/public/favicon.ico`.
+- `design/icon-master-1024.png` -> `cd web && npx tauri icon ../design/icon-master-1024.png` menghasilkan ikon Tauri (`web/src-tauri/icons`, termasuk Android, iOS, Windows, macOS).
+- Mengganti logo: timpa `design/logo-source.png` (idealnya lebih besar, 1024 px, latar polos), jalankan kedua perintah di atas. Bila latar sumber bukan ~putih (253) atau tinta bukan ~hitam (21), sesuaikan `BG_SRC`/`INK_SRC` di skrip.
+- Keterbatasan: sumber hanya 400 px, jadi tepi di ukuran besar (master 1024 dan ikon 512) hasil pembesaran yang ditajamkan, bukan vektor asli. Berkas vektor (SVG) atau PNG >= 1024 px akan lebih tajam.
