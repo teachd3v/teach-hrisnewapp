@@ -3,8 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CORRECTION_MAX_DAYS_BACK, wibDateMinusDays } from '@hris/shared';
 import { api } from '../lib/api';
-import { fmtShortDate, fmtTime } from '../lib/attendance-types';
+import { fmtLongDate, fmtShortDate, fmtTime } from '../lib/attendance-types';
 import { CORR_STATUS, corrTimes, type CorrectionItem } from '../lib/correction-types';
+import RangeCalendar from '../components/RangeCalendar';
 import { BottomBar, Button, Card, Chip, ErrorNote, Field, Input, Textarea } from '../ui';
 
 const todayWib = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
@@ -51,7 +52,11 @@ export default function AttendanceCorrection() {
         <p className="text-sm text-muted">Untuk tanggal yang sudah lewat (sampai {CORRECTION_MAX_DAYS_BACK} hari ke belakang). Disetujui HC; hasilnya diberi tanda "dikoreksi" karena tanpa foto dan lokasi. Aturan batas masuk 09:00 tetap berlaku pada jam yang Anda ajukan.</p>
         {sent && <p role="status" className="rounded-xl bg-ok-bg p-3 text-sm font-medium text-ok">Pengajuan terkirim. Menunggu persetujuan HC.</p>}
 
-        <Field label="Tanggal">{(id) => <Input id={id} type="date" min={minDate} max={maxDate} value={date} onChange={(e) => { setDate(e.target.value); setSent(false); }} />}</Field>
+        <div className="flex flex-col gap-1.5">
+          <p className="text-sm font-medium">Tanggal</p>
+          <RangeCalendar value={date} min={minDate} max={maxDate} today={today} onChange={(d) => { setDate(d); setSent(false); }} />
+          <p className="text-sm text-muted" role="status">{date ? `Dipilih: ${fmtLongDate(date)}` : `Pilih tanggal ${fmtShortDate(minDate)} sampai ${fmtShortDate(maxDate)}. Hari ini dan tanggal ke depan tidak bisa dipilih.`}</p>
+        </div>
 
         {date && state.isPending && <p className="text-sm text-muted" role="status">Memeriksa presensi tanggal itu…</p>}
         <ErrorNote error={state.error} />
