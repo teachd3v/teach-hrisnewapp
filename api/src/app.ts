@@ -11,6 +11,7 @@ import { corrections } from './routes/corrections';
 import { push } from './routes/push';
 import { reports } from './routes/reports';
 import { audit } from './routes/audit';
+import { internal } from './routes/internal';
 import { notificationRoutes } from './routes/notifications';
 
 // Origin aplikasi Tauri (Android: http(s)://tauri.localhost, iOS/macOS: tauri://localhost)
@@ -42,6 +43,7 @@ app.route('/attendance-corrections', corrections);
 app.route('/push', push);
 app.route('/reports', reports);
 app.route('/audit', audit);
+app.route('/internal', internal);
 app.route('/notifications', notificationRoutes);
 
 app.notFound((c) => c.json({ error: 'Tidak ditemukan' }, 404));

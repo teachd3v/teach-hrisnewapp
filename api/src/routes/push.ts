@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
 import { and, eq } from 'drizzle-orm';
 import type { AppEnv } from '../env';
-import { push_devices } from '../db/schema';
+import { employees, push_devices } from '../db/schema';
 import { isAllowedPushEndpoint, sendPushToEmployees, vapidConfig } from '../lib/push';
 import { requireAuth } from '../middleware/auth';
 
@@ -42,6 +42,19 @@ push.post('/subscribe', async (c) => {
   }
   await db.insert(push_devices).values({ id: crypto.randomUUID(), employee_id: me, kind: 'webpush', token: endpoint, web_keys: webKeys, created_at: new Date().toISOString() });
   return c.json({ ok: true }, 201);
+});
+
+/** Pengingat harian (belum presensi, pengajuan menunggu). Tidak memengaruhi notifikasi pengajuan/keputusan. */
+push.get('/preferences', async (c) => {
+  const [me] = await drizzle(c.env.DB).select({ r: employees.reminders_enabled }).from(employees).where(eq(employees.id, c.get('user').id)).limit(1);
+  return c.json({ reminders: me?.r ?? true });
+});
+
+push.put('/preferences', async (c) => {
+  const { reminders } = await c.req.json<{ reminders?: unknown }>().catch(() => ({} as never));
+  if (typeof reminders !== 'boolean') return c.json({ error: 'Pilihan tidak valid' }, 400);
+  await drizzle(c.env.DB).update(employees).set({ reminders_enabled: reminders }).where(eq(employees.id, c.get('user').id));
+  return c.json({ ok: true, reminders });
 });
 
 push.post('/unsubscribe', async (c) => {

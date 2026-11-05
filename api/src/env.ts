@@ -13,6 +13,10 @@ export interface Bindings {
   VAPID_PRIVATE_KEY?: string;
   /** Kontak VAPID (URL https atau mailto). Jangan memakai email pribadi. */
   VAPID_SUBJECT?: string;
+  /** Secret bersama dengan Worker cron (cron/). Tanpa ini /api/internal/cron menolak semua. */
+  CRON_SECRET?: string;
+  /** Hanya untuk uji lokal (.dev.vars): izinkan ?now= pada /api/internal/cron. Jangan diset di produksi. */
+  CRON_ALLOW_NOW?: string;
 }
 
 export interface AuthUser {

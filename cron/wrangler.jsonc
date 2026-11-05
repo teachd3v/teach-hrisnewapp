@@ -1,0 +1,12 @@
+{
+	"$schema": "../node_modules/wrangler/config-schema.json",
+	"name": "teach-hris-cron",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-08-01",
+	// Hanya penjadwal: tanpa alamat publik. Satu pemicu tiap 5 menit; jendela waktu dan dedup diatur di API (/api/internal/cron).
+	"workers_dev": false,
+	"triggers": { "crons": ["*/5 * * * *"] },
+	"vars": { "API_URL": "https://teach-hris-spa.pages.dev" },
+	"observability": { "enabled": true }
+	// Secret CRON_SECRET diisi lewat `wrangler secret put CRON_SECRET --config cron/wrangler.jsonc` (nilai sama dengan secret Pages).
+}

@@ -57,6 +57,13 @@
       "when": 1793853156459,
       "tag": "0007_attendance_corrections",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793867949686,
+      "tag": "0008_reminders",
+      "breakpoints": true
     }
   ]
 }

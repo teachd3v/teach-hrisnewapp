@@ -5,3 +5,4 @@ export * from './leave-notifications';
 export * from './attendance';
 export * from './report';
 export * from './audit-labels';
+export * from './reminders';

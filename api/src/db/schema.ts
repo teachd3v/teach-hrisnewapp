@@ -20,6 +20,8 @@ export const employees = sqliteTable('employees', {
   manager_id: text('manager_id'),
   // Pucuk pimpinan: tanpa atasan, pengajuan cuti langsung ke HC. Karyawan lain tanpa atasan tidak boleh mengajukan.
   is_top_leader: integer('is_top_leader', { mode: 'boolean' }).notNull().default(false),
+  // Pengingat harian (belum presensi, pengajuan menunggu). Notifikasi keputusan/pengajuan tidak terpengaruh.
+  reminders_enabled: integer('reminders_enabled', { mode: 'boolean' }).notNull().default(true),
   active: integer('active', { mode: 'boolean' }).notNull().default(true),
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull(),
@@ -207,4 +209,16 @@ export const attendance_corrections = sqliteTable('attendance_corrections', {
 }, (t) => ({
   employeeIdx: index('attendance_corrections_employee_idx').on(t.employee_id, t.date),
   statusIdx: index('attendance_corrections_status_idx').on(t.status),
+}));
+
+// Dedup pengingat terjadwal: satu pengingat per jenis per orang per hari (tanggal WIB). Baris dimasukkan SEBELUM kirim (klaim),
+// jadi dua proses bersamaan atau cron yang berjalan berkali-kali tidak mengirim ganda.
+export const reminder_log = sqliteTable('reminder_log', {
+  id: text('id').primaryKey(),
+  kind: text('kind').notNull(),
+  date: text('date').notNull(),
+  employee_id: text('employee_id').notNull(),
+  created_at: text('created_at').notNull(),
+}, (t) => ({
+  uniq: uniqueIndex('reminder_log_unique').on(t.kind, t.date, t.employee_id),
 }));

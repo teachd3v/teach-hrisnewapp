@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { api } from '../lib/api';
 import { Bell, BellOff, BellRing } from 'lucide-react';
 import { disablePush, enablePush, getPushState, sendTestPush, type PushState } from '../lib/push';
 import { Button, Card, ErrorNote } from '../ui';
@@ -10,6 +12,30 @@ function usePushState() {
   const refresh = useCallback(() => { void getPushState().then(setState); }, []);
   useEffect(refresh, [refresh]);
   return [state, refresh] as const;
+}
+
+/** Saklar pengingat harian (belum presensi masuk/pulang, pengajuan yang menunggu). Notifikasi pengajuan dan keputusan tidak terpengaruh. */
+function RemindersSwitch() {
+  const qc = useQueryClient();
+  const prefs = useQuery({ queryKey: ['push-prefs'], queryFn: () => api<{ reminders: boolean }>('/push/preferences') });
+  const set = useMutation({
+    mutationFn: (reminders: boolean) => api('/push/preferences', { method: 'PUT', json: { reminders } }),
+    onMutate: async (reminders) => { await qc.cancelQueries({ queryKey: ['push-prefs'] }); qc.setQueryData(['push-prefs'], { reminders }); },
+    onSettled: () => void qc.invalidateQueries({ queryKey: ['push-prefs'] }),
+  });
+  if (!prefs.data) return null;
+  const on = prefs.data.reminders;
+  return (
+    <div className="flex flex-col gap-1">
+      <button type="button" role="switch" aria-checked={on} aria-describedby="rem-desc" disabled={set.isPending} onClick={() => set.mutate(!on)}
+        className="flex min-h-14 items-center justify-between gap-3 rounded-xl border border-line px-3 text-left active:bg-sub disabled:opacity-60">
+        <span className="font-medium">Pengingat harian</span>
+        <span aria-hidden="true" className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${on ? 'bg-primary' : 'bg-field'}`}><span className={`absolute top-0.5 size-6 rounded-full bg-white transition-all ${on ? 'left-[1.375rem]' : 'left-0.5'}`} /></span>
+      </button>
+      <p id="rem-desc" className="px-1 text-sm text-muted">{on ? 'Aktif: pengingat belum presensi masuk (08:45) dan pulang, serta pengajuan yang menunggu lebih dari 24 jam.' : 'Mati: Anda tidak menerima pengingat harian. Notifikasi pengajuan dan keputusan tetap masuk.'}</p>
+      <ErrorNote error={set.error} />
+    </div>
+  );
 }
 
 /** Kartu pengaturan di tab Akun: aktifkan/matikan notifikasi di perangkat ini dan kirim notifikasi uji. */
@@ -44,6 +70,7 @@ export function PushCard() {
       <ErrorNote error={error} />
       {testResult && <p role="status" className="rounded-xl bg-sub p-3 text-sm">{testResult}</p>}
       {state === 'off' && <Button loading={busy} onClick={() => void run(enablePush)}>Aktifkan notifikasi</Button>}
+      {state === 'on' && <RemindersSwitch />}
       {state === 'on' && (
         <div className="grid grid-cols-2 gap-3">
           <Button variant="secondary" loading={busy} onClick={() => void run(async () => { const r = await sendTestPush(); setTestResult(r.sent > 0 ? 'Notifikasi uji dikirim. Seharusnya muncul di layar sebentar lagi.' : 'Tidak ada perangkat yang menerima. Matikan lalu aktifkan lagi.'); })}>Kirim uji</Button>

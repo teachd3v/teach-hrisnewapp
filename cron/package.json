@@ -1,0 +1,11 @@
+{
+  "name": "@hris/cron",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260101.0"
+  }
+}
