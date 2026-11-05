@@ -127,10 +127,16 @@ export const attendances = sqliteTable('attendances', {
   clock_in: text('clock_in'),
   clock_in_lat: real('clock_in_lat'),
   clock_in_lng: real('clock_in_lng'),
+  clock_in_accuracy: real('clock_in_accuracy'), // meter (perkiraan perangkat)
+  clock_in_distance: integer('clock_in_distance'), // meter dari kantor, dihitung server
+  clock_in_face: integer('clock_in_face', { mode: 'boolean' }), // wajah terdeteksi di perangkat (bukan verifikasi identitas)
   clock_in_photo_key: text('clock_in_photo_key'),
   clock_out: text('clock_out'),
   clock_out_lat: real('clock_out_lat'),
   clock_out_lng: real('clock_out_lng'),
+  clock_out_accuracy: real('clock_out_accuracy'),
+  clock_out_distance: integer('clock_out_distance'),
+  clock_out_face: integer('clock_out_face', { mode: 'boolean' }),
   clock_out_photo_key: text('clock_out_photo_key'),
   status: text('status'),
   created_at: text('created_at').notNull(),

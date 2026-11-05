@@ -26,6 +26,7 @@ export interface LeaveMeta {
   gender: string | null;
   managerName: string | null;
   canSubmit: boolean;
+  isManager: boolean;
   balances: LeaveBalance[];
   holidays: { date: string; name: string; type: string }[];
 }

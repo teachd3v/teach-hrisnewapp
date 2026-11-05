@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarOff, CalendarPlus, CheckCircle2 } from 'lucide-react';
+import { CalendarOff, CalendarPlus, CheckCircle2, ChevronRight, ClipboardCheck } from 'lucide-react';
 import { PENDING_STATUSES } from '@hris/shared';
 import { api } from '../lib/api';
 import { STATUS_LABEL, STATUS_TONE, fmtRange, type LeaveItem, type LeaveMeta } from '../lib/leave-types';
 import AttachmentLink from '../components/AttachmentLink';
 import { Button, Card, Chip, Empty, ErrorNote, Sheet, Spinner } from '../ui';
+import { useBadges } from '../layouts';
 
 /** Tab Cuti: saldo ringkas dan riwayat pengajuan saya. Form pengajuan ada di layar sendiri (/cuti/ajukan). */
 export default function Leave() {
@@ -15,6 +16,7 @@ export default function Leave() {
   const year = new Date().getFullYear();
   const meta = useQuery({ queryKey: ['leave-meta', year], queryFn: () => api<LeaveMeta>(`/leave/meta?year=${year}`) });
   const mine = useQuery({ queryKey: ['leave-mine'], queryFn: () => api<LeaveItem[]>('/leave/mine') });
+  const { approvals } = useBadges();
   const [toCancel, setToCancel] = useState<LeaveItem | null>(null);
   const cancel = useMutation({
     mutationFn: (id: string) => api(`/leave/${id}/cancel`, { method: 'POST' }),
@@ -40,6 +42,15 @@ export default function Leave() {
       )}
 
       <Link to="/cuti/ajukan"><Button className="w-full"><CalendarPlus className="size-5" aria-hidden="true" />Ajukan cuti</Button></Link>
+
+      {meta.data?.isManager && (
+        <Link to="/persetujuan" className="flex min-h-14 items-center gap-3 rounded-2xl border border-line bg-surface p-3 active:bg-sub">
+          <ClipboardCheck className="size-5" aria-hidden="true" />
+          <span className="flex-1 font-medium">Persetujuan bawahan</span>
+          {approvals > 0 && <Chip tone="warn">{approvals} menunggu</Chip>}
+          <ChevronRight className="size-5 text-muted" aria-hidden="true" />
+        </Link>
+      )}
 
       <h2 className="text-lg font-semibold">Riwayat</h2>
       {mine.isPending && <Spinner />}

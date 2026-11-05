@@ -20,6 +20,9 @@ import AdminEmployeeForm from './pages/AdminEmployeeForm';
 import AdminQuotas from './pages/AdminQuotas';
 import AdminHolidays from './pages/AdminHolidays';
 import AdminMaster from './pages/AdminMaster';
+import Attendance from './pages/Attendance';
+import AttendanceCapture from './pages/AttendanceCapture';
+import AdminAttendance from './pages/AdminAttendance';
 import Spike from './pages/Spike';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: true } } });
@@ -46,12 +49,15 @@ const router = createBrowserRouter(
       <Route element={<RequireAuth />}>
         <Route element={<TabLayout />}>
           <Route path="/" element={<Home />} handle={{ title: 'Beranda' }} />
+          <Route path="/presensi" element={<Attendance />} handle={{ title: 'Presensi' }} />
           <Route path="/cuti" element={<Leave />} handle={{ title: 'Cuti' }} />
-          <Route path="/persetujuan" element={<Approvals />} handle={{ title: 'Persetujuan' }} />
           <Route path="/notifikasi" element={<Notifications />} handle={{ title: 'Notifikasi' }} />
           <Route path="/akun" element={<Account />} handle={{ title: 'Akun' }} />
         </Route>
         <Route element={<StackLayout />}>
+          <Route path="/presensi/ambil/:type" element={<AttendanceCapture />} handle={{ title: 'Presensi', back: '/presensi' }} />
+          <Route path="/persetujuan" element={<Approvals />} handle={{ title: 'Persetujuan', back: '/cuti' }} />
+          <Route path="/admin/presensi" element={<AdminAttendance />} handle={{ title: 'Presensi (HC)', back: '/akun' }} />
           <Route path="/cuti/ajukan" element={<LeaveForm />} handle={{ title: 'Ajukan cuti', back: '/cuti' }} />
           <Route path="/admin/cuti" element={<AdminLeave />} handle={{ title: 'Cuti (HC)', back: '/akun' }} />
           <Route path="/admin/karyawan" element={<AdminEmployees />} handle={{ title: 'Karyawan', back: '/akun' }} />

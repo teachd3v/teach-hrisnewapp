@@ -59,15 +59,17 @@ leave.get('/meta', async (c) => {
   const year = Number(c.req.query('year')) || new Date().getUTCFullYear();
   if (!Number.isInteger(year) || year < 2020 || year > 2100) return c.json({ error: 'Tahun tidak valid' }, 400);
 
-  const [balances, manager, hols] = await Promise.all([
+  const [balances, manager, hols, reports] = await Promise.all([
     getBalances(db, me.id, year),
     me.manager_id ? one(db.select({ name: employees.name }).from(employees).where(eq(employees.id, me.manager_id)).limit(1)) : null,
     db.select().from(holidays).where(and(gte(holidays.date, `${year - 1}-01-01`), lte(holidays.date, `${year + 1}-12-31`))).orderBy(asc(holidays.date)),
+    one(db.select({ id: employees.id }).from(employees).where(and(eq(employees.manager_id, me.id), eq(employees.active, true))).limit(1)),
   ]);
   return c.json({
     gender: me.gender,
     managerName: manager?.name ?? null,
     canSubmit: Boolean(me.manager_id) || me.is_top_leader,
+    isManager: Boolean(reports),
     balances,
     holidays: hols,
   });

@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useLocation, useMatches, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, CalendarDays, ChevronLeft, ClipboardCheck, House, UserRound } from 'lucide-react';
+import { Bell, CalendarDays, ChevronLeft, House, ScanFace, UserRound } from 'lucide-react';
 import { api } from './lib/api';
 import { cx } from './ui';
 
@@ -27,8 +27,8 @@ function Badge({ n }: { n: number }) {
 
 const TABS = [
   { to: '/', label: 'Beranda', icon: House, end: true },
+  { to: '/presensi', label: 'Presensi', icon: ScanFace },
   { to: '/cuti', label: 'Cuti', icon: CalendarDays },
-  { to: '/persetujuan', label: 'Persetujuan', icon: ClipboardCheck },
   { to: '/notifikasi', label: 'Notifikasi', icon: Bell },
   { to: '/akun', label: 'Akun', icon: UserRound },
 ] as const;
@@ -38,7 +38,8 @@ export function TabLayout() {
   const { title } = useTitle();
   const { unread, approvals } = useBadges();
   const location = useLocation();
-  const counts: Record<string, number> = { '/persetujuan': approvals, '/notifikasi': unread };
+  // Pengajuan menunggu persetujuan saya ditandai di tab Cuti.
+  const counts: Record<string, number> = { '/cuti': approvals, '/notifikasi': unread };
   return (
     <div className="mx-auto flex h-dvh max-w-md flex-col bg-bg">
       <header className="pt-safe pl-safe pr-safe border-b border-line bg-surface">

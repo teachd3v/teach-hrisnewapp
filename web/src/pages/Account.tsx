@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { CalendarCog, CalendarHeart, ChevronRight, ClipboardList, KeyRound, ListTree, LogOut, Users } from 'lucide-react';
+import { CalendarCog, CalendarHeart, ChevronRight, ClipboardList, KeyRound, ListTree, LogOut, ScanFace, Users } from 'lucide-react';
 import { isAdmin, type Role } from '@hris/shared';
 import { useAuth } from '../lib/auth';
 import { Button, Card, Chip, Sheet } from '../ui';
@@ -36,6 +36,7 @@ export default function Account() {
           <h2 id="admin-h" className="mb-2 px-1 text-sm font-semibold text-muted">Admin</h2>
           <div className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
             <MenuRow to="/admin/cuti" icon={<ClipboardList className="size-5" />} label="Cuti (HC)" />
+            <MenuRow to="/admin/presensi" icon={<ScanFace className="size-5" />} label="Presensi (HC)" />
             <MenuRow to="/admin/karyawan" icon={<Users className="size-5" />} label="Karyawan" />
             {user.role === 'super_admin' && <MenuRow to="/admin/master" icon={<ListTree className="size-5" />} label="Data master" />}
             <MenuRow to="/admin/kuota" icon={<CalendarCog className="size-5" />} label="Kuota cuti" />
