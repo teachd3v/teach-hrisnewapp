@@ -77,6 +77,14 @@ const router = createBrowserRouter(
   ),
 );
 
+// Klik notifikasi saat aplikasi sudah terbuka: service worker mengirim pesan, SPA berpindah layar.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    const d = e.data as { type?: string; href?: string } | undefined;
+    if (d?.type === 'navigate' && typeof d.href === 'string' && d.href.startsWith('/')) void router.navigate(d.href);
+  });
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>

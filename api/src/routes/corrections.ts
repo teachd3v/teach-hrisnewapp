@@ -9,6 +9,7 @@ import { attendance_corrections, attendances, audit_log, employees } from '../db
 import { auditRow } from '../lib/audit';
 import { adminRecipientIds, notifyStmts, resolveStmt, type Db } from '../lib/leave-db';
 import { requireAuth } from '../middleware/auth';
+import { pushNotify } from '../lib/push';
 
 /**
  * Koreksi presensi (lupa masuk/pulang). Karyawan mengajukan, HC memutuskan (satu tahap).
@@ -93,6 +94,7 @@ corrections.post('/', async (c) => {
     db.insert(audit_log).values(auditRow({ actorId: me.id, actorName: me.name, action: 'attendance.correction_requested', targetType: 'attendance_correction', targetId: id, ip: c.req.header('CF-Connecting-IP'), details: { date, kind: state.kind } })),
     ...notifyStmts(db, notes),
   ]);
+  pushNotify(c, notes);
   return c.json({ id, kind: state.kind }, 201);
 });
 
@@ -182,6 +184,7 @@ corrections.post('/:id/decision', async (c) => {
       : db.update(attendances).set({ clock_out: wibToIso(corr.date, corr.clock_out_time), clock_out_corrected: true })
         .where(and(eq(attendances.id, existing!.id), eq(attendances.clock_in, existing!.clock_in!))),
   ];
+  const decided = planCorrectionDecided({ id, requesterId: corr.employee_id, brief: brief(corr), approved: b.approve });
   try {
     await batch(db, [
       ...apply,
@@ -190,8 +193,9 @@ corrections.post('/:id/decision', async (c) => {
         ip: c.req.header('CF-Connecting-IP'), details: { decision: b.approve ? 'setuju' : 'tolak', date: corr.date, kind: corr.kind, in: corr.clock_in_time, out: corr.clock_out_time, reason: corr.reason, notes: notes || undefined },
       })),
       resolveStmt(db, id, { exceptEmployeeId: corr.employee_id }),
-      ...notifyStmts(db, planCorrectionDecided({ id, requesterId: corr.employee_id, brief: brief(corr), approved: b.approve })),
+      ...notifyStmts(db, decided),
     ]);
+    pushNotify(c, decided);
   } catch (e) {
     // Penerapan gagal (mis. presensi dibuat bersamaan): kembalikan ke menunggu agar bisa diputuskan ulang.
     await db.update(attendance_corrections).set({ status: 'pending', decided_by: null, decided_at: null, decision_notes: null }).where(eq(attendance_corrections.id, id));

@@ -8,6 +8,7 @@ import { useBadges } from '../layouts';
 import type { LeaveMeta } from '../lib/leave-types';
 import { Button, Card, Spinner } from '../ui';
 import { TodayCard } from './Attendance';
+import { PushPrompt } from '../components/PushCard';
 
 function Row({ to, icon, title, sub }: { to: string; icon: React.ReactNode; title: string; sub: string }) {
   return (
@@ -36,6 +37,8 @@ export default function Home() {
         <p className="text-muted">Halo,</p>
         <p className="text-2xl font-bold">{user?.name}</p>
       </div>
+
+      <PushPrompt />
 
       <TodayCard />
 

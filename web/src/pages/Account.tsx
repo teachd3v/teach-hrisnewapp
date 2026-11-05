@@ -4,6 +4,7 @@ import { CalendarCog, CalendarHeart, ChevronRight, ClipboardList, KeyRound, File
 import { isAdmin, type Role } from '@hris/shared';
 import { useAuth } from '../lib/auth';
 import { Button, Card, Chip, Sheet } from '../ui';
+import { PushCard } from '../components/PushCard';
 
 const ROLE_LABEL: Record<Role, string> = { employee: 'Karyawan', admin: 'Admin (HC)', super_admin: 'Super Admin' };
 
@@ -26,6 +27,8 @@ export default function Account() {
         <p className="text-sm text-muted" data-selectable>{user?.email}</p>
         <div className="mt-2">{user && <Chip tone="neutral">{ROLE_LABEL[user.role]}</Chip>}</div>
       </Card>
+
+      <PushCard />
 
       <section aria-label="Akun" className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
         <MenuRow to="/ganti-password" icon={<KeyRound className="size-5" />} label="Ganti password" />

@@ -21,6 +21,7 @@ import { audit_log, employees, holidays, leave_requests } from '../db/schema';
 import { auditRow } from '../lib/audit';
 import { adminRecipientIds, getBalances, loadHolidayDates, notifyStmts, resolveStmt, type Db } from '../lib/leave-db';
 import { requireAuth } from '../middleware/auth';
+import { pushNotify } from '../lib/push';
 import { DOCUMENT_KINDS, MB, validateUpload } from '../lib/upload';
 
 export const leave = new Hono<AppEnv>();
@@ -165,6 +166,7 @@ leave.post('/', async (c) => {
     db.insert(audit_log).values(auditRow({ actorId: me.id, actorName: me.name, action: 'leave.submitted', targetType: 'leave_request', targetId: id, details: { type, start, end, days } })),
     ...notifyStmts(db, notes),
   ]);
+  pushNotify(c, notes);
   return c.json({ id }, 201);
 });
 
@@ -289,6 +291,7 @@ leave.post('/:id/manager-decision', async (c) => {
     resolveStmt(db, id, { exceptEmployeeId: requester.id }),
     ...notifyStmts(db, notes_),
   ]);
+  pushNotify(c, notes_);
   return c.json({ ok: true });
 });
 
@@ -377,6 +380,7 @@ async function hcDecide(c: import('hono').Context<AppEnv>, mode: 'normal' | 'ove
     resolveStmt(db, id, { exceptEmployeeId: requester.id }),
     ...notifyStmts(db, notes),
   ]);
+  pushNotify(c, notes);
   return c.json({ ok: true });
 }
 

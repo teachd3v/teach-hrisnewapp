@@ -7,6 +7,12 @@ export interface Bindings {
   URL_SIGNING_SECRET: string;
   /** Origin web sendiri, mis. https://app.hrteach.site */
   WEB_ORIGIN: string;
+  /** Kunci publik VAPID (base64url). Var, bukan secret. Tanpa ini push dimatikan. */
+  VAPID_PUBLIC_KEY?: string;
+  /** Kunci privat VAPID (base64url). Secret. */
+  VAPID_PRIVATE_KEY?: string;
+  /** Kontak VAPID (URL https atau mailto). Jangan memakai email pribadi. */
+  VAPID_SUBJECT?: string;
 }
 
 export interface AuthUser {

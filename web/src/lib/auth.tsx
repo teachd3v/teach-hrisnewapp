@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { Role } from '@hris/shared';
 import { api, apiPublic, clearTokens, refreshSession, setSessionExpiredHandler, storeTokens, type TokenPair } from './api';
 import { refreshStore } from './session';
+import { detachFromServer, syncPushSubscription } from './push';
 
 export interface User { id: string; name: string; email: string; role: Role }
 
@@ -36,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (refreshStore.get() && (await refreshSession())) {
         try {
           const me = await api<User>('/auth/me');
-          if (!cancelled) setUser(me);
+          if (!cancelled) { setUser(me); void syncPushSubscription(); }
         } catch { /* sesi tidak valid: tampil login */ }
       }
       if (!cancelled) setLoading(false);
@@ -56,9 +57,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       storeTokens(res);
       setMustChange(res.mustChangePassword);
       setUser(res.user);
+      void syncPushSubscription();
     },
     async logout() {
       const refreshToken = refreshStore.get();
+      await detachFromServer(); // lepas langganan push perangkat dari akun ini selagi token masih berlaku
       reset();
       if (refreshToken) await apiPublic('/auth/logout', { method: 'POST', json: { refreshToken } }).catch(() => {});
     },
