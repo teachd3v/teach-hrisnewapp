@@ -131,8 +131,14 @@ export async function runReminders(db: Db, env: Bindings, now: Date, opts: { dry
   return res;
 }
 
+/** Denyut cron: satu baris per hari yang diperbarui tiap panggilan sah. Cek: `select created_at from reminder_log where kind='heartbeat' order by date desc limit 1`. */
+export async function heartbeat(db: Db, at: Date) {
+  await db.insert(reminder_log).values({ id: crypto.randomUUID(), kind: 'heartbeat', date: wibDate(at), employee_id: 'cron', created_at: at.toISOString() })
+    .onConflictDoUpdate({ target: [reminder_log.kind, reminder_log.date, reminder_log.employee_id], set: { created_at: at.toISOString() } });
+}
+
 /** Bersihkan log pengingat lama (> 30 hari) agar tabel tidak terus membesar. */
 export async function pruneReminderLog(db: Db, now: Date) {
   const cutoff = wibDate(new Date(now.getTime() - 30 * 86_400_000));
-  await db.delete(reminder_log).where(and(sql`${reminder_log.date} < ${cutoff}`, inArray(reminder_log.kind, ['att_in', 'att_out', 'approvals'])));
+  await db.delete(reminder_log).where(and(sql`${reminder_log.date} < ${cutoff}`, inArray(reminder_log.kind, ['att_in', 'att_out', 'approvals', 'heartbeat'])));
 }

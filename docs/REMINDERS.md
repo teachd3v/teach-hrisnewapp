@@ -24,6 +24,7 @@ Hanya push: tidak membuat baris di kotak notifikasi aplikasi (agar tidak menumpu
 
 ## Operasi
 - Deploy Worker: `npm run deploy:cron` (butuh `CRON_SECRET` sudah diisi: `wrangler secret put CRON_SECRET --config cron/wrangler.jsonc`).
+- **Cek cron hidup**: `wrangler d1 execute hris-spa-db --remote --command "select created_at from reminder_log where kind='heartbeat' order by date desc limit 1"` menampilkan waktu (UTC) panggilan cron sah terakhir; seharusnya tidak lebih tua dari ±10 menit. Baris ini diperbarui tiap panggilan (mode `dry` tidak menulis).
 - Lihat log: dashboard Cloudflare → Workers → teach-hris-cron → Logs (hanya mencatat saat ada yang diklaim, atau galat).
 - Mengubah jam/ambang: `shared/src/reminders.ts`; jadwal pemicu: `cron/wrangler.jsonc`.
 - Satu pemicu cron dipakai (bukan beberapa) agar tidak menghabiskan jatah pemicu akun.

@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
 import type { AppEnv } from '../env';
-import { pruneReminderLog, runReminders } from '../lib/reminders';
+import { heartbeat, pruneReminderLog, runReminders } from '../lib/reminders';
 
 /** Titik masuk untuk Worker penjadwal (cron/). Bukan untuk pengguna: dilindungi secret bersama, tanpa token login. */
 export const internal = new Hono<AppEnv>();
@@ -26,7 +26,9 @@ internal.post('/cron', async (c) => {
   const nowParam = c.req.query('now');
   const now = c.env.CRON_ALLOW_NOW === '1' && nowParam && !Number.isNaN(Date.parse(nowParam)) ? new Date(nowParam) : new Date();
   const db = drizzle(c.env.DB);
-  const result = await runReminders(db, c.env, now, { dry: c.req.query('dry') === '1' });
-  if (!result.more && c.req.query('dry') !== '1') await pruneReminderLog(db, now);
+  const dry = c.req.query('dry') === '1';
+  const result = await runReminders(db, c.env, now, { dry });
+  if (!dry) await heartbeat(db, new Date()); // bukti cron berjalan: waktu panggilan sah terakhir (lihat docs/REMINDERS.md)
+  if (!result.more && !dry) await pruneReminderLog(db, now);
   return c.json(result);
 });
