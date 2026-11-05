@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../lib/auth';
-import { Button, Field, Input, Spinner } from '../ui';
+import { Button, Field, Input, PasswordInput, Spinner } from '../ui';
 
 export default function Login() {
   const { user, loading, mustChangePassword, login } = useAuth();
@@ -42,7 +42,7 @@ export default function Login() {
           {(id) => <Input id={id} type="email" inputMode="email" autoComplete="username" autoCapitalize="none" autoCorrect="off" required value={email} onChange={(e) => setEmail(e.target.value)} />}
         </Field>
         <Field label="Password" error={error}>
-          {(id, d) => <Input id={id} aria-describedby={d} type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />}
+          {(id, d) => <PasswordInput id={id} aria-describedby={d} autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />}
         </Field>
         <Button type="submit" loading={busy} className="mt-2">Masuk</Button>
       </form>

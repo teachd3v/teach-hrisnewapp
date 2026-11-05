@@ -1,6 +1,6 @@
 // Komponen dasar tampilan aplikasi. Target sentuh >= 48 px, umpan balik tekan lewat warna (tanpa menggeser tata letak).
-import { useEffect, useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
-import { Loader2 } from 'lucide-react';
+import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
 export const cx = (...a: (string | false | null | undefined)[]) => a.filter(Boolean).join(' ');
 
@@ -41,7 +41,20 @@ export function Field({ label, hint, error, children }: { label: string; hint?: 
 }
 
 export const Input = ({ className, ...p }: InputHTMLAttributes<HTMLInputElement>) => <input {...p} className={cx(FIELD, className)} />;
-export const Select = ({ className, ...p }: SelectHTMLAttributes<HTMLSelectElement>) => <select {...p} className={cx(FIELD, className)} />;
+/** Kolom password dengan tombol lihat/sembunyikan. */
+export function PasswordInput({ className, ...p }: Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>) {
+  const [shown, setShown] = useState(false);
+  return (
+    <div className="relative">
+      <input {...p} type={shown ? 'text' : 'password'} autoCapitalize="none" autoCorrect="off" spellCheck={false} className={cx(FIELD, 'pr-12', className)} />
+      <button type="button" onClick={() => setShown((s) => !s)} aria-label={shown ? 'Sembunyikan password' : 'Lihat password'} aria-pressed={shown}
+        className="absolute inset-y-0 right-0 grid w-12 place-items-center rounded-r-xl text-muted active:text-fg">
+        {shown ? <EyeOff className="size-5" aria-hidden="true" /> : <Eye className="size-5" aria-hidden="true" />}
+      </button>
+    </div>
+  );
+}
+export const Select =({ className, ...p }: SelectHTMLAttributes<HTMLSelectElement>) => <select {...p} className={cx(FIELD, className)} />;
 export const Textarea = ({ className, ...p }: TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea {...p} className={cx(FIELD, 'py-2', className)} />;
 
 export function Card({ className, ...p }: React.HTMLAttributes<HTMLDivElement>) {

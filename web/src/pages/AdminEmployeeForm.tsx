@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Role } from '@hris/shared';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { BottomBar, Button, Card, ErrorNote, Field, Input, Select, Spinner } from '../ui';
+import { BottomBar, Button, Card, ErrorNote, Field, Input, PasswordInput, Select, Spinner } from '../ui';
 import { ROLE_LABEL, useEmployees, type Emp } from './AdminEmployees';
 import { MASTER_LABEL_LONG, optionsOf, useMaster, type MasterKind } from '../lib/master';
 
@@ -118,7 +118,7 @@ export default function AdminEmployeeForm() {
       {!isNew && !lockedAdmin && (
         <Card className="flex flex-col gap-3">
           <h2 className="font-semibold">Reset password</h2>
-          <Field label="Password sementara" hint="Mencabut semua sesi karyawan dan membuka kunci akun.">{(fid, d) => <Input id={fid} aria-describedby={d} type="password" autoComplete="new-password" value={resetPw} onChange={(e) => setResetPw(e.target.value)} />}</Field>
+          <Field label="Password sementara" hint="Mencabut semua sesi karyawan dan membuka kunci akun.">{(fid, d) => <PasswordInput id={fid} aria-describedby={d} autoComplete="new-password" value={resetPw} onChange={(e) => setResetPw(e.target.value)} />}</Field>
           <ErrorNote error={reset.error} />
           {notice && <p role="status" className="rounded-xl bg-ok-bg p-3 text-sm text-ok">{notice}</p>}
           <Button variant="secondary" disabled={!resetPw} loading={reset.isPending} onClick={() => { setNotice(null); reset.mutate(); }}>Atur ulang password</Button>
