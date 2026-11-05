@@ -89,16 +89,26 @@ export function BottomBar({ children }: { children: ReactNode }) {
 export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  // `onClose` biasanya fungsi baru di tiap render induk. Disimpan di ref supaya efek di bawah HANYA jalan saat lembar
+  // dibuka/ditutup. Bila efek ikut bergantung pada `onClose`, setiap ketikan di kolom (yang me-render ulang induk)
+  // mengembalikan fokus ke tombol pembuka lalu merebutnya ke lembar: pengguna hanya bisa mengetik satu huruf.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; });
+  // Elemen pembuka dicatat saat render pertama dengan open=true (sebelum kolom autoFocus mengambil fokus), agar fokus bisa dikembalikan ke sana.
+  const openerRef = useRef<HTMLElement | null>(null);
+  if (open && !openerRef.current) openerRef.current = document.activeElement as HTMLElement | null;
+  if (!open) openerRef.current = null;
   useEffect(() => {
     if (!open) return;
-    const prev = document.activeElement as HTMLElement | null;
-    ref.current?.focus();
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const prev = openerRef.current;
+    // Pindahkan fokus ke lembar hanya bila belum ada elemen di dalamnya yang berfokus (mis. kolom dengan autoFocus).
+    if (ref.current && !ref.current.contains(document.activeElement)) ref.current.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCloseRef.current(); };
     document.addEventListener('keydown', onKey);
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = overflow; prev?.focus?.(); };
-  }, [open, onClose]);
+  }, [open]);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">

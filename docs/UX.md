@@ -13,7 +13,7 @@ Aplikasi ini target utamanya **aplikasi HP (Tauri)**; web hanya cadangan. Semua 
 - Target sentuh >= 48 px (tombol, kolom, baris menu, tab); jarak antar target >= 8 px.
 - Kolom isian 16 px (iOS tidak zoom otomatis), label selalu terlihat, galat tepat di bawah kolom, tipe keyboard sesuai (`email`, `tel`, `decimal`).
 - Umpan balik tekan lewat warna (`active:`), tidak menggeser tata letak. Status memakai teks, bukan warna saja.
-- Keputusan/konfirmasi memakai **lembar dari bawah** (`Sheet`): Esc/ketuk latar menutup, fokus dipindah dan dikembalikan, galat tetap di dalam lembar.
+- Keputusan/konfirmasi memakai **lembar dari bawah** (`Sheet`): Esc/ketuk latar menutup, fokus dipindah dan dikembalikan ke elemen pembuka, galat tetap di dalam lembar. Catatan teknis: efek fokus `Sheet` hanya boleh bergantung pada `open` (bukan `onClose`, yang berganti identitas tiap render induk); bila tidak, kolom ketik di dalam lembar kehilangan fokus setiap ketikan (bug yang pernah terjadi di filter log).
 - Aksi utama form ada di bilah bawah yang menempel (`BottomBar`) di atas inset aman.
 - Inset aman (`env(safe-area-inset-*)`) untuk header, tab bar, bilah bawah; `viewport-fit=cover`. Zoom tidak dimatikan.
 - Rasa native: tanpa sorotan ketuk, tanpa tarik-muat-ulang browser (`overscroll-behavior`), tanpa jeda ketuk, teks tidak terseleksi kecuali di kolom isian atau yang diberi `data-selectable`.
