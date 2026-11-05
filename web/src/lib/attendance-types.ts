@@ -1,9 +1,24 @@
 import { isOutsideOffice } from '@hris/shared';
 
 export interface PunchInfo { lat: number | null; lng: number | null; accuracy: number | null; distance: number | null; face: boolean | null; photo: string | null }
+export interface DayFlags { lateMinutes?: number; lateExcused: boolean; leaveType: string | null; dayOff: string | null }
 export interface AttendanceRec {
   id: string; employee_id: string; date: string; clock_in: string | null; clock_out: string | null;
-  in: PunchInfo | null; out: PunchInfo | null;
+  in: PunchInfo | null; out: PunchInfo | null; flags: DayFlags & { lateMinutes: number };
+}
+
+export const fmtLate = (m: number) => (m < 60 ? `${m} mnt` : `${Math.floor(m / 60)}j ${m % 60}m`);
+
+export type Tone = 'ok' | 'warn' | 'bad' | 'info' | 'neutral';
+
+/** Penanda waktu & hari untuk satu presensi. Teks selalu ada (warna bukan satu-satunya penanda). */
+export function dayChips(f: DayFlags & { lateMinutes?: number }): { tone: Tone; text: string }[] {
+  const out: { tone: Tone; text: string }[] = [];
+  const late = f.lateMinutes ?? 0;
+  if (late > 0) out.push(f.lateExcused ? { tone: 'info', text: `Terlambat ${fmtLate(late)} (izin disetujui)` } : { tone: 'bad', text: `Terlambat ${fmtLate(late)}` });
+  if (f.leaveType) out.push({ tone: 'info', text: `Disetujui: ${f.leaveType}` });
+  if (f.dayOff) out.push({ tone: 'neutral', text: f.dayOff === 'Akhir pekan' ? 'Akhir pekan' : `Libur: ${f.dayOff}` });
+  return out;
 }
 
 const TZ = 'Asia/Jakarta';

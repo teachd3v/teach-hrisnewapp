@@ -1,9 +1,9 @@
 import { Hono, type Context } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
-import { and, asc, desc, eq, gte, isNull, lte } from 'drizzle-orm';
-import { distanceToOffice, isAdmin, validLatLng, wibDate } from '@hris/shared';
+import { and, asc, between, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
+import { LEAVE_TYPES, distanceToOffice, isAdmin, isWeekendDate, lateMinutes, validLatLng, wibDate, type AttendanceFlags } from '@hris/shared';
 import type { AppEnv } from '../env';
-import { attendances, audit_log, employees } from '../db/schema';
+import { attendances, audit_log, employees, holidays, leave_requests } from '../db/schema';
 import { auditRow } from '../lib/audit';
 import type { Db } from '../lib/leave-db';
 import { MB, validateUpload } from '../lib/upload';
@@ -36,6 +36,44 @@ const shape = (r: Row) => ({
   out: r.clock_out ? { lat: r.clock_out_lat, lng: r.clock_out_lng, accuracy: r.clock_out_accuracy, distance: r.clock_out_distance, face: r.clock_out_face, photo: r.clock_out_photo_key } : null,
 });
 
+/** Konteks hari untuk pasangan (karyawan, tanggal): izin terlambat disetujui, pengajuan lain yang disetujui, hari libur/akhir pekan. */
+async function contexts(db: Db, pairs: { employee_id: string; date: string }[]): Promise<Map<string, Omit<AttendanceFlags, 'lateMinutes'>>> {
+  const out = new Map<string, Omit<AttendanceFlags, 'lateMinutes'>>();
+  if (!pairs.length) return out;
+  const ids = [...new Set(pairs.map((p) => p.employee_id))];
+  const dates = pairs.map((p) => p.date).sort();
+  const minD = dates[0]!, maxD = dates[dates.length - 1]!;
+
+  const leaves: { employee_id: string; leave_type: string; start_date: string; end_date: string }[] = [];
+  for (let i = 0; i < ids.length; i += 80) {
+    leaves.push(...await db.select({ employee_id: leave_requests.employee_id, leave_type: leave_requests.leave_type, start_date: leave_requests.start_date, end_date: leave_requests.end_date })
+      .from(leave_requests)
+      .where(and(eq(leave_requests.status, 'approved'), inArray(leave_requests.employee_id, ids.slice(i, i + 80)), lte(leave_requests.start_date, maxD), gte(leave_requests.end_date, minD))));
+  }
+  const hol = new Map((await db.select().from(holidays).where(between(holidays.date, minD, maxD))).map((h) => [h.date, h.name]));
+  const timeBased = new Set(LEAVE_TYPES.filter((t) => t.timeBased).map((t) => t.key as string));
+
+  for (const p of pairs) {
+    const mine = leaves.filter((l) => l.employee_id === p.employee_id && l.start_date <= p.date && l.end_date >= p.date);
+    out.set(`${p.employee_id}|${p.date}`, {
+      lateExcused: mine.some((l) => l.leave_type === 'Izin Terlambat'),
+      leaveType: mine.find((l) => !timeBased.has(l.leave_type))?.leave_type ?? null,
+      dayOff: hol.get(p.date) ?? (isWeekendDate(p.date) ? 'Akhir pekan' : null),
+    });
+  }
+  return out;
+}
+
+/** Bentuk respons + penanda. Terlambat dihitung saat dibaca (bukan disimpan), jadi izin yang disetujui kemudian ikut berlaku. */
+async function annotate(db: Db, rows: Row[]) {
+  const ctx = await contexts(db, rows.map((r) => ({ employee_id: r.employee_id, date: r.date })));
+  return rows.map((r) => {
+    const c = ctx.get(`${r.employee_id}|${r.date}`)!;
+    const flags: AttendanceFlags = { lateMinutes: lateMinutes(r.clock_in), ...c };
+    return { ...shape(r), flags };
+  });
+}
+
 const num = (v: unknown) => (typeof v === 'string' && v.trim() !== '' ? Number(v) : null);
 
 attendance.get('/today', async (c) => {
@@ -43,7 +81,10 @@ attendance.get('/today', async (c) => {
   const now = new Date();
   const date = wibDate(now);
   const row = await one(db.select().from(attendances).where(and(eq(attendances.employee_id, c.get('user').id), eq(attendances.date, date))).limit(1));
-  return c.json({ date, serverTime: now.toISOString(), record: row ? shape(row) : null });
+  const meId = c.get('user').id;
+  const [record] = row ? await annotate(db, [row]) : [null];
+  const day = (await contexts(db, [{ employee_id: meId, date }])).get(`${meId}|${date}`) ?? null;
+  return c.json({ date, serverTime: now.toISOString(), record, day });
 });
 
 /** Riwayat sendiri per bulan: `?month=YYYY-MM` (default bulan ini WIB). */
@@ -54,7 +95,7 @@ attendance.get('/mine', async (c) => {
   const rows = await db.select().from(attendances)
     .where(and(eq(attendances.employee_id, c.get('user').id), gte(attendances.date, `${month}-01`), lte(attendances.date, `${month}-31`)))
     .orderBy(desc(attendances.date));
-  return c.json(rows.map(shape));
+  return c.json(await annotate(db, rows));
 });
 
 async function punch(c: Ctx, type: 'in' | 'out') {
@@ -138,6 +179,6 @@ attendance.get('/admin', async (c) => {
     db.select({ id: employees.id, name: employees.name }).from(employees).where(eq(employees.active, true)).orderBy(asc(employees.name)),
     db.select().from(attendances).where(eq(attendances.date, date)),
   ]);
-  const byEmp = new Map(rows.map((r) => [r.employee_id, r]));
-  return c.json({ date, rows: people.map((p) => ({ employeeId: p.id, name: p.name, record: byEmp.has(p.id) ? shape(byEmp.get(p.id)!) : null })) });
+  const annotated = new Map((await annotate(db, rows)).map((r) => [r.employee_id, r]));
+  return c.json({ date, rows: people.map((p) => ({ employeeId: p.id, name: p.name, record: annotated.get(p.id) ?? null })) });
 });

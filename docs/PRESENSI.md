@@ -2,7 +2,11 @@
 
 ## Kebijakan (diputuskan 2026-11-05)
 - **Lokasi hanya dicatat**, tidak memblokir. Server menghitung jarak ke kantor (-6.4733643, 106.7274949, radius 1 km; konstanta `OFFICE` di `shared/src/attendance.ts`). Di luar radius atau tanpa lokasi ditandai untuk HC.
-- **Jam hanya dicatat**: jam masuk, jam pulang, durasi kerja. Status terlambat belum dihitung (jam masuk belum ditetapkan).
+- **Jam masuk paling lambat 09:00 WIB, tanpa toleransi** (09:00:00 tepat waktu, 09:00:01 terlambat 1 menit). Satu aturan untuk semua karyawan (`WORK_START_SECONDS` di `shared/src/attendance.ts`).
+  - Pengecualian: **Izin Keterlambatan (menu Cuti) yang sudah disetujui** pada tanggal itu. Izin yang masih menunggu belum membebaskan.
+  - Terlambat **dihitung saat dibaca, tidak disimpan**, jadi izin yang disetujui sesudah presensi otomatis ikut berlaku.
+  - Presensi tidak diblokir; ditandai: Terlambat N mnt (merah), Terlambat (izin disetujui), Disetujui: {Cuti/Sakit/Dinas Luar Kota/…}, Libur: {nama}, Akhir pekan. Ringkasan terlambat tampil di layar HC.
+  - Jam pulang dan durasi kerja hanya dicatat (belum ada aturan jam pulang).
 - **Foto selfie wajib** saat masuk dan pulang.
 
 ## Alur di HP
@@ -28,5 +32,6 @@ Foto di R2 `attendance/{id}/{tanggal}/…`, dibuka lewat tautan bertanda tangan 
 - "Wajah terdeteksi" berasal dari perangkat; bukan verifikasi identitas. Foto dilihat HC bila perlu.
 - Lokasi palsu (aplikasi mock GPS) dan jam perangkat tidak bisa dideteksi dari web; jam memang dari server, lokasi tidak.
 - Lupa presensi pulang: baris tetap "Belum pulang"; belum ada koreksi oleh HC atau penutupan otomatis.
-- Presensi di hari cuti/libur belum dicegah atau ditandai.
+- Presensi di hari cuti/libur/akhir pekan ditandai, tidak dicegah. Hari libur mengikuti tabel Hari Libur; tidak ada kalender kerja per karyawan.
+- Izin Keterlambatan membebaskan seluruh hari itu; jam estimasi yang diisi pada izin belum dibandingkan dengan jam presensi.
 - Belum diuji di HP nyata: kamera, GPS, dan deteksi wajah. Di emulasi browser, kamera dan GPS dipalsukan untuk menguji alur, jadi deteksi wajah nyata belum teruji.

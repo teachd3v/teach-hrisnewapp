@@ -31,3 +31,37 @@ export function workDuration(inIso: string | null, outIso: string | null): strin
   const mins = Math.max(0, Math.round((new Date(outIso).getTime() - new Date(inIso).getTime()) / 60_000));
   return `${Math.floor(mins / 60)}j ${mins % 60}m`;
 }
+
+/** Jam masuk paling lambat 09:00 WIB, tanpa toleransi (lewat dari 09:00:00 = terlambat). */
+export const WORK_START_SECONDS = 9 * 3600;
+export const WORK_START_LABEL = '09:00';
+
+/** Detik sejak tengah malam WIB dari waktu ISO. */
+export function wibSecondsOfDay(iso: string): number {
+  const d = new Date(new Date(iso).getTime() + WIB_OFFSET_MS);
+  return d.getUTCHours() * 3600 + d.getUTCMinutes() * 60 + d.getUTCSeconds();
+}
+
+/** Menit keterlambatan (pembulatan ke atas), atau 0 bila tepat waktu. */
+export function lateMinutes(clockInIso: string | null): number {
+  if (!clockInIso) return 0;
+  const over = wibSecondsOfDay(clockInIso) - WORK_START_SECONDS;
+  return over > 0 ? Math.ceil(over / 60) : 0;
+}
+
+/** Akhir pekan (Sabtu/Minggu) untuk tanggal kalender YYYY-MM-DD. */
+export const isWeekendDate = (ymd: string) => {
+  const dow = new Date(`${ymd}T00:00:00Z`).getUTCDay();
+  return dow === 0 || dow === 6;
+};
+
+export interface AttendanceFlags {
+  /** menit terlambat (0 = tepat waktu) */
+  lateMinutes: number;
+  /** terlambat tetapi ada izin keterlambatan yang disetujui pada tanggal itu */
+  lateExcused: boolean;
+  /** jenis pengajuan lain yang disetujui pada tanggal itu (cuti, sakit, dinas luar kota, dst.) */
+  leaveType: string | null;
+  /** nama hari libur, "Akhir pekan", atau null */
+  dayOff: string | null;
+}
