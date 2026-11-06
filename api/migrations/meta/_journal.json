@@ -64,6 +64,13 @@
       "when": 1793867949686,
       "tag": "0008_reminders",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1793933047117,
+      "tag": "0009_app_settings",
+      "breakpoints": true
     }
   ]
 }

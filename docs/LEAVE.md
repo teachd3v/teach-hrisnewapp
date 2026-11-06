@@ -29,6 +29,8 @@ Pucuk pimpinan (`employees.is_top_leader`) langsung `pending_hc`. Karyawan lain 
 - Tidak boleh memutuskan pengajuan sendiri. Atasan harus atasan langsung pengaju; peran admin dibaca ulang dari D1, bukan dari token.
 - Keputusan memakai update bersyarat pada status, jadi dua keputusan bersamaan tidak sama-sama lolos.
 - Kuota bawaan: Cuti Tahunan 12, Ganti Hari 0, jenis lain tanpa batas; jatah khusus di `leave_quotas`.
+- **Cuti bersama memotong Cuti Tahunan (pengaturan super admin, bawaan mati).** Tanggal `JOINT` selalu dikeluarkan dari hari kerja pengajuan. Bila pengaturan `joint_leave_deducts_annual` menyala, saldo Cuti Tahunan juga berkurang 1 hari per cuti bersama yang jatuh Senin-Jumat pada tahun itu. Potongan **dihitung saat saldo dibaca** (`getBalances`), tidak ditulis sebagai baris, jadi menyalakan/mematikan langsung benar tanpa memproses ulang data. Aturannya: hanya karyawan aktif; status di `joint_leave_exempt_status_ids` (bawaan Probation dan Magang) tidak dipotong; hari sebelum `join_date` tidak dihitung; kuota khusus tetap dipotong; saldo boleh minus (pengajuan Cuti Tahunan baru ditolak, pengajuan lama tidak diubah). Saldo menampilkan `jointDeducted` terpisah.
+- Perubahan yang memengaruhi saldo (menyalakan/mematikan, mengubah daftar pengecualian, menambah/menghapus/mengganti jenis cuti bersama saat pengaturan menyala) mengirim notifikasi `leave.joint_changed` ke karyawan yang potongannya berubah, dalam batch yang sama dengan perubahannya, dan tercatat di audit (`setting.changed`, `holiday.set`/`holiday.deleted`).
 - Notifikasi tidak memuat alasan cuti. Notifikasi "perlu aksi" ditandai selesai saat pengajuan diputuskan/dibatalkan.
 
 ## Belum ada
@@ -36,5 +38,4 @@ Pucuk pimpinan (`employees.is_top_leader`) langsung `pending_hc`. Karyawan lain 
 - Push (FCM/Web Push); baru notifikasi dalam aplikasi.
 - Admin: kelola kuota dan hari libur, atur atasan/`is_top_leader` (sementara lewat SQL).
 - Keputusan + audit + notifikasi belum satu transaksi: keputusan dicatat dulu (update bersyarat), lalu audit dan notifikasi dalam satu batch. Bila batch kedua gagal, keputusan tetap tercatat tanpa notifikasi.
-- Cuti bersama memotong cuti tahunan atau tidak: kebijakan belum ditetapkan.
 - Rentang cuti lintas tahun dihitung ke tahun tanggal mulai.

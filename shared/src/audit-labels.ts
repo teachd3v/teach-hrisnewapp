@@ -1,6 +1,6 @@
 // Label dan kelompok aksi log audit. Aksi yang tidak dikenal tetap ditampilkan dengan kode aslinya.
 
-export type AuditGroup = 'auth' | 'leave' | 'attendance' | 'employee' | 'master' | 'holiday' | 'file' | 'report';
+export type AuditGroup = 'auth' | 'leave' | 'attendance' | 'employee' | 'master' | 'holiday' | 'setting' | 'file' | 'report';
 
 export const AUDIT_GROUPS: { key: AuditGroup; label: string }[] = [
   { key: 'auth', label: 'Login & keamanan' },
@@ -9,6 +9,7 @@ export const AUDIT_GROUPS: { key: AuditGroup; label: string }[] = [
   { key: 'employee', label: 'Karyawan' },
   { key: 'master', label: 'Data master' },
   { key: 'holiday', label: 'Hari libur' },
+  { key: 'setting', label: 'Pengaturan' },
   { key: 'file', label: 'Akses berkas' },
   { key: 'report', label: 'Rekap & ekspor' },
 ];
@@ -41,6 +42,7 @@ export const AUDIT_ACTIONS: Record<string, { label: string; attention?: boolean 
   'master.deleted': { label: 'Hapus data master' },
   'holiday.set': { label: 'Simpan hari libur' },
   'holiday.deleted': { label: 'Hapus hari libur' },
+  'setting.changed': { label: 'Ubah pengaturan', attention: true },
   'file.access': { label: 'Buka berkas milik orang lain', attention: true },
   'report.range': { label: 'Ambil rekap presensi & cuti', attention: true },
 };

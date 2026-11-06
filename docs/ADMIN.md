@@ -13,6 +13,8 @@ Endpoint di `/api/admin` (peran dibaca ulang dari D1, bukan dari token). Semua p
 | Kelola data master (tambah, ubah nama, nonaktifkan, urutan, hapus) | tidak | ya |
 | Kuota cuti per karyawan/jenis/tahun (kosong = kembali ke bawaan) | ya | ya |
 | Hari libur (tambah/ubah/hapus) | ya | ya |
+| Lihat pengaturan cuti bersama memotong Cuti Tahunan (`GET /api/admin/settings/joint-leave`) | ya | ya |
+| Ubah pengaturan itu: saklar dan status yang dikecualikan (`PUT`; disimpan di `app_settings`, tercatat di audit) | tidak | ya |
 
 ## Data master (`/api/master`)
 Departemen, level, dan status kepegawaian adalah pilihan dropdown di form karyawan. Karyawan menyimpan **id** (`department_id`, `level_id`, `employment_status_id`), jadi mengganti nama berlaku untuk semua. Jabatan tetap teks bebas.

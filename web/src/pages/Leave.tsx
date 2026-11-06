@@ -35,7 +35,7 @@ export default function Leave() {
             <Card key={b.type} className="min-w-40 snap-start">
               <p className="text-sm text-muted">{b.type}</p>
               <p className="text-2xl font-bold">{b.remaining}<span className="text-sm font-medium text-muted"> hari</span></p>
-              <p className="text-xs text-muted">terpakai {b.used}{b.pending ? ` · menunggu ${b.pending}` : ''} / {b.quota}</p>
+              <p className="text-xs text-muted">terpakai {b.used}{b.pending ? ` · menunggu ${b.pending}` : ''}{b.jointDeducted ? ` · cuti bersama ${b.jointDeducted}` : ''} / {b.quota}</p>
             </Card>
           ))}
         </div>

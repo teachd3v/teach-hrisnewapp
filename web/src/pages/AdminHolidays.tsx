@@ -31,7 +31,7 @@ export default function AdminHolidays() {
   return (
     <div className="flex flex-col gap-4">
       <Field label="Tahun">{(id) => <Input id={id} type="number" inputMode="numeric" min={2020} max={2100} value={year} onChange={(e) => setYear(Number(e.target.value))} />}</Field>
-      <p className="text-sm text-muted">Hari libur tidak dihitung sebagai hari kerja pada pengajuan baru. Pengajuan yang sudah ada tidak dihitung ulang.</p>
+      <p className="text-sm text-muted">Hari libur tidak dihitung sebagai hari kerja pada pengajuan baru. Pengajuan yang sudah ada tidak dihitung ulang. Apakah Cuti Bersama memotong Cuti Tahunan diatur di menu Kuota cuti.</p>
       {list.isPending && <Spinner />}
       <ErrorNote error={list.error} />
       {list.data?.length === 0 && <Empty icon={<CalendarX className="size-10" />}>Belum ada hari libur untuk {year}.</Empty>}

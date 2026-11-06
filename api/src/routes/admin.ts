@@ -1,11 +1,15 @@
 import { Hono, type Context } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
 import { and, asc, eq, gte, isNull, lte, ne, sql } from 'drizzle-orm';
-import { LEAVE_TYPES, isAdmin, parseIsoDate, type Role } from '@hris/shared';
+import {
+  LEAVE_TYPES, SETTING_KEYS, isAdmin, isJointWorkday, jointLeaveDeduction, parseIsoDate,
+  planJointHolidayChange, planJointSettingChange, type Role,
+} from '@hris/shared';
 import type { AppEnv } from '../env';
-import { audit_log, credentials, employees, holidays, leave_quotas, master_options, refresh_tokens } from '../db/schema';
+import { app_settings, audit_log, credentials, employees, holidays, leave_quotas, master_options, refresh_tokens } from '../db/schema';
 import { auditRow } from '../lib/audit';
-import { getBalances, type Db } from '../lib/leave-db';
+import { getBalances, notifyStmts, type Db } from '../lib/leave-db';
+import { jointLeaveEmployees, loadJointLeaveSettings } from '../lib/settings';
 import { hashPassword, validateNewPassword } from '../lib/password';
 import { requireAuth } from '../middleware/auth';
 
@@ -293,12 +297,27 @@ admin.post('/holidays', async (c) => {
   if (!b.date || !parseIsoDate(b.date)) return c.json({ error: 'Tanggal tidak valid' }, 400);
   if (!name) return c.json({ error: 'Nama hari libur wajib diisi' }, 400);
   if (b.type !== 'NATIONAL' && b.type !== 'JOINT') return c.json({ error: 'Jenis tidak valid' }, 400);
+  const prev = await one(db.select().from(holidays).where(eq(holidays.date, b.date)).limit(1));
+  const notify = await jointHolidayNotice(db, b.date, name, prev?.type === 'JOINT', b.type === 'JOINT');
   await batch(db, [
     db.insert(holidays).values({ date: b.date, name, type: b.type }).onConflictDoUpdate({ target: holidays.date, set: { name, type: b.type } }),
     db.insert(audit_log).values(auditRow({ actorId: me.id, actorName: me.name, action: 'holiday.set', targetType: 'holiday', targetId: b.date, targetLabel: name, ip: ip(c), details: { type: b.type } })),
+    ...notifyStmts(db, notify),
   ]);
   return c.json({ ok: true }, 201);
 });
+
+/**
+ * Karyawan yang diberi tahu saat sebuah tanggal berubah status cuti bersamanya. Kosong bila pengaturan potong cuti mati,
+ * status cuti bersamanya tidak berubah, atau tanggalnya akhir pekan (tidak memotong apa pun).
+ */
+async function jointHolidayNotice(db: Db, date: string, name: string, wasJoint: boolean, isJoint: boolean) {
+  if (wasJoint === isJoint || !isJointWorkday({ date, type: 'JOINT' })) return [];
+  const settings = await loadJointLeaveSettings(db);
+  if (!settings.enabled) return [];
+  const recipients = (await jointLeaveEmployees(db, settings)).filter((e) => !e.join_date || e.join_date <= date);
+  return planJointHolidayChange({ recipientIds: recipients.map((e) => e.id), name, date, added: isJoint });
+}
 
 admin.delete('/holidays/:date', async (c) => {
   const db = drizzle(c.env.DB);
@@ -308,9 +327,70 @@ admin.delete('/holidays/:date', async (c) => {
   if (!parseIsoDate(date)) return c.json({ error: 'Tanggal tidak valid' }, 400);
   const row = await one(db.select().from(holidays).where(eq(holidays.date, date)).limit(1));
   if (!row) return c.json({ error: 'Hari libur tidak ditemukan' }, 404);
+  const notify = await jointHolidayNotice(db, date, row.name, row.type === 'JOINT', false);
   await batch(db, [
     db.delete(holidays).where(eq(holidays.date, date)),
     db.insert(audit_log).values(auditRow({ actorId: me.id, actorName: me.name, action: 'holiday.deleted', targetType: 'holiday', targetId: date, targetLabel: row.name, ip: ip(c) })),
+    ...notifyStmts(db, notify),
   ]);
   return c.json({ ok: true });
+});
+
+// ------------------------------------------------------------------ pengaturan cuti bersama
+
+/** Kebijakan cuti bersama: dibaca admin, diubah hanya super admin. `statuses` = pilihan status kepegawaian untuk daftar pengecualian. */
+admin.get('/settings/joint-leave', async (c) => {
+  const db = drizzle(c.env.DB);
+  if (!(await adminActor(c, db))) return c.json({ error: 'Tidak diizinkan' }, 403);
+  const year = new Date().getUTCFullYear();
+  const [settings, statuses, joint] = await Promise.all([
+    loadJointLeaveSettings(db),
+    db.select({ id: master_options.id, name: master_options.name, active: master_options.active }).from(master_options)
+      .where(eq(master_options.kind, 'employment_status')).orderBy(asc(master_options.sort_order)),
+    db.select({ date: holidays.date, type: holidays.type }).from(holidays)
+      .where(and(gte(holidays.date, `${year}-01-01`), lte(holidays.date, `${year}-12-31`), eq(holidays.type, 'JOINT'))),
+  ]);
+  return c.json({ ...settings, statuses, year, jointDays: jointLeaveDeduction(joint, null, year) });
+});
+
+admin.put('/settings/joint-leave', async (c) => {
+  const db = drizzle(c.env.DB);
+  const me = await adminActor(c, db);
+  if (!me || me.role !== 'super_admin') return c.json({ error: 'Hanya super admin yang dapat mengubah pengaturan ini' }, 403);
+  const b = await c.req.json<{ enabled?: unknown; exemptStatusIds?: unknown }>().catch(() => ({} as never));
+  if (b.enabled !== undefined && typeof b.enabled !== 'boolean') return c.json({ error: 'Nilai tidak valid' }, 400);
+  let exempt: string[] | undefined;
+  if (b.exemptStatusIds !== undefined) {
+    if (!Array.isArray(b.exemptStatusIds) || !b.exemptStatusIds.every((x) => typeof x === 'string')) return c.json({ error: 'Daftar status tidak valid' }, 400);
+    exempt = [...new Set(b.exemptStatusIds as string[])];
+    const valid = new Set((await db.select({ id: master_options.id }).from(master_options).where(eq(master_options.kind, 'employment_status'))).map((r) => r.id));
+    if (exempt.some((id) => !valid.has(id))) return c.json({ error: 'Ada status kepegawaian yang tidak dikenal' }, 400);
+  }
+  if (b.enabled === undefined && exempt === undefined) return c.json({ error: 'Tidak ada yang diubah' }, 400);
+
+  const before = await loadJointLeaveSettings(db);
+  const after = { enabled: b.enabled ?? before.enabled, exemptStatusIds: exempt ?? before.exemptStatusIds };
+  const sameList = JSON.stringify([...after.exemptStatusIds].sort()) === JSON.stringify([...before.exemptStatusIds].sort());
+  if (after.enabled === before.enabled && sameList) return c.json({ ok: true, ...after });
+
+  // Potongan tiap karyawan sebelum dan sesudah, agar yang terdampak diberi tahu (lengkap dengan angkanya).
+  const year = new Date().getUTCFullYear();
+  const joint = await db.select({ date: holidays.date, type: holidays.type }).from(holidays)
+    .where(and(gte(holidays.date, `${year}-01-01`), lte(holidays.date, `${year}-12-31`), eq(holidays.type, 'JOINT')));
+  const deduction = (s: typeof before, e: { join_date: string | null; status: string | null }) =>
+    s.enabled && !(e.status && s.exemptStatusIds.includes(e.status)) ? jointLeaveDeduction(joint, e.join_date, year) : 0;
+  const people = await db.select({ id: employees.id, join_date: employees.join_date, status: employees.employment_status_id })
+    .from(employees).where(eq(employees.active, true));
+  const notify = planJointSettingChange({ year, changes: people.map((e) => ({ id: e.id, before: deduction(before, e), after: deduction(after, e) })) });
+
+  const now = new Date().toISOString();
+  const put = (key: string, value: string) => db.insert(app_settings).values({ key, value, updated_by: me.id, updated_at: now })
+    .onConflictDoUpdate({ target: app_settings.key, set: { value, updated_by: me.id, updated_at: now } });
+  await batch(db, [
+    put(SETTING_KEYS.jointLeaveDeducts, after.enabled ? '1' : '0'),
+    put(SETTING_KEYS.jointLeaveExemptStatuses, JSON.stringify(after.exemptStatusIds)),
+    db.insert(audit_log).values(auditRow({ actorId: me.id, actorName: me.name, action: 'setting.changed', targetType: 'setting', targetId: 'joint_leave', targetLabel: 'Cuti bersama memotong cuti tahunan', ip: ip(c), details: { before, after, notified: notify.length } })),
+    ...notifyStmts(db, notify),
+  ]);
+  return c.json({ ok: true, ...after });
 });

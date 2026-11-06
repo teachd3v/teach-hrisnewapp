@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { LeaveBalance } from '@hris/shared';
 import { api } from '../lib/api';
 import { Button, Card, ErrorNote, Field, Input, Select, Spinner } from '../ui';
+import JointLeaveSetting from '../components/JointLeaveSetting';
 import { useEmployees } from './AdminEmployees';
 
 function Row({ b, employeeId, year }: { b: LeaveBalance; employeeId: string; year: number }) {
@@ -18,7 +19,7 @@ function Row({ b, employeeId, year }: { b: LeaveBalance; employeeId: string; yea
     <Card className="flex flex-col gap-3">
       <div>
         <p className="font-semibold">{b.type}</p>
-        <p className="text-sm text-muted">{b.quota === null ? 'Tanpa batas' : `${b.quota} hari (${b.explicit ? 'khusus' : 'bawaan'})`} · terpakai {b.used} · menunggu {b.pending}</p>
+        <p className="text-sm text-muted">{b.quota === null ? 'Tanpa batas' : `${b.quota} hari (${b.explicit ? 'khusus' : 'bawaan'})`} · terpakai {b.used} · menunggu {b.pending}{b.jointDeducted ? ` · cuti bersama ${b.jointDeducted}` : ''}</p>
       </div>
       <Field label="Jatah khusus (hari)" hint="Kosongkan untuk memakai bawaan. Kelipatan 0,5." error={invalid ? 'Isi 0-366, kelipatan 0,5' : null}>
         {(id, d) => <Input id={id} aria-describedby={d} inputMode="decimal" value={val} onChange={(e) => setVal(e.target.value)} />}
@@ -42,6 +43,7 @@ export default function AdminQuotas() {
   });
   return (
     <div className="flex flex-col gap-4">
+      <JointLeaveSetting />
       <Field label="Karyawan">
         {(id) => <Select id={id} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}><option value="">Pilih karyawan</option>{emps.data?.filter((e) => e.active).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</Select>}
       </Field>

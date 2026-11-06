@@ -211,6 +211,14 @@ export const attendance_corrections = sqliteTable('attendance_corrections', {
   statusIdx: index('attendance_corrections_status_idx').on(t.status),
 }));
 
+// Pengaturan aplikasi (kunci-nilai) yang diubah super admin, mis. kebijakan cuti bersama. Nilai berupa teks; tafsirannya ada di shared/src/settings.ts.
+export const app_settings = sqliteTable('app_settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  updated_by: text('updated_by'),
+  updated_at: text('updated_at').notNull(),
+});
+
 // Dedup pengingat terjadwal: satu pengingat per jenis per orang per hari (tanggal WIB). Baris dimasukkan SEBELUM kirim (klaim),
 // jadi dua proses bersamaan atau cron yang berjalan berkali-kali tidak mengirim ganda.
 export const reminder_log = sqliteTable('reminder_log', {

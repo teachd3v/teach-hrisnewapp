@@ -6,6 +6,7 @@ export type NotificationType =
   | 'leave.hc_approved'
   | 'leave.hc_rejected'
   | 'leave.hc_override'
+  | 'leave.joint_changed' // karyawan: pemberitahuan perubahan potongan cuti bersama
   | 'attendance.correction_requested' // admin: perlu aksi
   | 'attendance.correction_decided'; // pengaju: pemberitahuan
 
@@ -97,6 +98,38 @@ export function planOverride(ref: LeaveRef & { actorId: string; approved: boolea
   }];
   if (ref.managerId && ref.managerId !== ref.actorId && ref.managerId !== ref.requesterId) {
     out.push({ employeeId: ref.managerId, type: 'leave.hc_override', title: 'Pengajuan bawahan diputuskan HC', body: `${ref.requesterName}: ${ref.brief}.`, href: HREF.approver, entityId: ref.requestId });
+  }
+  return out;
+}
+
+/** Cuti bersama ditambahkan/dibatalkan saat pengaturan potong cuti aktif: tiap karyawan terdampak diberi tahu. */
+export function planJointHolidayChange(ref: { recipientIds: string[]; name: string; date: string; added: boolean }): NotifyInput[] {
+  const title = ref.added ? 'Cuti bersama ditambahkan' : 'Cuti bersama dibatalkan';
+  const body = ref.added
+    ? `${ref.name} (${shortDate(ref.date)}) memotong 1 hari Cuti Tahunan Anda.`
+    : `${ref.name} (${shortDate(ref.date)}) tidak lagi memotong Cuti Tahunan. 1 hari dikembalikan ke saldo Anda.`;
+  return ref.recipientIds.map((employeeId) => ({ employeeId, type: 'leave.joint_changed' as const, title, body, href: HREF.mine, entityId: ref.date }));
+}
+
+/**
+ * Pengaturan potong cuti bersama berubah (nyala/mati atau daftar status dikecualikan): karyawan yang potongannya berubah diberi tahu.
+ * `before`/`after` = hari cuti bersama yang memotong Cuti Tahunan pada `year`, sebelum dan sesudah perubahan. Yang tidak berubah dilewati.
+ */
+export function planJointSettingChange(ref: { changes: { id: string; before: number; after: number }[]; year: number }): NotifyInput[] {
+  const out: NotifyInput[] = [];
+  for (const { id, before, after } of ref.changes) {
+    if (before === after) continue;
+    const more = after > before;
+    out.push({
+      employeeId: id, type: 'leave.joint_changed',
+      title: more ? 'Cuti bersama kini memotong Cuti Tahunan' : 'Potongan cuti bersama berkurang',
+      body: more
+        ? `Tahun ${ref.year}: ${after} hari cuti bersama dipotong dari saldo Cuti Tahunan Anda.`
+        : after === 0
+          ? `Cuti bersama tahun ${ref.year} tidak lagi memotong Cuti Tahunan Anda. ${before} hari dikembalikan ke saldo.`
+          : `Tahun ${ref.year}: potongan cuti bersama menjadi ${after} hari (sebelumnya ${before}).`,
+      href: HREF.mine, entityId: null,
+    });
   }
   return out;
 }
