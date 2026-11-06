@@ -47,17 +47,18 @@ export const PERSONAL_FIELDS: readonly FieldDef[] = [
 ];
 export const PERSONAL_KEYS = PERSONAL_FIELDS.map((f) => f.key);
 
-export type ProfileGroup = 'personal' | 'family' | 'edu' | 'activity';
+export type ProfileGroup = 'personal' | 'family' | 'edu' | 'activity' | 'docs';
 export const PROFILE_GROUPS: readonly { key: ProfileGroup; label: string }[] = [
   { key: 'personal', label: 'Personal' },
   { key: 'family', label: 'Keluarga' },
   { key: 'edu', label: 'Edukasi' },
   { key: 'activity', label: 'Aktivitas' },
+  { key: 'docs', label: 'Dokumen' },
 ];
 
 export interface SectionDef {
   key: string;
-  group: Exclude<ProfileGroup, 'personal'>;
+  group: Exclude<ProfileGroup, 'personal' | 'docs'>;
   label: string;
   /** nama satu butir untuk tombol "Tambah ..." */
   item: string;
@@ -192,3 +193,22 @@ export function profileCompleteness(
   const done = items.filter((i) => i.done).length;
   return { percent: Math.round((done / items.length) * 100), missing: items.filter((i) => !i.done).map((i) => i.label) };
 }
+
+// ------------------------------------------------------------------ dokumen
+
+export interface DocumentCategory { key: string; label: string; /** hanya HC yang mengunggah; karyawan melihat saja */ hcOnly?: boolean }
+export const DOCUMENT_CATEGORIES: readonly DocumentCategory[] = [
+  { key: 'ktp', label: 'KTP' },
+  { key: 'kk', label: 'Kartu Keluarga' },
+  { key: 'npwp', label: 'NPWP' },
+  { key: 'ijazah', label: 'Ijazah' },
+  { key: 'sertifikat', label: 'Sertifikat' },
+  { key: 'kontrak', label: 'Kontrak kerja', hcOnly: true },
+  { key: 'sk', label: 'Surat keputusan (SK)', hcOnly: true },
+  { key: 'lainnya', label: 'Lainnya' },
+];
+export const documentCategory = (key: string) => DOCUMENT_CATEGORIES.find((c) => c.key === key);
+/** Batas jumlah dokumen per karyawan dan ukuran tiap berkas (PDF/JPG/PNG/WEBP). */
+export const MAX_DOCUMENTS = 30;
+export const MAX_DOCUMENT_BYTES = 5 * 1024 * 1024;
+export const DOCUMENT_TITLE_MAX = 100;

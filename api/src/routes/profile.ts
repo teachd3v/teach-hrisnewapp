@@ -1,14 +1,15 @@
 import { Hono, type Context } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
-import { and, asc, eq, gt, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, sql } from 'drizzle-orm';
 import {
-  MAX_ENTRIES_PER_SECTION, PERSONAL_FIELDS, PERSONAL_KEYS, isAdmin, profileCompleteness, sectionOf, validateFields,
+  DOCUMENT_TITLE_MAX, MAX_DOCUMENTS, MAX_DOCUMENT_BYTES, MAX_ENTRIES_PER_SECTION, PERSONAL_FIELDS, PERSONAL_KEYS, documentCategory, isAdmin,
+  profileCompleteness, sectionOf, validateFields,
 } from '@hris/shared';
 import type { AppEnv } from '../env';
-import { audit_log, employees, master_options, profile_entries } from '../db/schema';
+import { audit_log, employee_documents, employees, master_options, profile_entries } from '../db/schema';
 import { auditRow } from '../lib/audit';
 import type { Db } from '../lib/leave-db';
-import { MB, validateUpload } from '../lib/upload';
+import { DOCUMENT_KINDS, MB, validateUpload } from '../lib/upload';
 import { requireAuth } from '../middleware/auth';
 
 /**
@@ -27,6 +28,7 @@ const one = async <T>(p: Promise<T[]>) => (await p)[0];
 const ip = (c: Ctx) => c.req.header('CF-Connecting-IP');
 
 export const PROFILE_PHOTO_PREFIX = 'profile_photos/';
+export const DOCUMENT_PREFIX = 'employee_documents/';
 const PHOTO_MAX = 2 * MB;
 const VIEW_AUDIT_WINDOW_MS = 10 * 60 * 1000;
 
@@ -266,5 +268,80 @@ profile.delete('/:id/photo', async (c) => {
     db.insert(audit_log).values(auditRow({ actorId: me.id, actorName: me.name, action: 'profile.photo', targetType: 'employee', targetId: id, targetLabel: e.name, ip: ip(c), details: { op: 'remove' } })),
   ]);
   await c.env.STORAGE.delete(e.photo_key).catch(() => {});
+  return c.json({ ok: true });
+});
+
+// ------------------------------------------------------------------ dokumen
+
+/** Daftar dokumen satu karyawan (pemilik/admin). Berkas dibuka lewat POST /api/files/link (akses admin ke dokumen orang lain diaudit di sana). */
+profile.get('/:id/documents', async (c) => {
+  const db = drizzle(c.env.DB);
+  const me = await actor(c, db);
+  if (!me) return c.json({ error: 'Sesi berakhir' }, 401);
+  const id = targetId(c, me);
+  if (!canAccess(me, id)) return c.json({ error: 'Tidak diizinkan' }, 403);
+  const rows = await db.select().from(employee_documents).where(eq(employee_documents.employee_id, id)).orderBy(desc(employee_documents.created_at));
+  return c.json(rows.map((r) => ({
+    id: r.id, category: r.category, title: r.title, fileKey: r.file_key, contentType: r.content_type, size: r.size_bytes, createdAt: r.created_at,
+    /** diunggah pemilik sendiri atau oleh HC */
+    uploadedBy: r.uploaded_by === r.employee_id ? 'self' : 'hc',
+    // Pemilik hanya menghapus yang ia unggah sendiri; admin dapat menghapus semua.
+    canDelete: isAdmin(me.role) || r.uploaded_by === me.id,
+  })));
+});
+
+profile.post('/:id/documents', async (c) => {
+  const db = drizzle(c.env.DB);
+  const me = await actor(c, db);
+  if (!me) return c.json({ error: 'Sesi berakhir' }, 401);
+  const id = targetId(c, me);
+  if (!canAccess(me, id)) return c.json({ error: 'Tidak diizinkan' }, 403);
+  const owner = await one(db.select({ id: employees.id, name: employees.name }).from(employees).where(eq(employees.id, id)).limit(1));
+  if (!owner) return c.json({ error: 'Karyawan tidak ditemukan' }, 404);
+
+  const declared = Number(c.req.header('Content-Length'));
+  if (Number.isFinite(declared) && declared > MAX_DOCUMENT_BYTES + 64 * 1024) return c.json({ error: 'Berkas terlalu besar (maks. 5 MB)' }, 413);
+  const form = await c.req.parseBody().catch(() => null);
+  const category = typeof form?.category === 'string' ? documentCategory(form.category) : undefined;
+  if (!category) return c.json({ error: 'Jenis dokumen tidak dikenal' }, 400);
+  if (category.hcOnly && !isAdmin(me.role)) return c.json({ error: `${category.label} hanya dapat diunggah HC` }, 403);
+  const rawTitle = typeof form?.title === 'string' ? form.title.trim().replace(/\s+/g, ' ').slice(0, DOCUMENT_TITLE_MAX) : '';
+  const title = rawTitle || category.label;
+  const file = form?.file;
+  if (!(file instanceof File)) return c.json({ error: 'Berkas tidak ada' }, 400);
+
+  const count = await one(db.select({ n: sql<number>`count(*)` }).from(employee_documents).where(eq(employee_documents.employee_id, id)));
+  if (Number(count?.n ?? 0) >= MAX_DOCUMENTS) return c.json({ error: `Maksimal ${MAX_DOCUMENTS} dokumen per karyawan` }, 400);
+  const v = await validateUpload(file, { maxBytes: MAX_DOCUMENT_BYTES, kinds: DOCUMENT_KINDS });
+  if (!v.ok) return c.json({ error: v.error }, 400);
+
+  const docId = crypto.randomUUID();
+  const key = `${DOCUMENT_PREFIX}${id}/${docId}.${v.ext}`;
+  await c.env.STORAGE.put(key, v.buffer, { httpMetadata: { contentType: v.contentType } });
+  try {
+    await batch(db, [
+      db.insert(employee_documents).values({ id: docId, employee_id: id, category: category.key, title, file_key: key, content_type: v.contentType, size_bytes: v.buffer.byteLength, uploaded_by: me.id, created_at: new Date().toISOString() }),
+      db.insert(audit_log).values(auditRow({ actorId: me.id, actorName: me.name, action: 'profile.document', targetType: 'employee', targetId: id, targetLabel: owner.name, ip: ip(c), details: { op: 'add', category: category.key } })),
+    ]);
+  } catch (err) {
+    await c.env.STORAGE.delete(key).catch(() => {});
+    throw err;
+  }
+  return c.json({ id: docId }, 201);
+});
+
+profile.delete('/documents/:docId', async (c) => {
+  const db = drizzle(c.env.DB);
+  const me = await actor(c, db);
+  if (!me) return c.json({ error: 'Sesi berakhir' }, 401);
+  const doc = await one(db.select().from(employee_documents).where(eq(employee_documents.id, c.req.param('docId') ?? '')).limit(1));
+  if (!doc || !canAccess(me, doc.employee_id)) return c.json({ error: 'Dokumen tidak ditemukan' }, 404);
+  if (!isAdmin(me.role) && doc.uploaded_by !== me.id) return c.json({ error: 'Dokumen ini diunggah HC dan hanya dapat dihapus HC' }, 403);
+  const label = await ownerLabel(db, me, doc.employee_id);
+  await batch(db, [
+    db.delete(employee_documents).where(eq(employee_documents.id, doc.id)),
+    db.insert(audit_log).values(auditRow({ actorId: me.id, actorName: me.name, action: 'profile.document', targetType: 'employee', targetId: doc.employee_id, targetLabel: label, ip: ip(c), details: { op: 'delete', category: doc.category } })),
+  ]);
+  await c.env.STORAGE.delete(doc.file_key).catch(() => {});
   return c.json({ ok: true });
 });

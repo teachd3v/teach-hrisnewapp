@@ -37,7 +37,7 @@ function summarize(it: AuditItem): string {
     case 'employee.updated': return `diubah: ${Object.keys(obj(d.after)).join(', ') || '-'}`;
     case 'employee.created': return `${d.email} · peran ${d.role}`;
     case 'auth.login_failed': return LOGIN_REASON[String(d.reason)] ?? String(d.reason ?? '');
-    case 'file.access': return it.target_type === 'attendance_photo' ? 'foto presensi' : 'lampiran cuti';
+    case 'file.access': return it.target_type === 'attendance_photo' ? 'foto presensi' : it.target_type === 'employee_document' ? 'dokumen karyawan' : 'lampiran cuti';
     case 'report.range': return `${d.employees} karyawan`;
     case 'master.updated': return `${JSON.stringify(obj(d.before))} → ${JSON.stringify(obj(d.after))}`;
     default: {

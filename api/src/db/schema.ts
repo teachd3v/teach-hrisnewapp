@@ -261,6 +261,23 @@ export const profile_entries = sqliteTable('profile_entries', {
   employeeSectionIdx: index('profile_entries_employee_section_idx').on(t.employee_id, t.section),
 }));
 
+// Dokumen karyawan (KTP, KK, ijazah, kontrak, ...). Berkas di R2 `employee_documents/{employee_id}/...`, hanya dibuka lewat tautan bertanda tangan
+// oleh pemilik dan admin (akses admin ke dokumen orang lain tercatat di audit). Kategori hcOnly (kontrak, SK) hanya dapat diunggah HC.
+export const employee_documents = sqliteTable('employee_documents', {
+  id: text('id').primaryKey(),
+  employee_id: text('employee_id').notNull(),
+  category: text('category').notNull(), // kunci di shared/src/profile.ts (DOCUMENT_CATEGORIES)
+  title: text('title').notNull(),
+  file_key: text('file_key').notNull(),
+  content_type: text('content_type').notNull(),
+  size_bytes: integer('size_bytes').notNull(),
+  uploaded_by: text('uploaded_by').notNull(),
+  created_at: text('created_at').notNull(),
+}, (t) => ({
+  employeeIdx: index('employee_documents_employee_idx').on(t.employee_id, t.created_at),
+  keyUnique: uniqueIndex('employee_documents_key_unique').on(t.file_key),
+}));
+
 // Lokasi kantor untuk geofence presensi (Pengaturan presensi, super admin). Presensi dinilai terhadap lokasi aktif terdekat.
 export const office_locations = sqliteTable('office_locations', {
   id: text('id').primaryKey(),

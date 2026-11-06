@@ -1,13 +1,15 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Camera, Pencil, Plus, ShieldCheck } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Camera, FileText, Pencil, Plus, ShieldCheck, Upload } from 'lucide-react';
 import {
-  PERSONAL_FIELDS, PROFILE_GROUPS, PROFILE_SECTIONS, maskTail, type FieldDef, type ProfileGroup, type SectionDef,
+  DOCUMENT_CATEGORIES, DOCUMENT_TITLE_MAX, MAX_DOCUMENT_BYTES, PERSONAL_FIELDS, PROFILE_GROUPS, PROFILE_SECTIONS, documentCategory, maskTail,
+  type FieldDef, type ProfileGroup, type SectionDef,
 } from '@hris/shared';
 import { api } from '../lib/api';
 import { fmtDate } from '../lib/leave-types';
 import { squarePhoto, useProfile, type ProfileData } from '../lib/profile';
+import AttachmentLink from '../components/AttachmentLink';
 import ProfilePhoto from '../components/ProfilePhoto';
 import { Button, Card, Chip, ErrorNote, Field, Input, Segmented, Select, Sheet, Spinner, Textarea } from '../ui';
 
@@ -58,7 +60,7 @@ export default function Profile() {
       {p.permissions.self && p.consentedAt === null && <Consent onDone={refresh} />}
       <Completeness p={p} />
       <Segmented value={tab} onChange={setTab} options={PROFILE_GROUPS.map((g) => ({ value: g.key, label: g.label }))} />
-      {tab === 'personal' ? <PersonalTab p={p} id={id} onChanged={refresh} /> : <GroupTab group={tab} p={p} id={id} onChanged={refresh} />}
+      {tab === 'personal' ? <PersonalTab p={p} id={id} onChanged={refresh} /> : tab === 'docs' ? <DocumentsTab p={p} id={id} /> : <GroupTab group={tab} p={p} id={id} onChanged={refresh} />}
     </div>
   );
 }
@@ -220,6 +222,98 @@ function EntrySheet({ def, id, entry, onClose, onSaved }: { def: SectionDef; id:
         {entry && (confirm
           ? <div className="grid grid-cols-2 gap-3"><Button variant="secondary" onClick={() => setConfirm(false)}>Batal</Button><Button variant="danger" loading={del.isPending} onClick={() => del.mutate()}>Ya, hapus</Button></div>
           : <Button variant="secondary" onClick={() => setConfirm(true)}>Hapus</Button>)}
+      </form>
+    </Sheet>
+  );
+}
+
+// ------------------------------------------------------------------ tab dokumen
+
+interface DocItem { id: string; category: string; title: string; fileKey: string; contentType: string; size: number; createdAt: string; uploadedBy: 'self' | 'hc'; canDelete: boolean }
+const fmtSize = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+const ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp';
+
+function DocumentsTab({ p, id }: { p: ProfileData; id: string }) {
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ['profile-docs', id], queryFn: () => api<DocItem[]>(`/profile/${id}/documents`) });
+  const [adding, setAdding] = useState(false);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const refresh = () => void qc.invalidateQueries({ queryKey: ['profile-docs', id] });
+  const del = useMutation({ mutationFn: (docId: string) => api(`/profile/documents/${docId}`, { method: 'DELETE' }), onSuccess: () => { setConfirmId(null); refresh(); } });
+  return (
+    <section className="flex flex-col gap-3" aria-label="Dokumen">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold">Dokumen</h2>
+        <Button variant="secondary" onClick={() => setAdding(true)}><Upload className="size-5" aria-hidden="true" />Unggah</Button>
+      </div>
+      <p className="text-sm text-muted">PDF, JPG, PNG, atau WEBP, maksimal 5 MB. Hanya {p.permissions.self ? 'Anda' : 'pemilik'}, HC, dan super admin yang dapat membukanya; pembukaan oleh orang lain tercatat.</p>
+      {q.isPending && <Spinner />}
+      <ErrorNote error={q.error ?? del.error} />
+      {q.data?.length === 0 && <p className="rounded-xl bg-sub p-3 text-sm text-muted">Belum ada dokumen.</p>}
+      <ul className="flex flex-col gap-2">
+        {q.data?.map((d) => (
+          <li key={d.id}>
+            <Card className="flex flex-col gap-1">
+              <div className="flex items-start gap-3">
+                <FileText className="mt-0.5 size-5 shrink-0 text-muted" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  <p className="break-words font-semibold">{d.title}</p>
+                  <p className="text-sm text-muted">{documentCategory(d.category)?.label ?? d.category} · {fmtSize(d.size)} · {fmtDate(d.createdAt.slice(0, 10))}</p>
+                  {d.uploadedBy === 'hc' && !p.permissions.hc && <div className="mt-1"><Chip tone="info">Diunggah HC</Chip></div>}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-4">
+                <AttachmentLink fileKey={d.fileKey} label="Buka dokumen" />
+                {d.canDelete && (confirmId === d.id
+                  ? <span className="flex items-center gap-2"><Button variant="secondary" onClick={() => setConfirmId(null)}>Batal</Button><Button variant="danger" loading={del.isPending} onClick={() => del.mutate(d.id)}>Ya, hapus</Button></span>
+                  : <button onClick={() => setConfirmId(d.id)} className="min-h-11 rounded-lg px-2 text-sm font-medium text-bad underline active:bg-bad-bg">Hapus</button>)}
+              </div>
+            </Card>
+          </li>
+        ))}
+      </ul>
+      {adding && <UploadSheet p={p} id={id} onClose={() => setAdding(false)} onDone={() => { setAdding(false); refresh(); }} />}
+    </section>
+  );
+}
+
+function UploadSheet({ p, id, onClose, onDone }: { p: ProfileData; id: string; onClose: () => void; onDone: () => void }) {
+  const cats = DOCUMENT_CATEGORIES.filter((c) => !c.hcOnly || p.permissions.hc);
+  const [category, setCategory] = useState(cats[0]?.key ?? 'lainnya');
+  const [title, setTitle] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const up = useMutation({
+    mutationFn: () => {
+      const fd = new FormData();
+      fd.append('category', category);
+      if (title.trim()) fd.append('title', title.trim());
+      fd.append('file', file!);
+      return api(`/profile/${id}/documents`, { method: 'POST', body: fd });
+    },
+    onSuccess: onDone,
+  });
+  function onFile(f: File | null) {
+    if (f && f.size > MAX_DOCUMENT_BYTES) { setFile(null); setFileError('Berkas terlalu besar (maks. 5 MB)'); return; }
+    setFileError(null); setFile(f);
+  }
+  const onSubmit = (e: FormEvent) => { e.preventDefault(); if (file) up.mutate(); };
+  return (
+    <Sheet open onClose={onClose} title="Unggah dokumen">
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <Field label="Jenis dokumen">{(fid) => <Select id={fid} value={category} onChange={(e) => setCategory(e.target.value)}>{cats.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}</Select>}</Field>
+        <Field label="Judul (opsional)" hint="Kosongkan untuk memakai nama jenis dokumen.">{(fid, d) => <Input id={fid} aria-describedby={d} maxLength={DOCUMENT_TITLE_MAX} value={title} onChange={(e) => setTitle(e.target.value)} />}</Field>
+        <Field label="Berkas" hint="PDF, JPG, PNG, atau WEBP, maks. 5 MB." error={fileError}>
+          {(fid, d) => (
+            <label htmlFor={fid} className="flex min-h-12 cursor-pointer items-center gap-2 rounded-xl border border-dashed border-field px-3 py-2 active:bg-sub">
+              <FileText className="size-5 shrink-0" aria-hidden="true" />
+              <span className="truncate">{file ? file.name : 'Pilih berkas'}</span>
+              <input id={fid} aria-describedby={d} type="file" className="sr-only" accept={ACCEPT} onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
+            </label>
+          )}
+        </Field>
+        <ErrorNote error={up.error} />
+        <Button type="submit" loading={up.isPending} disabled={!file}>Unggah</Button>
       </form>
     </Sheet>
   );

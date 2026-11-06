@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/d1';
 import { eq, or } from 'drizzle-orm';
 import { isAdmin } from '@hris/shared';
 import type { AppEnv } from '../env';
-import { attendances, employees, leave_requests } from '../db/schema';
+import { attendances, employee_documents, employees, leave_requests } from '../db/schema';
 import { writeAudit } from '../lib/audit';
 import { signFileLink, verifyFileLink } from '../lib/signed-url';
 import { requireAuth } from '../middleware/auth';
@@ -17,7 +17,8 @@ export const files = new Hono<AppEnv>();
 const LEAVE_PREFIX = 'leave_attachments/';
 const ATTENDANCE_PREFIX = 'attendance/';
 const PROFILE_PHOTO_PREFIX = 'profile_photos/';
-const validPrefix = (key: string) => (key.startsWith(LEAVE_PREFIX) || key.startsWith(ATTENDANCE_PREFIX) || key.startsWith(PROFILE_PHOTO_PREFIX)) && !key.includes('..');
+const DOCUMENT_PREFIX = 'employee_documents/';
+const validPrefix = (key: string) => (key.startsWith(LEAVE_PREFIX) || key.startsWith(ATTENDANCE_PREFIX) || key.startsWith(PROFILE_PHOTO_PREFIX) || key.startsWith(DOCUMENT_PREFIX)) && !key.includes('..');
 
 files.post('/link', requireAuth, async (c) => {
   const { key } = await c.req.json<{ key?: string }>().catch(() => ({} as { key?: string }));
@@ -32,6 +33,17 @@ files.post('/link', requireAuth, async (c) => {
   if (key.startsWith(PROFILE_PHOTO_PREFIX)) {
     const [owner] = await db.select({ id: employees.id }).from(employees).where(eq(employees.photo_key, key)).limit(1);
     if (!owner) return c.json({ error: 'Berkas tidak ditemukan' }, 404);
+    const signed = await signFileLink(c.env.URL_SIGNING_SECRET, key);
+    return c.json({ url: `/api/files/get?key=${encodeURIComponent(key)}&exp=${signed.exp}&sig=${signed.sig}`, expiresAt: signed.exp });
+  }
+
+  // Dokumen karyawan: hanya pemilik dan admin; akses admin ke dokumen orang lain dicatat.
+  if (key.startsWith(DOCUMENT_PREFIX)) {
+    const [doc] = await db.select({ owner: employee_documents.employee_id }).from(employee_documents).where(eq(employee_documents.file_key, key)).limit(1);
+    if (!doc || !(doc.owner === meId || isAdmin(me.role))) return c.json({ error: 'Berkas tidak ditemukan' }, 404);
+    if (doc.owner !== meId) {
+      await writeAudit(db, { actorId: me.id, actorName: me.name, action: 'file.access', targetType: 'employee_document', targetId: key, targetLabel: doc.owner, ip: c.req.header('CF-Connecting-IP') });
+    }
     const signed = await signFileLink(c.env.URL_SIGNING_SECRET, key);
     return c.json({ url: `/api/files/get?key=${encodeURIComponent(key)}&exp=${signed.exp}&sig=${signed.sig}`, expiresAt: signed.exp });
   }

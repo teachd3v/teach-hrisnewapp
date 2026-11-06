@@ -47,6 +47,7 @@ export const AUDIT_ACTIONS: Record<string, { label: string; attention?: boolean 
   'profile.view': { label: 'Buka profil karyawan lain', attention: true },
   'profile.updated': { label: 'Ubah profil' },
   'profile.photo': { label: 'Ubah foto profil' },
+  'profile.document': { label: 'Ubah dokumen karyawan' },
   'file.access': { label: 'Buka berkas milik orang lain', attention: true },
   'report.range': { label: 'Ambil rekap presensi & cuti', attention: true },
 };

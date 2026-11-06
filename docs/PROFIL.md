@@ -1,6 +1,6 @@
 # Profil karyawan
 
-Diputuskan 2026-11-06 (lihat `docs/DECISIONS.md`). Dibangun bertahap; **dokumen belum ada** (menyusul).
+Diputuskan 2026-11-06 (lihat `docs/DECISIONS.md`). Dibangun bertahap; semua langkah rencana sudah ada (dokumen ditambahkan 2026-11-06, migrasi 0014).
 
 ## Yang ada
 Akun > **Profil saya** (semua karyawan) dan, untuk HC/super admin, Karyawan > (karyawan) > **Lihat profil lengkap**. Isinya:
@@ -10,6 +10,7 @@ Akun > **Profil saya** (semua karyawan) dan, untuk HC/super admin, Karyawan > (k
 - **Keluarga**: kontak darurat dan anggota keluarga.
 - **Edukasi**: pendidikan formal, non-formal, pelatihan, keterampilan, bahasa.
 - **Aktivitas**: pengalaman kerja, organisasi, kepanitiaan, kegiatan sosial, prestasi, minat karier, dan riwayat promosi (hanya HC yang mengisi; karyawan melihat saja).
+- **Dokumen**: daftar dan unggah (lihat bagian Dokumen di bawah).
 - Keterangan penggunaan data ditampilkan sampai karyawan menekan "Saya mengerti" (`employees.profile_consented_at`).
 
 ## Aturan akses (ditegakkan server, `api/src/routes/profile.ts`)
@@ -21,6 +22,13 @@ Akun > **Profil saya** (semua karyawan) dan, untuk HC/super admin, Karyawan > (k
 - Nama dan email tetap hanya diubah HC (menu Karyawan), bukan lewat profil.
 - Foto profil terlihat oleh semua pengguna login lewat tautan bertanda tangan 5 menit; hanya berkas yang benar-benar menjadi foto seorang karyawan yang bisa ditautkan.
 - Batas 50 butir per bagian per karyawan.
+
+## Dokumen
+- Jenis: KTP, Kartu Keluarga, NPWP, Ijazah, Sertifikat, Lainnya (karyawan atau HC yang mengunggah) serta **Kontrak kerja** dan **Surat keputusan (SK)** (**hanya HC** yang mengunggah; karyawan melihat saja, ditandai "Diunggah HC").
+- PDF/JPG/PNG/WEBP, maks. **5 MB** per berkas (tipe dicek dari isi berkas, bukan dari nama atau ekstensi), maks. **30 dokumen** per karyawan. Judul opsional (bawaan: nama jenis); nama berkas asli tidak disimpan.
+- Disimpan di R2 `employee_documents/{id karyawan}/{id dokumen}.{ekstensi}` dan **hanya dibuka lewat tautan bertanda tangan 5 menit** (`POST /api/files/link`) oleh pemilik, HC, dan super admin; atasan langsung dan karyawan lain mendapat 404. Pembukaan oleh HC/super admin atas dokumen orang lain dicatat di audit (`file.access`, target `employee_document`); pemilik membuka dokumen sendiri tanpa catatan.
+- Hapus: pemilik hanya dapat menghapus dokumen yang ia unggah sendiri; dokumen unggahan HC hanya dapat dihapus HC. Berkas R2 ikut dihapus.
+- Tabel `employee_documents` (migrasi 0014): kategori, judul, kunci R2, tipe, ukuran, pengunggah, waktu.
 
 ## Data
 - Kolom personal ada di `employees` (migrasi 0013). Semua daftar berulang di **satu tabel** `profile_entries` (`section` + `data` JSON + urutan). Definisi bagian, kolom, pilihan, dan validasi ada di `shared/src/profile.ts` (dipakai server untuk memvalidasi dan klien untuk membangun form generik); menambah bagian cukup menambah definisi.
@@ -37,14 +45,16 @@ Akun > **Profil saya** (semua karyawan) dan, untuk HC/super admin, Karyawan > (k
 | `PATCH /entries/:entryId` `{data}`, `DELETE /entries/:entryId` | ubah/hapus butir |
 | `POST /:id/photo` (multipart `file`), `DELETE /:id/photo` | foto profil |
 | `POST /me/consent` | tandai keterangan penggunaan data sudah dibaca |
+| `GET /:id/documents`, `POST /:id/documents` (multipart `file`, `category`, `title`), `DELETE /documents/:docId` | dokumen karyawan |
 
 ## Audit
 - `profile.view` (perlu perhatian): membuka profil **orang lain**; satu catatan per pasangan pelaku-tujuan per 10 menit agar muat ulang layar tidak membanjiri log.
 - `profile.updated`: yang dicatat hanya **nama kolom** yang berubah atau bagian dan jenis operasinya (`add`/`edit`/`delete`); nilai (NIK, rekening, dst.) tidak masuk log.
 - `profile.photo`: ganti atau hapus foto.
+- `profile.document`: tambah atau hapus dokumen (hanya jenis dan operasi, tanpa judul).
 
 ## Belum ada
-- **Dokumen** (KTP, KK, NPWP, ijazah, sertifikat, kontrak): rencananya R2 + tautan bertanda tangan + audit akses; PDF/JPG/PNG/WEBP maks. 5 MB; karyawan dan HC dapat mengunggah.
 - Ekspor CV (PDF/Excel).
 - Tampilan foto di daftar lain (persetujuan, presensi HC, dll.): saat ini hanya di Akun dan halaman profil.
+- Pratinjau dokumen di dalam aplikasi: dokumen dibuka di tab baru lewat tautan bertanda tangan.
 - Data dari project lama tidak diimpor (mulai kosong).
