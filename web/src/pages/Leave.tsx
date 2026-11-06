@@ -48,8 +48,8 @@ export default function Leave() {
       )}
 
       <div className="grid grid-cols-2 gap-3">
-        <Link to="/cuti/ajukan"><Button className="w-full"><CalendarPlus className="size-5" aria-hidden="true" />Ajukan cuti</Button></Link>
-        <Link to="/cuti/overtime"><Button className="w-full" variant="secondary"><Clock className="size-5" aria-hidden="true" />Ajukan overtime</Button></Link>
+        <Link to="/cuti/ajukan"><Button className="w-full !gap-1.5 !px-2 !text-sm whitespace-nowrap"><CalendarPlus className="size-4 shrink-0" aria-hidden="true" />Ajukan cuti</Button></Link>
+        <Link to="/cuti/overtime"><Button className="w-full !gap-1.5 !px-2 !text-sm whitespace-nowrap" variant="secondary"><Clock className="size-4 shrink-0" aria-hidden="true" />Ajukan overtime</Button></Link>
       </div>
 
       {meta.data?.isManager && (
