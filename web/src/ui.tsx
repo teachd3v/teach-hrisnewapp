@@ -71,10 +71,11 @@ export const Chip = ({ tone = 'neutral', children }: { tone?: keyof typeof CHIP;
 
 export function Segmented<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: { value: T; label: string }[] }) {
   return (
-    <div role="tablist" className="grid auto-cols-fr grid-flow-col gap-1 rounded-xl bg-sub p-1">
+    // Kolom sama lebar (minmax(0,1fr)), bukan menyesuaikan teks terpanjang; dengan 4 tab atau lebih, padding dan huruf dirapatkan agar muat di layar sempit.
+    <div role="tablist" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }} className="grid gap-1 rounded-xl bg-sub p-1">
       {options.map((o) => (
         <button key={o.value} role="tab" aria-selected={value === o.value} onClick={() => onChange(o.value)}
-          className={cx('min-h-11 rounded-lg px-3 text-sm font-medium transition-colors', value === o.value ? 'bg-surface text-fg shadow-sm' : 'text-muted active:bg-line')}>
+          className={cx('min-h-11 min-w-0 rounded-lg font-medium whitespace-nowrap transition-colors', options.length > 3 ? 'px-0.5 text-[13px]' : 'px-3 text-sm', value === o.value ? 'bg-surface text-fg shadow-sm' : 'text-muted active:bg-line')}>
           {o.label}
         </button>
       ))}
