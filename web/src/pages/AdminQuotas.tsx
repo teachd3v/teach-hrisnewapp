@@ -18,7 +18,7 @@ function Row({ b, employeeId, year }: { b: LeaveBalance; employeeId: string; yea
   return (
     <Card className="flex flex-col gap-3">
       <div>
-        <p className="font-semibold">{b.type}</p>
+        <p className="font-semibold">{b.label}</p>
         <p className="text-sm text-muted">{b.quota === null ? 'Tanpa batas' : `${b.quota} hari (${b.explicit ? 'khusus' : 'bawaan'})`} · terpakai {b.used} · menunggu {b.pending}{b.jointDeducted ? ` · cuti bersama ${b.jointDeducted}` : ''}</p>
       </div>
       <Field label="Jatah khusus (hari)" hint="Kosongkan untuk memakai bawaan. Kelipatan 0,5." error={invalid ? 'Isi 0-366, kelipatan 0,5' : null}>

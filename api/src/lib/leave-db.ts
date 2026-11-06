@@ -11,6 +11,7 @@ import {
   type NotifyInput,
 } from '@hris/shared';
 import { employees, holidays, leave_quotas, leave_requests, notifications } from '../db/schema';
+import { loadLeaveTypes } from './leave-types';
 import { loadJointLeaveSettings } from './settings';
 
 export type Db = DrizzleD1Database;
@@ -32,8 +33,13 @@ async function jointDeductionOf(db: Db, employeeId: string, year: number): Promi
   return jointLeaveDeduction(joint, emp.join_date, year);
 }
 
+/**
+ * Saldo per jenis cuti. Jenis nonaktif hanya ikut bila masih punya pemakaian/potongan tahun itu (agar saldonya tetap terlihat);
+ * jenis nonaktif yang tidak dipakai disembunyikan.
+ */
 export async function getBalances(db: Db, employeeId: string, year: number): Promise<LeaveBalance[]> {
-  const [jointDeducted, quotaRows, usage] = await Promise.all([
+  const [types, jointDeducted, quotaRows, usage] = await Promise.all([
+    loadLeaveTypes(db),
     jointDeductionOf(db, employeeId, year),
     db.select().from(leave_quotas).where(and(eq(leave_quotas.employee_id, employeeId), eq(leave_quotas.year, year))),
     db
@@ -51,11 +57,14 @@ export async function getBalances(db: Db, employeeId: string, year: number): Pro
       ))
       .groupBy(leave_requests.leave_type, leave_requests.status),
   ]);
-  return computeBalances(
+  const all = computeBalances(
+    types,
     new Map(quotaRows.map((r) => [r.leave_type, r.quota])),
     usage.map((u) => ({ type: u.type, status: u.status as LeaveStatus, days: Number(u.days) })),
     jointDeducted,
   );
+  const active = new Set(types.filter((t) => t.active).map((t) => t.key));
+  return all.filter((b) => active.has(b.type) || b.used + b.pending + b.jointDeducted > 0);
 }
 
 /** Id semua admin aktif (termasuk super admin). */

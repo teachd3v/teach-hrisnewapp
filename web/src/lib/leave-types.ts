@@ -1,4 +1,12 @@
-import type { LeaveBalance, LeaveStatus } from '@hris/shared';
+import { useQuery } from '@tanstack/react-query';
+import type { LeaveBalance, LeaveStatus, LeaveTypeMeta } from '@hris/shared';
+import { api } from './api';
+
+/** Daftar jenis cuti untuk menampilkan nama (semua pengguna). Admin menerima rincian lengkap + `usedBy`; karyawan hanya key/label/active. */
+export type LeaveTypeRow = Partial<LeaveTypeMeta> & { key: string; label: string; active: boolean; usedBy?: number };
+export const useLeaveTypes = () => useQuery({ queryKey: ['leave-types'], queryFn: () => api<LeaveTypeRow[]>('/leave-types'), staleTime: 60_000 });
+/** Nama tampilan sebuah jenis cuti dari pengenalnya; bila belum termuat/tidak ada, tampilkan pengenalnya. */
+export const leaveLabel = (types: LeaveTypeRow[] | undefined, key: string) => types?.find((t) => t.key === key)?.label ?? key;
 
 export interface LeaveItem {
   id: string;
@@ -24,6 +32,8 @@ export interface LeaveItem {
 
 export interface LeaveMeta {
   gender: string | null;
+  /** jenis cuti aktif yang boleh diajukan, berurutan */
+  types: LeaveTypeMeta[];
   managerName: string | null;
   canSubmit: boolean;
   isManager: boolean;

@@ -1,11 +1,12 @@
 import { Hono, type Context } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
 import { and, asc, between, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
-import { LEAVE_TYPES, distanceToOffice, isAdmin, isWeekendDate, lateMinutes, validLatLng, wibDate, type AttendanceFlags } from '@hris/shared';
+import { LEAVE_KEYS, distanceToOffice, isAdmin, isWeekendDate, lateMinutes, validLatLng, wibDate, type AttendanceFlags } from '@hris/shared';
 import type { AppEnv } from '../env';
 import { attendances, audit_log, employees, holidays, leave_requests } from '../db/schema';
 import { auditRow } from '../lib/audit';
 import type { Db } from '../lib/leave-db';
+import { labelMap, loadLeaveTypes, timeBasedKeys } from '../lib/leave-types';
 import { MB, validateUpload } from '../lib/upload';
 import { requireAuth } from '../middleware/auth';
 
@@ -51,13 +52,16 @@ async function contexts(db: Db, pairs: { employee_id: string; date: string }[]):
       .where(and(eq(leave_requests.status, 'approved'), inArray(leave_requests.employee_id, ids.slice(i, i + 80)), lte(leave_requests.start_date, maxD), gte(leave_requests.end_date, minD))));
   }
   const hol = new Map((await db.select().from(holidays).where(between(holidays.date, minD, maxD))).map((h) => [h.date, h.name]));
-  const timeBased = new Set(LEAVE_TYPES.filter((t) => t.timeBased).map((t) => t.key as string));
+  const types = await loadLeaveTypes(db);
+  const timeBased = timeBasedKeys(types);
+  const labels = labelMap(types);
 
   for (const p of pairs) {
     const mine = leaves.filter((l) => l.employee_id === p.employee_id && l.start_date <= p.date && l.end_date >= p.date);
+    const full = mine.find((l) => !timeBased.has(l.leave_type))?.leave_type;
     out.set(`${p.employee_id}|${p.date}`, {
-      lateExcused: mine.some((l) => l.leave_type === 'Izin Terlambat'),
-      leaveType: mine.find((l) => !timeBased.has(l.leave_type))?.leave_type ?? null,
+      lateExcused: mine.some((l) => l.leave_type === LEAVE_KEYS.lateIn),
+      leaveType: full ? labels.get(full) ?? full : null,
       dayOff: hol.get(p.date) ?? (isWeekendDate(p.date) ? 'Akhir pekan' : null),
     });
   }

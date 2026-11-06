@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarOff, CalendarPlus, CheckCircle2, ChevronRight, ClipboardCheck } from 'lucide-react';
 import { PENDING_STATUSES } from '@hris/shared';
 import { api } from '../lib/api';
-import { STATUS_LABEL, STATUS_TONE, fmtRange, type LeaveItem, type LeaveMeta } from '../lib/leave-types';
+import { STATUS_LABEL, STATUS_TONE, fmtRange, leaveLabel, useLeaveTypes, type LeaveItem, type LeaveMeta } from '../lib/leave-types';
 import AttachmentLink from '../components/AttachmentLink';
 import { Button, Card, Chip, Empty, ErrorNote, Sheet, Spinner } from '../ui';
 import { useBadges } from '../layouts';
@@ -16,6 +16,7 @@ export default function Leave() {
   const year = new Date().getFullYear();
   const meta = useQuery({ queryKey: ['leave-meta', year], queryFn: () => api<LeaveMeta>(`/leave/meta?year=${year}`) });
   const mine = useQuery({ queryKey: ['leave-mine'], queryFn: () => api<LeaveItem[]>('/leave/mine') });
+  const typeList = useLeaveTypes().data;
   const { approvals } = useBadges();
   const [toCancel, setToCancel] = useState<LeaveItem | null>(null);
   const cancel = useMutation({
@@ -33,7 +34,7 @@ export default function Leave() {
         <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1">
           {balances.map((b) => (
             <Card key={b.type} className="min-w-40 snap-start">
-              <p className="text-sm text-muted">{b.type}</p>
+              <p className="text-sm text-muted">{b.label}</p>
               <p className="text-2xl font-bold">{b.remaining}<span className="text-sm font-medium text-muted"> hari</span></p>
               <p className="text-xs text-muted">terpakai {b.used}{b.pending ? ` · menunggu ${b.pending}` : ''}{b.jointDeducted ? ` · cuti bersama ${b.jointDeducted}` : ''} / {b.quota}</p>
             </Card>
@@ -61,7 +62,7 @@ export default function Leave() {
           <li key={r.id}>
             <Card>
               <div className="flex items-start justify-between gap-2">
-                <p className="font-semibold">{r.leave_type}</p>
+                <p className="font-semibold">{leaveLabel(typeList, r.leave_type)}</p>
                 <Chip tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Chip>
               </div>
               <p className="mt-1 text-sm text-muted">{fmtRange(r)} · {r.total_days} hari</p>
@@ -76,7 +77,7 @@ export default function Leave() {
       </ul>
 
       <Sheet open={Boolean(toCancel)} onClose={() => setToCancel(null)} title="Batalkan pengajuan?">
-        {toCancel && <p className="mb-4 text-muted">{toCancel.leave_type} · {fmtRange(toCancel)}. Pengajuan yang dibatalkan tidak dapat dikembalikan.</p>}
+        {toCancel && <p className="mb-4 text-muted">{leaveLabel(typeList, toCancel.leave_type)} · {fmtRange(toCancel)}. Pengajuan yang dibatalkan tidak dapat dikembalikan.</p>}
         <ErrorNote error={cancel.error} />
         <div className="mt-4 grid grid-cols-2 gap-3">
           <Button variant="secondary" onClick={() => setToCancel(null)}>Kembali</Button>

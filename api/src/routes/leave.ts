@@ -3,7 +3,6 @@ import { drizzle } from 'drizzle-orm/d1';
 import { and, asc, desc, eq, gte, inArray, isNull, lte, or } from 'drizzle-orm';
 import {
   ACTIVE_STATUSES,
-  LEAVE_TYPES,
   PENDING_STATUSES,
   calculateLeaveDuration,
   isAdmin,
@@ -13,13 +12,13 @@ import {
   planOverride,
   planSubmitted,
   validateLeaveDates,
-  type LeaveCategory,
   type LeaveStatus,
 } from '@hris/shared';
 import type { AppEnv } from '../env';
 import { audit_log, employees, holidays, leave_requests } from '../db/schema';
 import { auditRow } from '../lib/audit';
 import { adminRecipientIds, getBalances, loadHolidayDates, notifyStmts, resolveStmt, type Db } from '../lib/leave-db';
+import { labelMap, loadLeaveTypes } from '../lib/leave-types';
 import { requireAuth } from '../middleware/auth';
 import { pushNotify } from '../lib/push';
 import { DOCUMENT_KINDS, MB, validateUpload } from '../lib/upload';
@@ -44,7 +43,8 @@ async function loadActor(db: Db, id: string): Promise<Employee | null> {
 
 const one = async <T>(p: Promise<T[]>) => (await p)[0];
 
-const brief = (r: LeaveRow) => leaveBrief(r.leave_type, r.start_date, r.end_date, r.total_days);
+/** Ringkasan untuk notifikasi; memakai nama tampilan jenis cuti (bukan pengenalnya). */
+const brief = (r: LeaveRow, labels: ReadonlyMap<string, string>) => leaveBrief(labels.get(r.leave_type) ?? r.leave_type, r.start_date, r.end_date, r.total_days);
 
 /** Jalankan beberapa pernyataan dalam satu transaksi D1 (db.batch menuntut tuple tak kosong). */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -60,14 +60,16 @@ leave.get('/meta', async (c) => {
   const year = Number(c.req.query('year')) || new Date().getUTCFullYear();
   if (!Number.isInteger(year) || year < 2020 || year > 2100) return c.json({ error: 'Tahun tidak valid' }, 400);
 
-  const [balances, manager, hols, reports] = await Promise.all([
+  const [balances, manager, hols, reports, types] = await Promise.all([
     getBalances(db, me.id, year),
     me.manager_id ? one(db.select({ name: employees.name }).from(employees).where(eq(employees.id, me.manager_id)).limit(1)) : null,
     db.select().from(holidays).where(and(gte(holidays.date, `${year - 1}-01-01`), lte(holidays.date, `${year + 1}-12-31`))).orderBy(asc(holidays.date)),
     one(db.select({ id: employees.id }).from(employees).where(and(eq(employees.manager_id, me.id), eq(employees.active, true))).limit(1)),
+    loadLeaveTypes(db),
   ]);
   return c.json({
     gender: me.gender,
+    types: types.filter((t) => t.active),
     managerName: manager?.name ?? null,
     canSubmit: Boolean(me.manager_id) || me.is_top_leader,
     isManager: Boolean(reports),
@@ -93,7 +95,7 @@ leave.post('/', async (c) => {
 
   const b = await c.req.json<Record<string, unknown>>().catch(() => ({} as Record<string, unknown>));
   const str = (k: string) => (typeof b[k] === 'string' ? (b[k] as string).trim() : '');
-  const type = str('leaveType') as LeaveCategory;
+  const type = str('leaveType');
   const start = str('startDate');
   const end = str('endDate');
   const reason = str('reason');
@@ -103,17 +105,17 @@ leave.post('/', async (c) => {
   if (!me.manager_id && !me.is_top_leader) {
     return c.json({ error: 'Atasan langsung Anda belum ditetapkan. Hubungi HC/Admin sebelum mengajukan cuti.' }, 400);
   }
-  const meta = LEAVE_TYPES.find((t) => t.key === type);
-  if (!meta) return c.json({ error: 'Jenis cuti tidak valid' }, 400);
+  const meta = (await loadLeaveTypes(db)).find((t) => t.key === type);
+  if (!meta || !meta.active) return c.json({ error: 'Jenis cuti tidak valid' }, 400);
 
   const holidaySet = await loadHolidayDates(db, start, end);
-  const dateError = validateLeaveDates(type, start, end, holidaySet);
+  const dateError = validateLeaveDates(meta, start, end, holidaySet);
   if (dateError) return c.json({ error: dateError }, 400);
   if (!reason) return c.json({ error: 'Alasan wajib diisi' }, 400);
   if (reason.length > REASON_MAX) return c.json({ error: `Alasan maksimal ${REASON_MAX} karakter` }, 400);
 
   // Durasi dihitung server, bukan dari klien
-  const days = calculateLeaveDuration(type, start, end, holidaySet);
+  const days = calculateLeaveDuration(meta.timeBased, start, end, holidaySet);
   if (days > 366) return c.json({ error: 'Durasi pengajuan terlalu panjang' }, 400);
 
   if (meta.gender && me.gender && me.gender !== meta.gender) {
@@ -153,7 +155,7 @@ leave.post('/', async (c) => {
     ? await one(db.select({ name: employees.name }).from(employees).where(eq(employees.id, me.manager_id)).limit(1))
     : null;
   const notes = planSubmitted({
-    requestId: id, requesterId: me.id, requesterName: me.name, brief: leaveBrief(type, start, end, days),
+    requestId: id, requesterId: me.id, requesterName: me.name, brief: leaveBrief(meta.label, start, end, days),
     managerId: me.manager_id, managerName: manager?.name ?? null, adminIds: await adminRecipientIds(db),
   });
   await batch(db, [
@@ -163,7 +165,7 @@ leave.post('/', async (c) => {
       total_days: days, reason, attachment_key: attachmentKey, status: me.manager_id ? 'pending_manager' : 'pending_hc',
       created_at: now, updated_at: now,
     }),
-    db.insert(audit_log).values(auditRow({ actorId: me.id, actorName: me.name, action: 'leave.submitted', targetType: 'leave_request', targetId: id, details: { type, start, end, days } })),
+    db.insert(audit_log).values(auditRow({ actorId: me.id, actorName: me.name, action: 'leave.submitted', targetType: 'leave_request', targetId: id, details: { type: meta.label, start, end, days } })),
     ...notifyStmts(db, notes),
   ]);
   pushNotify(c, notes);
@@ -279,14 +281,15 @@ leave.post('/:id/manager-decision', async (c) => {
   }).where(and(eq(leave_requests.id, id), eq(leave_requests.status, 'pending_manager'))).returning({ id: leave_requests.id });
   if (!claimed.length) return c.json({ error: 'Pengajuan ini sudah diproses' }, 409);
 
+  const labels = labelMap(await loadLeaveTypes(db));
   const notes_ = planManagerDecision({
-    requestId: id, requesterId: requester.id, requesterName: requester.name, brief: brief(req),
+    requestId: id, requesterId: requester.id, requesterName: requester.name, brief: brief(req, labels),
     actorId: me.id, approved: approve, adminIds: await adminRecipientIds(db),
   });
   await batch(db, [
     db.insert(audit_log).values(auditRow({
       actorId: me.id, actorName: me.name, action: 'leave.manager_decision', targetType: 'leave_request', targetId: id, targetLabel: requester.name,
-      details: { decision: approve ? 'setuju' : 'tolak', type: req.leave_type, start: req.start_date, end: req.end_date, days: req.total_days, notes: notes || undefined },
+      details: { decision: approve ? 'setuju' : 'tolak', type: labels.get(req.leave_type) ?? req.leave_type, start: req.start_date, end: req.end_date, days: req.total_days, notes: notes || undefined },
     })),
     resolveStmt(db, id, { exceptEmployeeId: requester.id }),
     ...notifyStmts(db, notes_),
@@ -327,7 +330,7 @@ leave.get('/admin', async (c) => {
 async function quotaError(db: Db, req: LeaveRow): Promise<string | null> {
   const b = (await getBalances(db, req.employee_id, Number(req.start_date.slice(0, 4)))).find((x) => x.type === req.leave_type);
   return b && b.remaining !== null && b.remaining < 0
-    ? `Kuota ${req.leave_type} karyawan tidak mencukupi. Ubah jatah di menu Kuota Cuti atau tolak pengajuan.`
+    ? `Kuota ${b.label} karyawan tidak mencukupi. Ubah jatah di menu Kuota Cuti atau tolak pengajuan.`
     : null;
 }
 
@@ -364,7 +367,8 @@ async function hcDecide(c: import('hono').Context<AppEnv>, mode: 'normal' | 'ove
   }).where(and(eq(leave_requests.id, id), eq(leave_requests.status, expected))).returning({ id: leave_requests.id });
   if (!claimed.length) return c.json({ error: 'Pengajuan ini sudah diproses' }, 409);
 
-  const base = { requestId: id, requesterId: requester.id, requesterName: requester.name, brief: brief(req), approved: approve };
+  const labels = labelMap(await loadLeaveTypes(db));
+  const base = { requestId: id, requesterId: requester.id, requesterName: requester.name, brief: brief(req, labels), approved: approve };
   const notes = mode === 'override'
     ? planOverride({ ...base, actorId: me.id, managerId: requester.manager_id })
     : planHcDecision(base);
@@ -373,7 +377,7 @@ async function hcDecide(c: import('hono').Context<AppEnv>, mode: 'normal' | 'ove
       actorId: me.id, actorName: me.name, action: mode === 'override' ? 'leave.hc_override' : 'leave.hc_decision',
       targetType: 'leave_request', targetId: id, targetLabel: requester.name,
       details: {
-        decision: approve ? 'setuju' : 'tolak', type: req.leave_type, start: req.start_date, end: req.end_date, days: req.total_days,
+        decision: approve ? 'setuju' : 'tolak', type: labels.get(req.leave_type) ?? req.leave_type, start: req.start_date, end: req.end_date, days: req.total_days,
         ...(mode === 'override' ? { reason: text, manager_id: requester.manager_id ?? undefined } : { notes: text || undefined }),
       },
     })),

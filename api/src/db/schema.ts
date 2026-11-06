@@ -211,6 +211,22 @@ export const attendance_corrections = sqliteTable('attendance_corrections', {
   statusIdx: index('attendance_corrections_status_idx').on(t.status),
 }));
 
+// Jenis cuti yang dapat diajukan karyawan, dikelola super admin (Data master > Cuti). `key` = pengenal tetap yang disimpan di
+// leave_requests.leave_type dan leave_quotas.leave_type (jenis bawaan memakai nama lama, jenis baru memakai UUID); `label` dapat diubah.
+export const leave_types = sqliteTable('leave_types', {
+  key: text('key').primaryKey(),
+  label: text('label').notNull(),
+  description: text('description').notNull().default(''),
+  default_quota: real('default_quota'), // hari per tahun; null = tanpa batas
+  requires_attachment: integer('requires_attachment', { mode: 'boolean' }).notNull().default(false),
+  time_based: integer('time_based', { mode: 'boolean' }).notNull().default(false), // izin per jam; tidak dapat diubah setelah dibuat
+  gender: text('gender', { enum: ['Laki-laki', 'Perempuan'] }), // null = semua
+  sort_order: integer('sort_order').notNull().default(0),
+  active: integer('active', { mode: 'boolean' }).notNull().default(true),
+  system: integer('system', { mode: 'boolean' }).notNull().default(false), // bawaan sistem: tidak dapat dihapus
+  created_at: text('created_at').notNull(),
+});
+
 // Pengaturan aplikasi (kunci-nilai) yang diubah super admin, mis. kebijakan cuti bersama. Nilai berupa teks; tafsirannya ada di shared/src/settings.ts.
 export const app_settings = sqliteTable('app_settings', {
   key: text('key').primaryKey(),

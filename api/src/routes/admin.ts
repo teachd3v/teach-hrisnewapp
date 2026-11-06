@@ -2,11 +2,11 @@ import { Hono, type Context } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
 import { and, asc, eq, gte, isNull, lte, ne, sql } from 'drizzle-orm';
 import {
-  LEAVE_TYPES, SETTING_KEYS, isAdmin, isJointWorkday, jointLeaveDeduction, parseIsoDate,
+  SETTING_KEYS, isAdmin, isJointWorkday, isValidQuota, jointLeaveDeduction, parseIsoDate,
   planJointHolidayChange, planJointSettingChange, type Role,
 } from '@hris/shared';
 import type { AppEnv } from '../env';
-import { app_settings, audit_log, credentials, employees, holidays, leave_quotas, master_options, refresh_tokens } from '../db/schema';
+import { app_settings, audit_log, credentials, employees, holidays, leave_quotas, leave_types, master_options, refresh_tokens } from '../db/schema';
 import { auditRow } from '../lib/audit';
 import { getBalances, notifyStmts, type Db } from '../lib/leave-db';
 import { jointLeaveEmployees, loadJointLeaveSettings } from '../lib/settings';
@@ -263,8 +263,9 @@ admin.put('/quotas', async (c) => {
   if (!me) return c.json({ error: 'Tidak diizinkan' }, 403);
   const b = await c.req.json<{ employeeId?: string; leaveType?: string; year?: number; quota?: number | null }>().catch(() => ({} as never));
   const { employeeId, leaveType, year, quota } = b;
-  if (!employeeId || !LEAVE_TYPES.some((t) => t.key === leaveType) || !Number.isInteger(year) || year! < 2020 || year! > 2100) return c.json({ error: 'Data tidak valid' }, 400);
-  if (quota !== null && (typeof quota !== 'number' || !Number.isFinite(quota) || quota < 0 || quota > 366 || quota * 2 !== Math.round(quota * 2))) {
+  const typeRow = leaveType ? await one(db.select({ label: leave_types.label }).from(leave_types).where(eq(leave_types.key, leaveType)).limit(1)) : null;
+  if (!employeeId || !typeRow || !Number.isInteger(year) || year! < 2020 || year! > 2100) return c.json({ error: 'Data tidak valid' }, 400);
+  if (quota !== null && !isValidQuota(quota)) {
     return c.json({ error: 'Jatah harus 0-366 hari (kelipatan 0,5) atau kosong untuk bawaan' }, 400);
   }
   const target = await one(db.select({ name: employees.name }).from(employees).where(eq(employees.id, employeeId)).limit(1));
@@ -274,7 +275,7 @@ admin.put('/quotas', async (c) => {
     quota === null
       ? db.delete(leave_quotas).where(and(eq(leave_quotas.employee_id, employeeId), eq(leave_quotas.leave_type, leaveType!), eq(leave_quotas.year, year!)))
       : db.insert(leave_quotas).values({ employee_id: employeeId, leave_type: leaveType!, year: year!, quota }).onConflictDoUpdate({ target: [leave_quotas.employee_id, leave_quotas.leave_type, leave_quotas.year], set: { quota } }),
-    db.insert(audit_log).values(auditRow({ actorId: me.id, actorName: me.name, action: 'leave.quota_set', targetType: 'employee', targetId: employeeId, targetLabel: target.name, ip: ip(c), details: { leaveType, year, quota } })),
+    db.insert(audit_log).values(auditRow({ actorId: me.id, actorName: me.name, action: 'leave.quota_set', targetType: 'employee', targetId: employeeId, targetLabel: target.name, ip: ip(c), details: { leaveType: typeRow.label, year, quota } })),
   ]);
   return c.json({ ok: true });
 });

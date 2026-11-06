@@ -4,12 +4,28 @@ import { ArrowDown, ArrowUp, ListX, Plus } from 'lucide-react';
 import { api } from '../lib/api';
 import { MASTER_LABEL, MASTER_LABEL_LONG, optionsOf, useMaster, type MasterKind, type MasterOption } from '../lib/master';
 import { Button, Card, Chip, Empty, ErrorNote, Field, Input, Segmented, Sheet, Spinner } from '../ui';
+import AdminLeaveTypes from './AdminLeaveTypes';
 
-/** Kelola departemen, level, dan status kepegawaian (hanya super admin). */
+type Tab = MasterKind | 'leave';
+
+/** Kelola departemen, level, status kepegawaian, dan jenis cuti (hanya super admin). */
 export default function AdminMaster() {
+  const [tab, setTab] = useState<Tab>('department');
+  const options = [
+    ...(Object.keys(MASTER_LABEL) as MasterKind[]).map((k) => ({ value: k as Tab, label: MASTER_LABEL[k] })),
+    { value: 'leave' as Tab, label: 'Cuti' },
+  ];
+  return (
+    <div className="flex flex-col gap-4">
+      <Segmented value={tab} onChange={setTab} options={options} />
+      {tab === 'leave' ? <AdminLeaveTypes /> : <MasterList key={tab} kind={tab} />}
+    </div>
+  );
+}
+
+function MasterList({ kind }: { kind: MasterKind }) {
   const qc = useQueryClient();
   const master = useMaster();
-  const [kind, setKind] = useState<MasterKind>('department');
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const [editing, setEditing] = useState<MasterOption | null>(null);
@@ -46,7 +62,6 @@ export default function AdminMaster() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Segmented value={kind} onChange={setKind} options={(Object.keys(MASTER_LABEL) as MasterKind[]).map((k) => ({ value: k, label: MASTER_LABEL[k] }))} />
       <p className="text-sm text-muted">{MASTER_LABEL_LONG[kind]} muncul sebagai pilihan dropdown di form karyawan. Item yang sudah dipakai tidak bisa dihapus, hanya dinonaktifkan.</p>
       {master.isPending && <Spinner />}
       <ErrorNote error={master.error} />

@@ -2,13 +2,13 @@
 // jadi angka di Excel konsisten dengan yang dilihat HC di aplikasi.
 import { and, between, eq, gte, inArray, lte } from 'drizzle-orm';
 import {
-  LEAVE_TYPES, calculateLeaveDuration, isOutsideOffice, isWeekendDate, lateMinutes, wibSecondsOfDay, workDuration,
+  LEAVE_KEYS, calculateLeaveDuration, isOutsideOffice, isWeekendDate, lateMinutes, wibSecondsOfDay, workDuration,
   type AttendanceReport, type ReportDailyRow, type ReportSummaryRow,
 } from '@hris/shared';
 import { attendances, employees, holidays, leave_requests, master_options } from '../db/schema';
 import type { Db } from './leave-db';
+import { loadLeaveTypes, timeBasedKeys } from './leave-types';
 
-const TIME_BASED = new Set<string>(LEAVE_TYPES.filter((t) => t.timeBased).map((t) => t.key));
 const DAY_NAMES = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 const pad = (n: number) => String(n).padStart(2, '0');
 const hhmm = (iso: string) => { const s = wibSecondsOfDay(iso); return `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}`; };
@@ -28,6 +28,7 @@ export async function buildReport(db: Db, first: string, last: string, departmen
   const cutoff = yesterday < last ? yesterday : last;
   const days = datesOf(first, last);
 
+  const TIME_BASED = timeBasedKeys(await loadLeaveTypes(db));
   const [opts, emps, attRows, leaves, hols] = await Promise.all([
     db.select().from(master_options),
     db.select().from(employees),
@@ -60,12 +61,12 @@ export async function buildReport(db: Db, first: string, last: string, departmen
     for (const l of myLeaves) {
       const clipFrom = l.start_date > first ? l.start_date : first;
       const clipTo = l.end_date < last ? l.end_date : last;
-      if (l.leave_type === 'Izin Terlambat') { s.izinLateCount += 1; continue; }
-      if (l.leave_type === 'Izin Pulang Cepat') { s.izinEarlyCount += 1; continue; }
-      const n = calculateLeaveDuration(l.leave_type as never, clipFrom, clipTo, holidaySet);
-      if (l.leave_type === 'Cuti Tahunan') s.leaveAnnual += n;
-      else if (l.leave_type === 'Sakit') s.leaveSick += n;
-      else if (l.leave_type === 'Dinas Luar Kota') s.leaveDuty += n;
+      if (l.leave_type === LEAVE_KEYS.lateIn) { s.izinLateCount += 1; continue; }
+      if (l.leave_type === LEAVE_KEYS.earlyOut) { s.izinEarlyCount += 1; continue; }
+      const n = calculateLeaveDuration(TIME_BASED.has(l.leave_type), clipFrom, clipTo, holidaySet);
+      if (l.leave_type === LEAVE_KEYS.annual) s.leaveAnnual += n;
+      else if (l.leave_type === LEAVE_KEYS.sick) s.leaveSick += n;
+      else if (l.leave_type === LEAVE_KEYS.duty) s.leaveDuty += n;
       else s.leaveOther += n;
     }
 
@@ -76,7 +77,7 @@ export async function buildReport(db: Db, first: string, last: string, departmen
       const workday = !weekend && !hol;
       const joined = !e.join_date || e.join_date <= date;
       const fullLeave = myLeaves.find((l) => !TIME_BASED.has(l.leave_type) && l.start_date <= date && l.end_date >= date);
-      const excused = myLeaves.some((l) => l.leave_type === 'Izin Terlambat' && l.start_date <= date && l.end_date >= date);
+      const excused = myLeaves.some((l) => l.leave_type === LEAVE_KEYS.lateIn && l.start_date <= date && l.end_date >= date);
       const row = att.get(`${e.id}|${date}`);
       const dayNote = hol ? `Libur: ${hol}` : weekend ? 'Akhir pekan' : '';
 

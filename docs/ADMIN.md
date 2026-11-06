@@ -12,6 +12,8 @@ Endpoint di `/api/admin` (peran dibaca ulang dari D1, bukan dari token). Semua p
 | Lihat data master (departemen, level, status) | ya | ya |
 | Kelola data master (tambah, ubah nama, nonaktifkan, urutan, hapus) | tidak | ya |
 | Kuota cuti per karyawan/jenis/tahun (kosong = kembali ke bawaan) | ya | ya |
+| Lihat jenis cuti (`GET /api/leave-types`) | ya (rinci) | ya (rinci); karyawan biasa hanya nama |
+| Kelola jenis cuti: tambah, ubah nama/keterangan/kuota bawaan/lampiran/jenis kelamin, aktif-nonaktif, urutan, hapus (Data master > Cuti) | tidak | ya |
 | Hari libur (tambah/ubah/hapus) | ya | ya |
 | Lihat pengaturan cuti bersama memotong Cuti Tahunan (`GET /api/admin/settings/joint-leave`) | ya | ya |
 | Ubah pengaturan itu: saklar dan status yang dikecualikan (`PUT`; disimpan di `app_settings`, tercatat di audit) | tidak | ya |

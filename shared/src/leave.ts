@@ -1,39 +1,40 @@
 // Aturan cuti yang dipakai bersama oleh klien (form) dan server (validasi).
-export type LeaveCategory =
-  | 'Cuti Tahunan'
-  | 'Cuti Ayah'
-  | 'Cuti Berkabung'
-  | 'Cuti Melahirkan'
-  | 'Cuti Pernikahan'
-  | 'Cuti Unpaid'
-  | 'Sakit'
-  | 'Ganti Hari'
-  | 'Izin Terlambat'
-  | 'Izin Pulang Cepat'
-  | 'Dinas Luar Kota';
+// Jenis cuti dikelola super admin di Data master (tabel leave_types); `key` adalah pengenal tetap yang disimpan di pengajuan dan kuota.
 
-export const LEAVE_TYPES: {
+/** Pengenal tetap sebuah jenis cuti. Jenis bawaan memakai nama lama ('Cuti Tahunan', ...); jenis baru memakai UUID. */
+export type LeaveCategory = string;
+
+export interface LeaveTypeMeta {
   key: LeaveCategory;
+  /** nama yang ditampilkan (dapat diubah) */
   label: string;
-  desc: string;
-  requiresAttachment?: boolean;
-  timeBased?: boolean;
-  gender?: 'Laki-laki' | 'Perempuan';
-}[] = [
-  { key: 'Cuti Tahunan', label: 'Cuti Tahunan', desc: 'Mengurangi jatah cuti tahunan reguler.' },
-  { key: 'Cuti Ayah', label: 'Cuti Ayah', desc: 'Khusus karyawan laki-laki untuk kelahiran anak.', gender: 'Laki-laki' },
-  { key: 'Cuti Berkabung', label: 'Cuti Berkabung', desc: 'Untuk duka cita keluarga inti wafat.' },
-  { key: 'Cuti Melahirkan', label: 'Cuti Melahirkan', desc: 'Khusus karyawan perempuan.', gender: 'Perempuan' },
-  { key: 'Cuti Pernikahan', label: 'Cuti Pernikahan', desc: 'Untuk hari pernikahan karyawan.' },
-  { key: 'Cuti Unpaid', label: 'Cuti Diluar Tanggungan (Unpaid)', desc: 'Tidak memotong kuota tahunan, gaji dipotong.' },
-  { key: 'Sakit', label: 'Izin Sakit', desc: 'Memerlukan surat keterangan dokter.', requiresAttachment: true },
-  { key: 'Ganti Hari', label: 'Ganti Hari', desc: 'Mengambil kompensasi dari masuk di hari libur.' },
-  { key: 'Izin Terlambat', label: 'Izin Keterlambatan masuk', desc: 'Memerlukan detail jam estimasi kehadiran.', timeBased: true },
-  { key: 'Izin Pulang Cepat', label: 'Izin Pulang Cepat', desc: 'Memerlukan detail jam estimasi pulang.', timeBased: true },
-  { key: 'Dinas Luar Kota', label: 'Dinas Luar Kota / SPD', desc: 'Perjalanan dinas resmi luar kota.' },
-];
+  description: string;
+  /** kuota bawaan per tahun; null = tanpa batas */
+  defaultQuota: number | null;
+  requiresAttachment: boolean;
+  /** izin per jam: satu tanggal + jam mulai/selesai, dihitung 1 hari kerja */
+  timeBased: boolean;
+  gender: 'Laki-laki' | 'Perempuan' | null;
+  active: boolean;
+  /** jenis bawaan sistem: tidak dapat dihapus; perilaku tertentu (presensi, laporan, potongan cuti bersama) bergantung padanya */
+  system: boolean;
+  sortOrder: number;
+}
 
-export const LEAVE_TYPE_KEYS = LEAVE_TYPES.map((t) => t.key);
+/** Pengenal jenis bawaan yang perilakunya dipakai di bagian lain (presensi, pengingat, laporan, potongan cuti bersama). */
+export const LEAVE_KEYS = {
+  annual: 'Cuti Tahunan',
+  sick: 'Sakit',
+  duty: 'Dinas Luar Kota',
+  lateIn: 'Izin Terlambat',
+  earlyOut: 'Izin Pulang Cepat',
+} as const;
+
+export const GENDERS = ['Laki-laki', 'Perempuan'] as const;
+
+/** Kuota bawaan/khusus: 0-366 hari, kelipatan 0,5. */
+export const isValidQuota = (q: unknown): q is number =>
+  typeof q === 'number' && Number.isFinite(q) && q >= 0 && q <= 366 && q * 2 === Math.round(q * 2);
 
 export const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -55,13 +56,13 @@ const isoOf = (d: Date) => d.toISOString().slice(0, 10);
 /** Hari non-kerja: Sabtu, Minggu, atau tanggal yang terdaftar sebagai hari libur. */
 const isOffDay = (d: Date, holidays?: HolidayDates) => isWeekend(d) || (holidays?.has(isoOf(d)) ?? false);
 
-/** Durasi dalam hari kerja: Senin-Jumat di luar hari libur. Izin jam-jaman = 1 (satu tanggal kerja). */
-export function calculateLeaveDuration(type: LeaveCategory, start: string, end: string, holidays?: HolidayDates): number {
+/** Durasi dalam hari kerja: Senin-Jumat di luar hari libur. Izin jam-jaman (`timeBased`) = 1 (satu tanggal kerja). */
+export function calculateLeaveDuration(timeBased: boolean, start: string, end: string, holidays?: HolidayDates): number {
   const s = parseIsoDate(start);
   const e = parseIsoDate(end);
   if (!s || !e || s > e) return 0;
 
-  if (type === 'Izin Terlambat' || type === 'Izin Pulang Cepat') {
+  if (timeBased) {
     // Izin per jam: hanya satu tanggal, dan harus hari kerja
     return s.getTime() === e.getTime() && !isOffDay(s, holidays) ? 1 : 0;
   }
@@ -74,20 +75,19 @@ export function calculateLeaveDuration(type: LeaveCategory, start: string, end: 
 }
 
 /** Validasi tanggal pengajuan; mengembalikan pesan error atau null. Dipakai klien dan server. */
-export function validateLeaveDates(type: LeaveCategory, start: string, end: string, holidays?: HolidayDates): string | null {
+export function validateLeaveDates(meta: Pick<LeaveTypeMeta, 'timeBased' | 'label'>, start: string, end: string, holidays?: HolidayDates): string | null {
   const s = parseIsoDate(start);
   const e = parseIsoDate(end);
   if (!s || !e) return 'Format tanggal tidak valid';
   if (e < s) return 'Tanggal akhir harus setelah atau sama dengan tanggal mulai';
 
-  const meta = LEAVE_TYPES.find((t) => t.key === type);
-  if (meta?.timeBased) {
+  if (meta.timeBased) {
     if (start !== end) return `${meta.label} hanya dapat diajukan untuk satu tanggal`;
     if (isWeekend(s)) return `${meta.label} tidak dapat diajukan pada hari Sabtu atau Minggu`;
     if (isOffDay(s, holidays)) return `${meta.label} tidak dapat diajukan pada hari libur`;
     return null;
   }
-  if (calculateLeaveDuration(type, start, end, holidays) <= 0) {
+  if (calculateLeaveDuration(false, start, end, holidays) <= 0) {
     return 'Rentang tanggal hanya berisi Sabtu/Minggu atau hari libur. Pilih tanggal yang mencakup hari kerja';
   }
   return null;

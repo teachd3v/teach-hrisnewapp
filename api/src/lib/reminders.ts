@@ -2,15 +2,15 @@
 // Prinsip: hanya hari kerja; sekali per orang per jenis per hari (reminder_log); hanya yang punya perangkat push dan pengingatnya aktif.
 import { and, eq, gte, inArray, isNotNull, isNull, lte, sql } from 'drizzle-orm';
 import {
-  LEAVE_TYPES, NUDGE_AFTER_HOURS, NUDGE_FROM_SECONDS, NUDGE_UNTIL_SECONDS, REMIND_IN_FROM_SECONDS, REMIND_IN_UNTIL_SECONDS,
+  LEAVE_KEYS, NUDGE_AFTER_HOURS, NUDGE_FROM_SECONDS, NUDGE_UNTIL_SECONDS, REMIND_IN_FROM_SECONDS, REMIND_IN_UNTIL_SECONDS,
   REMIND_OUT_AFTER_HOURS, REMIND_OUT_UNTIL_SECONDS, isWeekendDate, wibDate, wibSecondsOfDay, type ReminderKind,
 } from '@hris/shared';
 import type { Bindings } from '../env';
 import { attendance_corrections, attendances, employees, holidays, leave_requests, push_devices, reminder_log } from '../db/schema';
 import type { Db } from './leave-db';
+import { loadLeaveTypes, timeBasedKeys } from './leave-types';
 import { sendPushToEmployees, vapidConfig, type PushMessage } from './push';
 
-const TIME_BASED = new Set<string>(LEAVE_TYPES.filter((t) => t.timeBased).map((t) => t.key));
 /** Penerima per panggilan: menjaga jumlah permintaan keluar (push) di bawah batas Workers; sisanya dikirim pada panggilan berikutnya. */
 const BATCH = 20;
 
@@ -30,6 +30,7 @@ export async function planReminders(db: Db, now: Date): Promise<Plan[]> {
     db.select({ employee_id: leave_requests.employee_id, leave_type: leave_requests.leave_type }).from(leave_requests)
       .where(and(eq(leave_requests.status, 'approved'), lte(leave_requests.start_date, today), gte(leave_requests.end_date, today))),
   ]);
+  const TIME_BASED = timeBasedKeys(await loadLeaveTypes(db));
   const hasDevice = new Set(devs.map((d) => d.id));
   const eligible = emps.filter((e) => hasDevice.has(e.id));
   const leaveOf = (type: (t: string) => boolean) => new Set(leaves.filter((l) => type(l.leave_type)).map((l) => l.employee_id));
@@ -39,7 +40,7 @@ export async function planReminders(db: Db, now: Date): Promise<Plan[]> {
   if (sod >= REMIND_IN_FROM_SECONDS && sod < REMIND_IN_UNTIL_SECONDS) {
     const present = new Set((await db.select({ id: attendances.employee_id }).from(attendances).where(eq(attendances.date, today))).map((r) => r.id));
     const offDay = leaveOf((t) => !TIME_BASED.has(t)); // cuti/sakit/dinas sehari penuh yang disetujui
-    const excused = leaveOf((t) => t === 'Izin Terlambat');
+    const excused = leaveOf((t) => t === LEAVE_KEYS.lateIn);
     plans.push({
       kind: 'att_in',
       recipients: eligible.filter((e) => (!e.join_date || e.join_date <= today) && !present.has(e.id) && !offDay.has(e.id) && !excused.has(e.id))
@@ -51,7 +52,7 @@ export async function planReminders(db: Db, now: Date): Promise<Plan[]> {
   if (sod < REMIND_OUT_UNTIL_SECONDS) {
     const open = await db.select({ id: attendances.employee_id, clock_in: attendances.clock_in }).from(attendances)
       .where(and(eq(attendances.date, today), isNotNull(attendances.clock_in), isNull(attendances.clock_out)));
-    const early = leaveOf((t) => t === 'Izin Pulang Cepat');
+    const early = leaveOf((t) => t === LEAVE_KEYS.earlyOut);
     const ok = new Set(eligible.map((e) => e.id));
     plans.push({
       kind: 'att_out',

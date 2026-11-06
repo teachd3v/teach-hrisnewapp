@@ -4,7 +4,7 @@ import { ClipboardCheck } from 'lucide-react';
 import { api } from '../lib/api';
 import DecisionSheet from '../components/DecisionSheet';
 import AttachmentLink from '../components/AttachmentLink';
-import { STATUS_LABEL, STATUS_TONE, fmtRange, type LeaveItem } from '../lib/leave-types';
+import { STATUS_LABEL, STATUS_TONE, fmtRange, leaveLabel, useLeaveTypes, type LeaveItem } from '../lib/leave-types';
 import { Button, Card, Chip, Empty, ErrorNote, Segmented, Spinner } from '../ui';
 
 /** Persetujuan atasan langsung: tab Menunggu dan Riwayat. */
@@ -12,6 +12,7 @@ export default function Approvals() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<'pending' | 'history'>('pending');
   const [decision, setDecision] = useState<{ item: LeaveItem; approve: boolean } | null>(null);
+  const typeList = useLeaveTypes().data;
   const list = useQuery({ queryKey: ['approvals', tab], queryFn: () => api<LeaveItem[]>(`/leave/approvals?tab=${tab}`) });
   const decide = useMutation({
     mutationFn: ({ id, approve, notes }: { id: string; approve: boolean; notes: string }) =>
@@ -30,7 +31,7 @@ export default function Approvals() {
           <li key={r.id}>
             <Card>
               <div className="flex items-start justify-between gap-2">
-                <div><p className="font-semibold">{r.employeeName}</p><p className="text-sm text-muted">{r.leave_type}</p></div>
+                <div><p className="font-semibold">{r.employeeName}</p><p className="text-sm text-muted">{leaveLabel(typeList, r.leave_type)}</p></div>
                 {tab === 'history' && <Chip tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Chip>}
               </div>
               <p className="mt-2 text-sm">{fmtRange(r)} · <b>{r.total_days} hari</b>{r.start_time && <> · {r.start_time}–{r.end_time}</>}</p>
@@ -51,7 +52,7 @@ export default function Approvals() {
       <DecisionSheet
         open={Boolean(decision)} onClose={() => setDecision(null)} approve={decision?.approve ?? true}
         title={decision?.approve ? 'Setujui pengajuan?' : 'Tolak pengajuan?'}
-        summary={decision ? `${decision.item.employeeName} · ${decision.item.leave_type} · ${fmtRange(decision.item)}` : undefined}
+        summary={decision ? `${decision.item.employeeName} · ${leaveLabel(typeList, decision.item.leave_type)} ·${fmtRange(decision.item)}` : undefined}
         onConfirm={(notes) => decide.mutateAsync({ id: decision!.item.id, approve: decision!.approve, notes })}
       />
     </div>

@@ -4,7 +4,7 @@ import { Inbox } from 'lucide-react';
 import { api } from '../lib/api';
 import DecisionSheet from '../components/DecisionSheet';
 import AttachmentLink from '../components/AttachmentLink';
-import { STATUS_LABEL, STATUS_TONE, fmtRange, type LeaveItem } from '../lib/leave-types';
+import { STATUS_LABEL, STATUS_TONE, fmtRange, leaveLabel, useLeaveTypes, type LeaveItem } from '../lib/leave-types';
 import { Button, Card, Chip, Empty, ErrorNote, Segmented, Spinner } from '../ui';
 
 type Tab = 'pending_hc' | 'pending_manager' | 'all';
@@ -13,6 +13,7 @@ export default function AdminLeave() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>('pending_hc');
   const [decision, setDecision] = useState<{ item: LeaveItem; approve: boolean } | null>(null);
+  const typeList = useLeaveTypes().data;
   const list = useQuery({ queryKey: ['admin-leave', tab], queryFn: () => api<LeaveItem[]>(`/leave/admin?status=${tab}`) });
   const decide = useMutation({
     mutationFn: ({ id, approve, text, override }: { id: string; approve: boolean; text: string; override: boolean }) =>
@@ -32,7 +33,7 @@ export default function AdminLeave() {
           <li key={r.id}>
             <Card>
               <div className="flex items-start justify-between gap-2">
-                <div><p className="font-semibold">{r.employeeName}</p><p className="text-sm text-muted">{r.leave_type}</p></div>
+                <div><p className="font-semibold">{r.employeeName}</p><p className="text-sm text-muted">{leaveLabel(typeList, r.leave_type)}</p></div>
                 <Chip tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Chip>
               </div>
               <p className="mt-2 text-sm">{fmtRange(r)} · <b>{r.total_days} hari</b></p>
@@ -55,7 +56,7 @@ export default function AdminLeave() {
         open={Boolean(decision)} onClose={() => setDecision(null)} approve={decision?.approve ?? true}
         requireText={override} textLabel={override ? 'Alasan ambil alih' : 'Catatan'}
         title={`${override ? 'Ambil alih: ' : ''}${decision?.approve ? 'setujui' : 'tolak'} pengajuan?`}
-        summary={decision ? `${decision.item.employeeName} · ${decision.item.leave_type} · ${fmtRange(decision.item)}` : undefined}
+        summary={decision ? `${decision.item.employeeName} · ${leaveLabel(typeList, decision.item.leave_type)} ·${fmtRange(decision.item)}` : undefined}
         onConfirm={(text) => decide.mutateAsync({ id: decision!.item.id, approve: decision!.approve, text, override: Boolean(override) })}
       />
     </div>
