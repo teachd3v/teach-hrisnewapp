@@ -1,0 +1,48 @@
+name: Deploy ke Cloudflare Pages
+
+# Push ke main -> cek tipe -> build -> deploy ke project Pages `teach-hris-spa` (alamat dan secret Pages tidak berubah).
+# Migrasi database TIDAK otomatis: jalankan manual `npx wrangler d1 migrations apply hris-spa-db --remote`
+# SEBELUM mendorong kode yang membutuhkannya. Worker cron (cron/) juga tetap manual: `npm run deploy:cron`.
+#
+# Secret GitHub yang dibutuhkan (Settings > Secrets and variables > Actions):
+#   CLOUDFLARE_API_TOKEN   token dengan izin Account > Cloudflare Pages > Edit
+#   CLOUDFLARE_ACCOUNT_ID  id akun Cloudflare
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Satu deploy pada satu waktu; deploy yang lebih baru menunggu, bukan membatalkan yang sedang berjalan.
+concurrency:
+  group: deploy-pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Cek tipe
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Deploy
+        run: npx wrangler pages deploy web/dist --project-name teach-hris-spa --branch main
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

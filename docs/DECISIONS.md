@@ -27,6 +27,7 @@ Status kode per 2026-11-06, hasil pembacaan ulang repo.
 - Pages `teach-hris-spa` → https://teach-hris-spa.pages.dev (dideploy 2026-11-05 dengan `wrangler pages deploy web/dist`; belum tersambung ke Git). Secret `JWT_SECRET` dan `URL_SIGNING_SECRET` diisi acak lewat `wrangler pages secret put` (tidak tersimpan di repo/chat).
 - Belum ada: super admin pertama, domain kustom.
 - Deploy ulang: `npm run deploy` (build + `wrangler pages deploy web/dist`). Gunakan `--project-name teach-hris-spa --branch main` bila diminta.
+- **Deploy otomatis (2026-11-06):** push ke `main` memicu GitHub Actions (`.github/workflows/deploy.yml`: typecheck, build, `wrangler pages deploy` ke project yang sama). Dipilih dibanding integrasi Git bawaan Cloudflare karena project Pages hasil wrangler tidak bisa disambungkan ke Git setelah dibuat; membuat project baru berarti alamat berubah, secret diisi ulang, dan pengguna harus memasang ulang PWA serta mengaktifkan notifikasi lagi. Secret GitHub: `CLOUDFLARE_API_TOKEN` (izin Pages: Edit) dan `CLOUDFLARE_ACCOUNT_ID`. **Tetap manual:** migrasi D1 (jalankan sebelum mendorong kode yang membutuhkannya) dan Worker cron (`npm run deploy:cron`).
 - Migrasi baru diterapkan manual: `npx wrangler d1 migrations apply hris-spa-db --remote` (sebelum merge PR yang membutuhkannya).
 
 ## Push notification (diaktifkan 2026-11-05)
