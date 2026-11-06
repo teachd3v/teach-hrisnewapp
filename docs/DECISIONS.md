@@ -6,14 +6,20 @@ Diputuskan 2026-11-04 (menindaklanjuti "Keputusan yang masih terbuka" di HANDOFF
 |---|---|---|
 | 1 | Repo GitHub | `teachd3v/teach-hrisnewapp` |
 | 2 | API | Pages Functions (Hono) dalam project Pages yang sama. Cron nanti lewat Worker kecil terpisah. |
-| 3 | Data master | Mulai kosong (tanpa impor dari D1 lama). |
+| 3 | Data master | Departemen, level, dan status kepegawaian **diimpor dari project lama** (migrasi 0004: departemen IDEAS, SGLT, BI, Budaya, REMO, LSP; level Direktur-Pelaksana; status Kontrak, Tetap, Probation, Magang), lalu dikelola super admin. Data **karyawan** mulai kosong (tambah satu per satu), tanpa impor massal. |
 | 4 | Domain | Ditunda; sementara `*.pages.dev`. `WEB_ORIGIN` di `wrangler.jsonc` placeholder sampai domain ditetapkan. |
-| 5 | Cakupan MVP | Sesuai handoff (login, presensi, cuti dua tahap, persetujuan, notifikasi, profil, menu admin HP). |
-| 6 | Distribusi | Privat/internal, lewat PWA (tanpa toko aplikasi). Rencana awal Play internal/closed testing dan Apple Unlisted/Custom App ditunda bersama Tauri (lihat bagian "Fokus PWA"). |
-| 7 | Akun toko & Mac | Tidak diperlukan selama Tauri ditunda. Baru relevan bila Tauri dibuka kembali (Google Play Console, Apple Developer, Mac untuk build iOS). |
+| 5 | Cakupan MVP | Sesuai handoff (login, presensi, cuti dua tahap, persetujuan, notifikasi, profil, menu admin HP). **Catatan:** "profil" belum terpenuhi untuk sisi karyawan; lihat "Masih terbuka" nomor 1. |
+| 6 | Distribusi | **Final: PWA murni, privat/internal.** Tidak dilanjutkan ke Play Store maupun App Store (rencana awal Play internal/closed testing dan Apple Unlisted/Custom App dibatalkan). |
+| 7 | Akun toko & Mac | Tidak berlaku (Google Play Console, Apple Developer, dan Mac untuk build iOS tidak diperlukan). |
 
 ## Masih terbuka
-- Kebijakan cuti bersama, geofence, jam masuk/keterlambatan (lihat handoff).
+Status kode per 2026-11-06, hasil pembacaan ulang repo.
+
+1. **Profil karyawan (sisi karyawan).** Saat ini karyawan tidak punya halaman profil. Tabel `employees` hanya memuat data pekerjaan dan kontak dasar (nama, email, telepon, jenis kelamin, kode, jabatan, departemen, level, status, tanggal masuk, foto); yang bisa mengubah hanya HC (nama, email, telepon, jenis kelamin, kode, atasan) dan super admin (data pekerjaan). Belum ada, dan **dibahas dulu sebelum dibangun**: data personal, keluarga, edukasi & skill, aktivitas & prestasi, dokumen. Yang perlu diputuskan: siapa mengisi dan mengubah (karyawan sendiri, HC, atau keduanya dengan persetujuan), kolom mana yang wajib, siapa boleh melihat, bagaimana data sensitif dan dokumen disimpan (R2, tautan bertanda tangan seperti lampiran cuti), dan apakah masuk MVP atau tahap berikutnya.
+2. **Cuti bersama memotong cuti tahunan: dibuat sebagai pengaturan (toggle) di super admin.** Saat ini cuti bersama (`holidays.type = JOINT`) diperlakukan seperti libur nasional: dikeluarkan dari hitungan hari kerja dan **tidak memotong** kuota. Toggle akan memungkinkan kebijakan diganti tanpa ubah kode; bila keputusannya sudah pasti, toggle langsung dinyalakan. Yang perlu dirinci sebelum dibangun: nilai awal toggle, bentuk potongan (otomatis ke saldo semua karyawan aktif per tanggal cuti bersama, atau saat pengajuan), perlakuan karyawan yang baru masuk atau berstatus tertentu, dan efek ke tahun berjalan bila toggle diubah di tengah tahun.
+3. **Jenis cuti dan kuota bawaan dapat diatur di super admin** (sub-menu di menu Kuota Cuti). Saat ini 11 jenis cuti ditulis tetap di kode (`shared/src/leave.ts`) dan kuota bawaan di `DEFAULT_QUOTAS` (Cuti Tahunan 12, Ganti Hari 0, lainnya tanpa batas); hanya kuota per karyawan yang bisa diubah lewat admin. Rencana: tabel jenis cuti yang bisa ditambah dan diubah (nama, keterangan, kuota bawaan dari angka tertentu sampai tanpa batas, wajib lampiran, berbasis jam, batas jenis kelamin, aktif/nonaktif). Perlu diputuskan: nasib pengajuan lama bila jenis diganti nama atau dinonaktifkan, dan apakah jenis bawaan sistem boleh dihapus.
+4. **Geofence dan batas jam masuk/keterlambatan: pengaturan di super admin.** Saat ini keduanya konstanta kode (`OFFICE` dan `WORK_START_SECONDS` di `shared/src/attendance.ts`): kantor satu titik, radius 1 km, masuk paling lambat 09:00 WIB tanpa toleransi, satu aturan untuk semua. Lokasi hanya ditandai untuk HC, tidak memblokir. Belum ada tabel pengaturan umum. Terbuka: apakah satu atau banyak lokasi, apakah di luar radius diblokir atau tetap hanya ditandai, toleransi keterlambatan, dan jam berbeda per departemen atau status.
+5. Kesiapan teknis bersama untuk butir 2-4: perlu tabel pengaturan (nilai, siapa yang mengubah) dengan jejak audit, dan pembacaan pengaturan di server agar perhitungan lama tidak berubah diam-diam.
 
 ## Sumber daya Cloudflare (dibuat 2026-11-04)
 - D1 `hris-spa-db` (id `50cdf64e-466e-49e9-abdc-51949f9d5b9b`, wilayah APAC); migrasi 0000-0002 sudah diterapkan ke remote.
@@ -37,5 +43,5 @@ Diputuskan 2026-11-04 (menindaklanjuti "Keputusan yang masih terbuka" di HANDOFF
 ## Fokus PWA, aplikasi Android native (Tauri) ditunda (2026-11-05)
 - Aplikasi ini internal. Pengguna: sekitar 20-30 Android dan 5-6 iPhone. PWA sudah mencakup keduanya (satu basis kode, tanpa toko aplikasi); Tauri hanya Android dan menambah beban (FCM, penandatanganan, distribusi APK).
 - Tauri **tidak dihapus**: `web/src-tauri` dan `docs/SPIKE-TAURI.md` dipertahankan sebagai arsip; cabang `__TAURI_INTERNALS__` di `geo.ts`/`push.ts` dibiarkan tidak aktif. Halaman uji `/spike` dicabut dari produksi.
-- Dibuka kembali bila ada kebutuhan yang PWA tidak bisa penuhi (mis. presensi latar belakang).
+- Distribusi lewat Play Store dan App Store tidak dilanjutkan (lihat butir 6). Tauri hanya akan dibuka kembali bila ada kebutuhan teknis yang PWA tidak bisa penuhi (mis. presensi latar belakang).
 - Penggantinya: panduan pasang PWA (Android: tombol pasang bawaan Chrome; iPhone: Safari > Bagikan > Tambahkan ke Layar Utama, syarat push di iOS) dan banner "ada versi baru" (`/version.json`, dicek saat aplikasi dibuka kembali dan tiap 10 menit).
