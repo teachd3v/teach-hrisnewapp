@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/d1';
 import { eq, sql } from 'drizzle-orm';
 import { GENDERS, isAdmin, isValidQuota } from '@hris/shared';
 import type { AppEnv } from '../env';
-import { audit_log, employees, leave_quotas, leave_requests, leave_types } from '../db/schema';
+import { audit_log, employees, leave_quotas, leave_requests, leave_types, master_options } from '../db/schema';
 import { auditRow } from '../lib/audit';
 import { loadLeaveTypes, toMeta } from '../lib/leave-types';
 import type { Db } from '../lib/leave-db';
@@ -36,6 +36,22 @@ const DENIED = 'Hanya super admin yang dapat mengelola jenis cuti';
 const clean = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ').slice(0, max) : '');
 const bool = (v: unknown) => v === true;
 const genderOf = (v: unknown) => (v === null || v === '' || v === undefined ? null : (GENDERS as readonly string[]).includes(v as string) ? (v as (typeof GENDERS)[number]) : undefined);
+
+/**
+ * Batasan status dari klien -> teks JSON untuk kolom (urutan dinormalkan), `null` = semua status, `undefined` = tidak valid.
+ * Setiap id harus berupa status kepegawaian di data master.
+ */
+async function statusesJson(db: Db, v: unknown): Promise<string | null | undefined> {
+  if (v === null || v === undefined) return null;
+  if (!Array.isArray(v) || v.some((x) => typeof x !== 'string')) return undefined;
+  const ids = [...new Set(v as string[])].sort();
+  if (ids.length === 0) return null;
+  const valid = new Set((await db.select({ id: master_options.id }).from(master_options).where(eq(master_options.kind, 'employment_status'))).map((r) => r.id));
+  return ids.every((id) => valid.has(id)) ? JSON.stringify(ids) : undefined;
+}
+const normalizedStatuses = (raw: string | null) => {
+  try { return raw ? JSON.stringify([...(JSON.parse(raw) as string[])].sort()) : null; } catch { return null; }
+};
 
 async function labelTaken(db: Db, label: string, exceptKey?: string) {
   return (await loadLeaveTypes(db)).some((t) => t.key !== exceptKey && t.label.toLowerCase() === label.toLowerCase());
@@ -74,12 +90,14 @@ leaveTypes.post('/', async (c) => {
   if (quota !== null && !isValidQuota(quota)) return c.json({ error: 'Kuota harus 0-366 hari (kelipatan 0,5) atau kosong untuk tanpa batas' }, 400);
   const gender = genderOf(b.gender);
   if (gender === undefined) return c.json({ error: 'Jenis kelamin tidak valid' }, 400);
+  const statuses = await statusesJson(db, b.allowedStatusIds);
+  if (statuses === undefined) return c.json({ error: 'Status kepegawaian tidak valid' }, 400);
 
   const max = await one(db.select({ m: sql<number>`coalesce(max(${leave_types.sort_order}), 0)` }).from(leave_types));
   const key = crypto.randomUUID();
   const row = {
     key, label, description: clean(b.description, 200), default_quota: quota as number | null,
-    requires_attachment: bool(b.requiresAttachment), time_based: bool(b.timeBased), gender,
+    requires_attachment: bool(b.requiresAttachment), time_based: bool(b.timeBased), gender, allowed_status_ids: statuses,
     sort_order: Number(max?.m ?? 0) + 1, active: true, system: false, created_at: new Date().toISOString(),
   };
   await batch(db, [
@@ -136,6 +154,11 @@ leaveTypes.patch('/:key', async (c) => {
     const g = genderOf(b.gender);
     if (g === undefined) return c.json({ error: 'Jenis kelamin tidak valid' }, 400);
     if (g !== row.gender) set.gender = g;
+  }
+  if ('allowedStatusIds' in b) {
+    const s = await statusesJson(db, b.allowedStatusIds);
+    if (s === undefined) return c.json({ error: 'Status kepegawaian tidak valid' }, 400);
+    if (s !== normalizedStatuses(row.allowed_status_ids)) set.allowed_status_ids = s;
   }
   if ('active' in b && typeof b.active === 'boolean' && b.active !== row.active) set.active = b.active;
   if (!Object.keys(set).length) return c.json({ ok: true, changed: false });

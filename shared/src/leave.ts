@@ -15,6 +15,8 @@ export interface LeaveTypeMeta {
   /** izin per jam: satu tanggal + jam mulai/selesai, dihitung 1 hari kerja */
   timeBased: boolean;
   gender: 'Laki-laki' | 'Perempuan' | null;
+  /** id master status kepegawaian yang boleh mengajukan; null = semua status */
+  allowedStatusIds: string[] | null;
   active: boolean;
   /** jenis bawaan sistem: tidak dapat dihapus; perilaku tertentu (presensi, laporan, potongan cuti bersama) bergantung padanya */
   system: boolean;
@@ -31,6 +33,10 @@ export const LEAVE_KEYS = {
 } as const;
 
 export const GENDERS = ['Laki-laki', 'Perempuan'] as const;
+
+/** Apakah karyawan berstatus `statusId` boleh mengajukan jenis ini? Jenis tanpa batasan status terbuka untuk semua, termasuk yang statusnya kosong. */
+export const leaveTypeAllowsStatus = (t: Pick<LeaveTypeMeta, 'allowedStatusIds'>, statusId: string | null | undefined) =>
+  !t.allowedStatusIds || (Boolean(statusId) && t.allowedStatusIds.includes(statusId!));
 
 /** Kuota bawaan/khusus: 0-366 hari, kelipatan 0,5. */
 export const isValidQuota = (q: unknown): q is number =>

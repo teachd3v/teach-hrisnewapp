@@ -7,6 +7,7 @@ import {
   calculateLeaveDuration,
   isAdmin,
   leaveBrief,
+  leaveTypeAllowsStatus,
   planHcDecision,
   planManagerDecision,
   planOverride,
@@ -15,7 +16,7 @@ import {
   type LeaveStatus,
 } from '@hris/shared';
 import type { AppEnv } from '../env';
-import { audit_log, employees, holidays, leave_requests } from '../db/schema';
+import { audit_log, employees, holidays, leave_requests, master_options } from '../db/schema';
 import { auditRow } from '../lib/audit';
 import { adminRecipientIds, getBalances, loadHolidayDates, notifyStmts, resolveStmt, type Db } from '../lib/leave-db';
 import { labelMap, loadLeaveTypes } from '../lib/leave-types';
@@ -69,7 +70,7 @@ leave.get('/meta', async (c) => {
   ]);
   return c.json({
     gender: me.gender,
-    types: types.filter((t) => t.active),
+    types: types.filter((t) => t.active && leaveTypeAllowsStatus(t, me.employment_status_id)),
     managerName: manager?.name ?? null,
     canSubmit: Boolean(me.manager_id) || me.is_top_leader,
     isManager: Boolean(reports),
@@ -120,6 +121,11 @@ leave.post('/', async (c) => {
 
   if (meta.gender && me.gender && me.gender !== meta.gender) {
     return c.json({ error: `${meta.label} hanya diperuntukkan bagi karyawan ${meta.gender}` }, 400);
+  }
+  if (!leaveTypeAllowsStatus(meta, me.employment_status_id)) {
+    const names = (await db.select({ id: master_options.id, name: master_options.name }).from(master_options).where(inArray(master_options.id, meta.allowedStatusIds!)))
+      .map((s) => s.name);
+    return c.json({ error: `${meta.label} hanya diperuntukkan bagi karyawan berstatus ${names.join(', ') || 'tertentu'}` }, 400);
   }
   if (meta.timeBased && (!startTime || !endTime || !TIME_RE.test(startTime) || !TIME_RE.test(endTime))) {
     return c.json({ error: 'Detail jam wajib diisi dengan format yang benar' }, 400);

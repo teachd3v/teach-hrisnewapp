@@ -1,0 +1,1 @@
+ALTER TABLE `leave_types` ADD `allowed_status_ids` text;

@@ -221,6 +221,7 @@ export const leave_types = sqliteTable('leave_types', {
   requires_attachment: integer('requires_attachment', { mode: 'boolean' }).notNull().default(false),
   time_based: integer('time_based', { mode: 'boolean' }).notNull().default(false), // izin per jam; tidak dapat diubah setelah dibuat
   gender: text('gender', { enum: ['Laki-laki', 'Perempuan'] }), // null = semua
+  allowed_status_ids: text('allowed_status_ids'), // JSON array id master status kepegawaian yang boleh mengajukan; null = semua status
   sort_order: integer('sort_order').notNull().default(0),
   active: integer('active', { mode: 'boolean' }).notNull().default(true),
   system: integer('system', { mode: 'boolean' }).notNull().default(false), // bawaan sistem: tidak dapat dihapus

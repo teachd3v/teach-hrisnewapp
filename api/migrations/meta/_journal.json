@@ -78,6 +78,13 @@
       "when": 1793939080434,
       "tag": "0010_leave_types",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1793944441248,
+      "tag": "0011_leave_type_statuses",
+      "breakpoints": true
     }
   ]
 }

@@ -6,6 +6,7 @@ import {
   ACTIVE_STATUSES,
   computeBalances,
   jointLeaveDeduction,
+  leaveTypeAllowsStatus,
   type LeaveBalance,
   type LeaveStatus,
   type NotifyInput,
@@ -22,11 +23,9 @@ export async function loadHolidayDates(db: Db, start: string, end: string): Prom
 }
 
 /** Potongan cuti bersama untuk satu karyawan pada satu tahun; 0 bila pengaturan mati atau statusnya dikecualikan. */
-async function jointDeductionOf(db: Db, employeeId: string, year: number): Promise<number> {
+async function jointDeductionOf(db: Db, emp: { join_date: string | null; status: string | null } | undefined, year: number): Promise<number> {
   const settings = await loadJointLeaveSettings(db);
   if (!settings.enabled) return 0;
-  const [emp] = await db.select({ join_date: employees.join_date, status: employees.employment_status_id })
-    .from(employees).where(eq(employees.id, employeeId)).limit(1);
   if (!emp || (emp.status && settings.exemptStatusIds.includes(emp.status))) return 0;
   const joint = await db.select({ date: holidays.date, type: holidays.type }).from(holidays)
     .where(and(between(holidays.date, `${year}-01-01`, `${year}-12-31`), eq(holidays.type, 'JOINT')));
@@ -35,12 +34,15 @@ async function jointDeductionOf(db: Db, employeeId: string, year: number): Promi
 
 /**
  * Saldo per jenis cuti. Jenis nonaktif hanya ikut bila masih punya pemakaian/potongan tahun itu (agar saldonya tetap terlihat);
- * jenis nonaktif yang tidak dipakai disembunyikan.
+ * jenis nonaktif yang tidak dipakai disembunyikan. Jenis yang dibatasi status lain (mis. Cuti Besar khusus karyawan tetap)
+ * disembunyikan dari karyawan yang tidak berhak, kecuali sudah punya pemakaian.
  */
 export async function getBalances(db: Db, employeeId: string, year: number): Promise<LeaveBalance[]> {
+  const [emp] = await db.select({ join_date: employees.join_date, status: employees.employment_status_id })
+    .from(employees).where(eq(employees.id, employeeId)).limit(1);
   const [types, jointDeducted, quotaRows, usage] = await Promise.all([
     loadLeaveTypes(db),
-    jointDeductionOf(db, employeeId, year),
+    jointDeductionOf(db, emp, year),
     db.select().from(leave_quotas).where(and(eq(leave_quotas.employee_id, employeeId), eq(leave_quotas.year, year))),
     db
       .select({
@@ -63,8 +65,8 @@ export async function getBalances(db: Db, employeeId: string, year: number): Pro
     usage.map((u) => ({ type: u.type, status: u.status as LeaveStatus, days: Number(u.days) })),
     jointDeducted,
   );
-  const active = new Set(types.filter((t) => t.active).map((t) => t.key));
-  return all.filter((b) => active.has(b.type) || b.used + b.pending + b.jointDeducted > 0);
+  const visible = new Set(types.filter((t) => t.active && leaveTypeAllowsStatus(t, emp?.status)).map((t) => t.key));
+  return all.filter((b) => visible.has(b.type) || b.used + b.pending + b.jointDeducted > 0);
 }
 
 /** Id semua admin aktif (termasuk super admin). */

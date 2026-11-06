@@ -4,15 +4,16 @@ import { ArrowDown, ArrowUp, ListX, Plus } from 'lucide-react';
 import { GENDERS, isValidQuota, type LeaveTypeMeta } from '@hris/shared';
 import { api } from '../lib/api';
 import { useLeaveTypes } from '../lib/leave-types';
+import { optionsOf, useMaster } from '../lib/master';
 import { Button, Card, Chip, Empty, ErrorNote, Field, Input, Select, Sheet, Spinner, Textarea } from '../ui';
 
 type Row = LeaveTypeMeta & { usedBy: number };
 
-interface Form { label: string; description: string; quota: string; requiresAttachment: boolean; timeBased: boolean; gender: string }
-const EMPTY: Form = { label: '', description: '', quota: '', requiresAttachment: false, timeBased: false, gender: '' };
+interface Form { label: string; description: string; quota: string; requiresAttachment: boolean; timeBased: boolean; gender: string; statusIds: string[] }
+const EMPTY: Form = { label: '', description: '', quota: '', requiresAttachment: false, timeBased: false, gender: '', statusIds: [] };
 const toForm = (t: Row): Form => ({
   label: t.label, description: t.description, quota: t.defaultQuota === null ? '' : String(t.defaultQuota),
-  requiresAttachment: t.requiresAttachment, timeBased: t.timeBased, gender: t.gender ?? '',
+  requiresAttachment: t.requiresAttachment, timeBased: t.timeBased, gender: t.gender ?? '', statusIds: t.allowedStatusIds ?? [],
 });
 /** Kosong = tanpa batas (null); selain itu angka 0-366 kelipatan 0,5. `undefined` = tidak valid. */
 const parseQuota = (v: string): number | null | undefined => {
@@ -26,6 +27,9 @@ export default function AdminLeaveTypes() {
   const qc = useQueryClient();
   const q = useLeaveTypes();
   const items = (q.data ?? []) as Row[];
+  const master = useMaster();
+  const statuses = optionsOf(master.data, 'employment_status');
+  const statusName = (id: string) => statuses.find((s) => s.id === id)?.name ?? '?';
   const [editing, setEditing] = useState<Row | 'new' | null>(null);
   const [f, setF] = useState<Form>(EMPTY);
   const refresh = () => qc.invalidateQueries({ queryKey: ['leave-types'] });
@@ -34,7 +38,7 @@ export default function AdminLeaveTypes() {
 
   const payload = () => ({
     label: f.label, description: f.description, defaultQuota: quota, requiresAttachment: f.requiresAttachment,
-    gender: f.gender || null,
+    gender: f.gender || null, allowedStatusIds: f.statusIds.length ? f.statusIds : null,
   });
   const save = useMutation({
     mutationFn: () => (editing === 'new'
@@ -94,6 +98,7 @@ export default function AdminLeaveTypes() {
                   {t.timeBased && <Chip tone="info">Per jam</Chip>}
                   {t.requiresAttachment && <Chip tone="info">Wajib lampiran</Chip>}
                   {t.gender && <Chip tone="info">{t.gender}</Chip>}
+                  {t.allowedStatusIds && <Chip tone="info">{t.allowedStatusIds.map(statusName).join(', ')}</Chip>}
                 </span>
               </button>
               <button aria-label={`Naikkan ${t.label}`} disabled={i === 0 || reorder.isPending} onClick={() => move(i, -1)} className="grid size-12 place-items-center rounded-full active:bg-sub disabled:opacity-30"><ArrowUp className="size-5" aria-hidden="true" /></button>
@@ -119,6 +124,17 @@ export default function AdminLeaveTypes() {
                 {GENDERS.map((g) => <option key={g} value={g}>{g}</option>)}
               </Select>
             )}</Field>
+            <fieldset className="flex flex-col gap-1">
+              <legend className="mb-1 text-base font-medium">Status karyawan yang boleh mengajukan</legend>
+              <p className="text-sm text-muted">{f.statusIds.length === 0 ? 'Tidak ada yang dicentang: semua status boleh mengajukan.' : 'Hanya status yang dicentang yang melihat dan boleh mengajukan jenis ini.'}</p>
+              {statuses.filter((s) => s.active || f.statusIds.includes(s.id)).map((s) => (
+                <label key={s.id} className="flex min-h-12 items-center gap-3">
+                  <input type="checkbox" className="size-5" checked={f.statusIds.includes(s.id)}
+                    onChange={(e) => set('statusIds', e.target.checked ? [...f.statusIds, s.id] : f.statusIds.filter((x) => x !== s.id))} />
+                  <span>{s.name}{s.active ? '' : ' (nonaktif)'}</span>
+                </label>
+              ))}
+            </fieldset>
             <label className="flex min-h-12 items-center gap-3">
               <input type="checkbox" className="size-5" checked={f.requiresAttachment} onChange={(e) => set('requiresAttachment', e.target.checked)} />
               <span>Wajib lampiran dokumen</span>

@@ -6,9 +6,19 @@ import { leave_types } from '../db/schema';
 
 type Db = DrizzleD1Database;
 
+/** Daftar status dari kolom JSON; kosong atau rusak = tanpa batasan (null). */
+function parseStatuses(raw: string | null): string[] | null {
+  if (!raw) return null;
+  try {
+    const v: unknown = JSON.parse(raw);
+    return Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === 'string') ? (v as string[]) : null;
+  } catch { return null; }
+}
+
 export const toMeta = (r: typeof leave_types.$inferSelect): LeaveTypeMeta => ({
   key: r.key, label: r.label, description: r.description, defaultQuota: r.default_quota,
   requiresAttachment: r.requires_attachment, timeBased: r.time_based, gender: r.gender,
+  allowedStatusIds: parseStatuses(r.allowed_status_ids),
   active: r.active, system: r.system, sortOrder: r.sort_order,
 });
 
