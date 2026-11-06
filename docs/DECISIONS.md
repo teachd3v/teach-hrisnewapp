@@ -9,12 +9,11 @@ Diputuskan 2026-11-04 (menindaklanjuti "Keputusan yang masih terbuka" di HANDOFF
 | 3 | Data master | Mulai kosong (tanpa impor dari D1 lama). |
 | 4 | Domain | Ditunda; sementara `*.pages.dev`. `WEB_ORIGIN` di `wrangler.jsonc` placeholder sampai domain ditetapkan. |
 | 5 | Cakupan MVP | Sesuai handoff (login, presensi, cuti dua tahap, persetujuan, notifikasi, profil, menu admin HP). |
-| 6 | Distribusi | Privat/internal (Play internal/closed testing, Apple Unlisted/Custom App). |
-| 7 | Akun toko & Mac | Belum dikonfirmasi: Google Play Console, Apple Developer, Mac untuk build iOS. |
+| 6 | Distribusi | Privat/internal, lewat PWA (tanpa toko aplikasi). Rencana awal Play internal/closed testing dan Apple Unlisted/Custom App ditunda bersama Tauri (lihat bagian "Fokus PWA"). |
+| 7 | Akun toko & Mac | Tidak diperlukan selama Tauri ditunda. Baru relevan bila Tauri dibuka kembali (Google Play Console, Apple Developer, Mac untuk build iOS). |
 
 ## Masih terbuka
 - Kebijakan cuti bersama, geofence, jam masuk/keterlambatan (lihat handoff).
-- Kesiapan akun toko dan Mac (butir 7).
 
 ## Sumber daya Cloudflare (dibuat 2026-11-04)
 - D1 `hris-spa-db` (id `50cdf64e-466e-49e9-abdc-51949f9d5b9b`, wilayah APAC); migrasi 0000-0002 sudah diterapkan ke remote.
@@ -27,7 +26,7 @@ Diputuskan 2026-11-04 (menindaklanjuti "Keputusan yang masih terbuka" di HANDOFF
 ## Push notification (diaktifkan 2026-11-05)
 - Web Push (VAPID) aktif di produksi. Secret `VAPID_PRIVATE_KEY` diisi lewat `wrangler pages secret put` (tidak tersimpan di repo/chat); `VAPID_PUBLIC_KEY` dan `VAPID_SUBJECT` ada di `wrangler.jsonc`. Detail: `docs/PUSH.md`.
 - Mengganti kunci VAPID membuat semua langganan lama tidak berlaku; pengguna perlu menekan Matikan lalu Aktifkan lagi di Akun.
-- FCM untuk aplikasi Tauri belum ada (menunggu spike dan proyek Firebase).
+- FCM untuk aplikasi Tauri belum ada dan ditunda bersama Tauri (lihat bagian "Fokus PWA"). Push untuk Android dan iPhone memakai Web Push.
 
 ## Pengingat terjadwal diaktifkan (2026-11-05)
 - Migrasi 0008 diterapkan ke D1 remote (`reminder_log`, `employees.reminders_enabled`).
