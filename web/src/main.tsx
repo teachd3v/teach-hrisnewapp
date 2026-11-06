@@ -21,6 +21,7 @@ import AdminQuotas from './pages/AdminQuotas';
 import AdminHolidays from './pages/AdminHolidays';
 import AdminMaster from './pages/AdminMaster';
 import AdminAttendanceSettings from './pages/AdminAttendanceSettings';
+import Profile from './pages/Profile';
 import Attendance from './pages/Attendance';
 import AttendanceCapture from './pages/AttendanceCapture';
 import AdminAttendance from './pages/AdminAttendance';
@@ -68,6 +69,8 @@ const router = createBrowserRouter(
           <Route path="/cuti/ajukan" element={<LeaveForm />} handle={{ title: 'Ajukan cuti', back: '/cuti' }} />
           <Route path="/admin/cuti" element={<AdminLeave />} handle={{ title: 'Cuti (HC)', back: '/akun' }} />
           <Route path="/admin/karyawan" element={<AdminEmployees />} handle={{ title: 'Karyawan', back: '/akun' }} />
+          <Route path="/profil" element={<Profile />} handle={{ title: 'Profil saya', back: '/akun' }} />
+          <Route path="/admin/karyawan/:id/profil" element={<Profile />} handle={{ title: 'Profil karyawan', back: '/admin/karyawan' }} />
           <Route path="/admin/karyawan/:id" element={<AdminEmployeeForm />} handle={{ title: 'Data karyawan', back: '/admin/karyawan' }} />
           <Route path="/admin/master" element={<AdminMaster />} handle={{ title: 'Data master', back: '/akun' }} />
           <Route path="/admin/pengaturan-presensi" element={<AdminAttendanceSettings />} handle={{ title: 'Pengaturan presensi', back: '/akun' }} />

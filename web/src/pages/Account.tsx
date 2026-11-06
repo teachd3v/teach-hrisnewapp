@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { CalendarCog, CalendarHeart, ChevronRight, ClipboardList, KeyRound, FilePen, FileSpreadsheet, ListTree, LogOut, MapPinned, ScanFace, ScrollText, Users } from 'lucide-react';
+import { CalendarCog, CalendarHeart, ChevronRight, ClipboardList, KeyRound, FilePen, FileSpreadsheet, ListTree, LogOut, MapPinned, ScanFace, ScrollText, UserRound, Users } from 'lucide-react';
 import { isAdmin, type Role } from '@hris/shared';
 import { useAuth } from '../lib/auth';
 import { Button, Card, Chip, Sheet } from '../ui';
 import { PushCard } from '../components/PushCard';
 import { InstallRow } from '../components/Install';
+import ProfilePhoto from '../components/ProfilePhoto';
+import { useProfileCard } from '../lib/profile';
 
 const ROLE_LABEL: Record<Role, string> = { employee: 'Karyawan', admin: 'Admin (HC)', super_admin: 'Super Admin' };
 
@@ -21,18 +23,23 @@ export default function Account() {
   const { user, logout } = useAuth();
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const card = useProfileCard('me').data;
   return (
     <div className="flex flex-col gap-5">
-      <Card>
-        <p className="text-lg font-bold">{user?.name}</p>
-        <p className="text-sm text-muted" data-selectable>{user?.email}</p>
-        <div className="mt-2">{user && <Chip tone="neutral">{ROLE_LABEL[user.role]}</Chip>}</div>
+      <Card className="flex items-center gap-4">
+        <ProfilePhoto fileKey={card?.photoKey} name={user?.name ?? ''} className="size-16" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-lg font-bold">{user?.name}</p>
+          <p className="truncate text-sm text-muted" data-selectable>{user?.email}</p>
+          <div className="mt-2">{user && <Chip tone="neutral">{ROLE_LABEL[user.role]}</Chip>}</div>
+        </div>
       </Card>
 
       <PushCard />
 
       <section aria-label="Akun" className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
         <InstallRow />
+        <MenuRow to="/profil" icon={<UserRound className="size-5" />} label="Profil saya" />
         <MenuRow to="/ganti-password" icon={<KeyRound className="size-5" />} label="Ganti password" />
       </section>
 

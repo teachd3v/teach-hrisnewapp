@@ -1,6 +1,6 @@
 // Label dan kelompok aksi log audit. Aksi yang tidak dikenal tetap ditampilkan dengan kode aslinya.
 
-export type AuditGroup = 'auth' | 'leave' | 'attendance' | 'employee' | 'master' | 'holiday' | 'setting' | 'file' | 'report';
+export type AuditGroup = 'auth' | 'leave' | 'attendance' | 'employee' | 'master' | 'holiday' | 'setting' | 'profile' | 'file' | 'report';
 
 export const AUDIT_GROUPS: { key: AuditGroup; label: string }[] = [
   { key: 'auth', label: 'Login & keamanan' },
@@ -10,6 +10,7 @@ export const AUDIT_GROUPS: { key: AuditGroup; label: string }[] = [
   { key: 'master', label: 'Data master' },
   { key: 'holiday', label: 'Hari libur' },
   { key: 'setting', label: 'Pengaturan' },
+  { key: 'profile', label: 'Profil' },
   { key: 'file', label: 'Akses berkas' },
   { key: 'report', label: 'Rekap & ekspor' },
 ];
@@ -43,6 +44,9 @@ export const AUDIT_ACTIONS: Record<string, { label: string; attention?: boolean 
   'holiday.set': { label: 'Simpan hari libur' },
   'holiday.deleted': { label: 'Hapus hari libur' },
   'setting.changed': { label: 'Ubah pengaturan', attention: true },
+  'profile.view': { label: 'Buka profil karyawan lain', attention: true },
+  'profile.updated': { label: 'Ubah profil' },
+  'profile.photo': { label: 'Ubah foto profil' },
   'file.access': { label: 'Buka berkas milik orang lain', attention: true },
   'report.range': { label: 'Ambil rekap presensi & cuti', attention: true },
 };

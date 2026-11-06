@@ -14,7 +14,24 @@ export const employees = sqliteTable('employees', {
   level_id: text('level_id'),
   employment_status_id: text('employment_status_id'),
   join_date: text('join_date'),
-  photo_key: text('photo_key'), // kunci objek R2
+  photo_key: text('photo_key'), // kunci objek R2 (foto profil; terlihat oleh semua pengguna login)
+  // Data personal (Profil saya). Hanya pemilik, HC, dan super admin yang melihat; definisi dan validasi di shared/src/profile.ts.
+  nik: text('nik'),
+  birth_place: text('birth_place'),
+  birth_date: text('birth_date'),
+  nationality: text('nationality'),
+  marital_status: text('marital_status'),
+  religion: text('religion'),
+  blood_type: text('blood_type'),
+  address: text('address'),
+  city: text('city'),
+  province: text('province'),
+  postal_code: text('postal_code'),
+  ktp_address: text('ktp_address'),
+  bank_name: text('bank_name'),
+  bank_account_no: text('bank_account_no'),
+  bank_account_name: text('bank_account_name'),
+  profile_consented_at: text('profile_consented_at'), // keterangan penggunaan data sudah dibaca
   role: text('role', { enum: ['employee', 'admin', 'super_admin'] }).notNull().default('employee'),
   // Atasan langsung. Null hanya untuk pucuk pimpinan (cuti langsung ke HC).
   manager_id: text('manager_id'),
@@ -229,6 +246,20 @@ export const leave_types = sqliteTable('leave_types', {
   system: integer('system', { mode: 'boolean' }).notNull().default(false), // bawaan sistem: tidak dapat dihapus
   created_at: text('created_at').notNull(),
 });
+
+// Daftar berulang di Profil saya (keluarga, kontak darurat, pendidikan, skill, pengalaman, prestasi, dst.). `section` = kunci bagian di
+// shared/src/profile.ts; `data` = JSON yang divalidasi server menurut definisi bagian itu.
+export const profile_entries = sqliteTable('profile_entries', {
+  id: text('id').primaryKey(),
+  employee_id: text('employee_id').notNull(),
+  section: text('section').notNull(),
+  data: text('data').notNull(),
+  sort_order: integer('sort_order').notNull().default(0),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull(),
+}, (t) => ({
+  employeeSectionIdx: index('profile_entries_employee_section_idx').on(t.employee_id, t.section),
+}));
 
 // Lokasi kantor untuk geofence presensi (Pengaturan presensi, super admin). Presensi dinilai terhadap lokasi aktif terdekat.
 export const office_locations = sqliteTable('office_locations', {

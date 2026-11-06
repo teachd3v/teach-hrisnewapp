@@ -16,7 +16,8 @@ export const files = new Hono<AppEnv>();
 
 const LEAVE_PREFIX = 'leave_attachments/';
 const ATTENDANCE_PREFIX = 'attendance/';
-const validPrefix = (key: string) => (key.startsWith(LEAVE_PREFIX) || key.startsWith(ATTENDANCE_PREFIX)) && !key.includes('..');
+const PROFILE_PHOTO_PREFIX = 'profile_photos/';
+const validPrefix = (key: string) => (key.startsWith(LEAVE_PREFIX) || key.startsWith(ATTENDANCE_PREFIX) || key.startsWith(PROFILE_PHOTO_PREFIX)) && !key.includes('..');
 
 files.post('/link', requireAuth, async (c) => {
   const { key } = await c.req.json<{ key?: string }>().catch(() => ({} as { key?: string }));
@@ -26,6 +27,14 @@ files.post('/link', requireAuth, async (c) => {
   const meId = c.get('user').id;
   const [me] = await db.select().from(employees).where(eq(employees.id, meId)).limit(1);
   if (!me || !me.active) return c.json({ error: 'Sesi berakhir' }, 401);
+
+  // Foto profil terlihat oleh semua pengguna login (tanpa audit); hanya berkas yang benar-benar menjadi foto seorang karyawan.
+  if (key.startsWith(PROFILE_PHOTO_PREFIX)) {
+    const [owner] = await db.select({ id: employees.id }).from(employees).where(eq(employees.photo_key, key)).limit(1);
+    if (!owner) return c.json({ error: 'Berkas tidak ditemukan' }, 404);
+    const signed = await signFileLink(c.env.URL_SIGNING_SECRET, key);
+    return c.json({ url: `/api/files/get?key=${encodeURIComponent(key)}&exp=${signed.exp}&sig=${signed.sig}`, expiresAt: signed.exp });
+  }
 
   const isAttendance = key.startsWith(ATTENDANCE_PREFIX);
   const [req] = isAttendance

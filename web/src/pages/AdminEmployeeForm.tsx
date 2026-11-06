@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router';
+import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Role } from '@hris/shared';
 import { api } from '../lib/api';
@@ -77,6 +77,9 @@ export default function AdminEmployeeForm() {
   return (
     <div className="flex flex-1 flex-col gap-6">
       {lockedAdmin && <p className="rounded-xl bg-warn-bg p-3 text-sm text-warn">Akun admin hanya dapat diubah super admin.</p>}
+      {!isNew && target && (
+        <Link to={`/admin/karyawan/${target.id}/profil`} className="mb-4 flex min-h-12 items-center justify-center rounded-xl border border-field bg-surface px-4 font-medium active:bg-sub">Lihat profil lengkap</Link>
+      )}
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         {text('name', 'Nama')}
         {text('email', 'Email', { type: 'email', mode: 'email' })}
