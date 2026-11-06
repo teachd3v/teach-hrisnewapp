@@ -1,6 +1,6 @@
 // Label dan kelompok aksi log audit. Aksi yang tidak dikenal tetap ditampilkan dengan kode aslinya.
 
-export type AuditGroup = 'auth' | 'leave' | 'attendance' | 'employee' | 'master' | 'holiday' | 'setting' | 'profile' | 'file' | 'report';
+export type AuditGroup = 'auth' | 'leave' | 'attendance' | 'employee' | 'master' | 'holiday' | 'setting' | 'profile' | 'overtime' | 'file' | 'report';
 
 export const AUDIT_GROUPS: { key: AuditGroup; label: string }[] = [
   { key: 'auth', label: 'Login & keamanan' },
@@ -11,6 +11,7 @@ export const AUDIT_GROUPS: { key: AuditGroup; label: string }[] = [
   { key: 'holiday', label: 'Hari libur' },
   { key: 'setting', label: 'Pengaturan' },
   { key: 'profile', label: 'Profil' },
+  { key: 'overtime', label: 'Overtime' },
   { key: 'file', label: 'Akses berkas' },
   { key: 'report', label: 'Rekap & ekspor' },
 ];
@@ -44,6 +45,12 @@ export const AUDIT_ACTIONS: Record<string, { label: string; attention?: boolean 
   'holiday.set': { label: 'Simpan hari libur' },
   'holiday.deleted': { label: 'Hapus hari libur' },
   'setting.changed': { label: 'Ubah pengaturan', attention: true },
+  'overtime.submitted': { label: 'Ajukan overtime' },
+  'overtime.cancelled': { label: 'Batalkan overtime' },
+  'overtime.manager_decision': { label: 'Keputusan atasan (overtime)' },
+  'overtime.hc_decision': { label: 'Keputusan HC (overtime)' },
+  'overtime.hc_override': { label: 'Ambil alih HC (overtime)', attention: true },
+  'overtime.revoked': { label: 'Cabut overtime disetujui', attention: true },
   'profile.view': { label: 'Buka profil karyawan lain', attention: true },
   'profile.updated': { label: 'Ubah profil' },
   'profile.photo': { label: 'Ubah foto profil' },

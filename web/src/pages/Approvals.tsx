@@ -1,14 +1,27 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ClipboardCheck } from 'lucide-react';
 import { api } from '../lib/api';
 import DecisionSheet from '../components/DecisionSheet';
 import AttachmentLink from '../components/AttachmentLink';
 import { STATUS_LABEL, STATUS_TONE, fmtRange, leaveLabel, useLeaveTypes, type LeaveItem } from '../lib/leave-types';
+import { OvertimeApprovals } from '../components/OvertimeLists';
 import { Button, Card, Chip, Empty, ErrorNote, Segmented, Spinner } from '../ui';
 
-/** Persetujuan atasan langsung: tab Menunggu dan Riwayat. */
+/** Persetujuan atasan langsung: cuti dan overtime, masing-masing dengan tab Menunggu dan Riwayat. */
 export default function Approvals() {
+  const [params, setParams] = useSearchParams();
+  const jenis = params.get('jenis') === 'overtime' ? 'overtime' : 'cuti';
+  return (
+    <div className="flex flex-col gap-4">
+      <Segmented value={jenis} onChange={(v) => setParams(v === 'overtime' ? { jenis: 'overtime' } : {}, { replace: true })} options={[{ value: 'cuti', label: 'Cuti' }, { value: 'overtime', label: 'Overtime' }]} />
+      {jenis === 'overtime' ? <OvertimeApprovals /> : <LeaveApprovals />}
+    </div>
+  );
+}
+
+function LeaveApprovals() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<'pending' | 'history'>('pending');
   const [decision, setDecision] = useState<{ item: LeaveItem; approve: boolean } | null>(null);

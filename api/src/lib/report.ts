@@ -5,7 +5,7 @@ import {
   LEAVE_KEYS, calculateLeaveDuration, isWeekendDate, policyFor, policyText, lateMinutes, wibSecondsOfDay, workDuration,
   type AttendanceReport, type ReportDailyRow, type ReportSummaryRow,
 } from '@hris/shared';
-import { attendances, employees, holidays, leave_requests, master_options } from '../db/schema';
+import { attendances, employees, holidays, leave_requests, master_options, overtime_requests } from '../db/schema';
 import type { Db } from './leave-db';
 import { loadPolicies } from './attendance-policy';
 import { loadLeaveTypes, timeBasedKeys } from './leave-types';
@@ -31,12 +31,14 @@ export async function buildReport(db: Db, first: string, last: string, departmen
 
   const TIME_BASED = timeBasedKeys(await loadLeaveTypes(db));
   const policies = await loadPolicies(db);
-  const [opts, emps, attRows, leaves, hols] = await Promise.all([
+  const [opts, emps, attRows, leaves, hols, overtimes] = await Promise.all([
     db.select().from(master_options),
     db.select().from(employees),
     db.select().from(attendances).where(and(gte(attendances.date, first), lte(attendances.date, last))),
     db.select().from(leave_requests).where(and(eq(leave_requests.status, 'approved'), lte(leave_requests.start_date, last), gte(leave_requests.end_date, first))),
     db.select().from(holidays).where(between(holidays.date, first, last)),
+    db.select({ employee_id: overtime_requests.employee_id, kind: overtime_requests.kind, minutes: overtime_requests.minutes }).from(overtime_requests)
+      .where(and(eq(overtime_requests.status, 'approved'), between(overtime_requests.date, first, last))),
   ]);
   const name = new Map(opts.map((o) => [o.id, o.name]));
   const holiday = new Map(hols.map((h) => [h.date, h.name]));
@@ -56,8 +58,14 @@ export async function buildReport(db: Db, first: string, last: string, departmen
     const s: ReportSummaryRow = {
       employeeId: e.id, name: e.name, department: name.get(e.department_id ?? '') ?? '', level: name.get(e.level_id ?? '') ?? '',
       workdays: 0, present: 0, absent: 0, lateDays: 0, lateMinutes: 0, lateExcusedDays: 0, noClockOut: 0, corrected: 0, outsideOffice: 0, noLocation: 0,
-      workMinutes: 0, leaveAnnual: 0, leaveSick: 0, leaveDuty: 0, leaveOther: 0, izinLateCount: 0, izinEarlyCount: 0,
+      workMinutes: 0, leaveAnnual: 0, leaveSick: 0, leaveDuty: 0, leaveOther: 0, izinLateCount: 0, izinEarlyCount: 0, overtimeMinutes: 0, holidayWorkDays: 0,
     };
+
+    // Overtime disetujui pada rentang ini: jam lembur dan jumlah hari kerja di hari libur.
+    for (const o of overtimes) {
+      if (o.employee_id !== e.id) continue;
+      if (o.kind === 'lembur') s.overtimeMinutes += o.minutes; else s.holidayWorkDays += 1;
+    }
 
     // Cuti disetujui yang jatuh di rentang ini (hari kerja), dikelompokkan per jenis.
     for (const l of myLeaves) {

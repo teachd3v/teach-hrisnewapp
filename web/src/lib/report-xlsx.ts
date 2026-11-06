@@ -17,9 +17,9 @@ export function reportToXlsx(rep: AttendanceReport): Uint8Array {
 
   const summary = {
     name: 'Ringkasan', preface,
-    header: ['Nama', 'Departemen', 'Level', 'Hari kerja', 'Hadir', 'Tidak hadir', 'Terlambat (hari)', 'Total menit terlambat', 'Terlambat berizin (hari)', 'Belum pulang (hari)', 'Dikoreksi (hari)', 'Di luar kantor (hari)', 'Tanpa lokasi (hari)', 'Total jam kerja', 'Cuti Tahunan (hari)', 'Sakit (hari)', 'Dinas Luar Kota (hari)', 'Cuti lainnya (hari)', 'Izin terlambat (kali)', 'Izin pulang cepat (kali)'],
-    rows: rep.summary.map((s) => [s.name, s.department, s.level, s.workdays, s.present, s.absent, s.lateDays, s.lateMinutes, s.lateExcusedDays, s.noClockOut, s.corrected, s.outsideOffice, s.noLocation, r2(s.workMinutes / 60), s.leaveAnnual, s.leaveSick, s.leaveDuty, s.leaveOther, s.izinLateCount, s.izinEarlyCount]),
-    widths: [26, 16, 14, 11, 8, 12, 16, 20, 22, 18, 16, 20, 18, 14, 18, 12, 22, 18, 20, 22],
+    header: ['Nama', 'Departemen', 'Level', 'Hari kerja', 'Hadir', 'Tidak hadir', 'Terlambat (hari)', 'Total menit terlambat', 'Terlambat berizin (hari)', 'Belum pulang (hari)', 'Dikoreksi (hari)', 'Di luar kantor (hari)', 'Tanpa lokasi (hari)', 'Total jam kerja', 'Cuti Tahunan (hari)', 'Sakit (hari)', 'Dinas Luar Kota (hari)', 'Cuti lainnya (hari)', 'Izin terlambat (kali)', 'Izin pulang cepat (kali)', 'Lembur (jam)', 'Kerja di hari libur (hari)'],
+    rows: rep.summary.map((s) => [s.name, s.department, s.level, s.workdays, s.present, s.absent, s.lateDays, s.lateMinutes, s.lateExcusedDays, s.noClockOut, s.corrected, s.outsideOffice, s.noLocation, r2(s.workMinutes / 60), s.leaveAnnual, s.leaveSick, s.leaveDuty, s.leaveOther, s.izinLateCount, s.izinEarlyCount, r2(s.overtimeMinutes / 60), s.holidayWorkDays]),
+    widths: [26, 16, 14, 11, 8, 12, 16, 20, 22, 18, 16, 20, 18, 14, 18, 12, 22, 18, 20, 22, 14, 24],
   };
 
   const detail = {

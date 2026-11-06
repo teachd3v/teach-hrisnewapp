@@ -6,6 +6,13 @@ export type NotificationType =
   | 'leave.hc_approved'
   | 'leave.hc_rejected'
   | 'leave.hc_override'
+  | 'overtime.submitted' // atasan: perlu aksi; admin: pemberitahuan
+  | 'overtime.manager_approved' // admin: perlu aksi HC; karyawan: pemberitahuan
+  | 'overtime.manager_rejected'
+  | 'overtime.hc_approved'
+  | 'overtime.hc_rejected'
+  | 'overtime.hc_override'
+  | 'overtime.revoked'
   | 'leave.joint_changed' // karyawan: pemberitahuan perubahan potongan cuti bersama
   | 'attendance.correction_requested' // admin: perlu aksi
   | 'attendance.correction_decided'; // pengaju: pemberitahuan
@@ -20,7 +27,7 @@ export interface NotifyInput {
 }
 
 /** Notifikasi "perlu aksi": dianggap selesai begitu pengajuan diputuskan atau dibatalkan. */
-export const ACTIONABLE_TYPES: NotificationType[] = ['leave.submitted', 'leave.manager_approved', 'attendance.correction_requested'];
+export const ACTIONABLE_TYPES: NotificationType[] = ['leave.submitted', 'leave.manager_approved', 'overtime.submitted', 'overtime.manager_approved', 'attendance.correction_requested'];
 
 const HREF = { approver: '/persetujuan', admin: '/admin/cuti', mine: '/cuti' } as const;
 
@@ -133,3 +140,71 @@ export function planJointSettingChange(ref: { changes: { id: string; before: num
   }
   return out;
 }
+
+// ------------------------------------------------------------------ overtime (alur sama dengan cuti; isi tanpa alasan)
+
+const OT_HREF = { approver: '/persetujuan?jenis=overtime', admin: '/admin/cuti?jenis=overtime', mine: '/cuti?riwayat=overtime' } as const;
+
+/** "Lembur · 17 Okt (17:00–21:00)". */
+export const overtimeBrief = (label: string, date: string, start: string, end: string) => `${label} · ${shortDate(date)} (${start}\u2013${end})`;
+
+export function planOvertimeSubmitted(ref: LeaveRef & { managerId: string | null; managerName: string | null; adminIds: string[] }): NotifyInput[] {
+  const title = `Pengajuan overtime baru dari ${ref.requesterName}`;
+  const out: NotifyInput[] = [];
+  const hasManager = Boolean(ref.managerId) && ref.managerId !== ref.requesterId;
+  if (hasManager) out.push({ employeeId: ref.managerId!, type: 'overtime.submitted', title, body: `${ref.brief}. Menunggu persetujuan Anda.`, href: OT_HREF.approver, entityId: ref.requestId });
+  for (const id of ref.adminIds) {
+    if (id === ref.requesterId || (hasManager && id === ref.managerId)) continue;
+    out.push({
+      employeeId: id, type: 'overtime.submitted', title,
+      body: hasManager ? `${ref.brief}. Menunggu atasan${ref.managerName ? ` (${ref.managerName})` : ''}.` : `${ref.brief}. Menunggu persetujuan HC.`,
+      href: OT_HREF.admin, entityId: ref.requestId,
+    });
+  }
+  return out;
+}
+
+export function planOvertimeManagerDecision(ref: LeaveRef & { actorId: string; approved: boolean; adminIds: string[] }): NotifyInput[] {
+  const out: NotifyInput[] = [{
+    employeeId: ref.requesterId, type: ref.approved ? 'overtime.manager_approved' : 'overtime.manager_rejected',
+    title: ref.approved ? 'Overtime disetujui atasan' : 'Overtime ditolak atasan',
+    body: ref.approved ? `${ref.brief}. Menunggu persetujuan HC.` : ref.brief, href: OT_HREF.mine, entityId: ref.requestId,
+  }];
+  if (ref.approved) {
+    for (const id of ref.adminIds) {
+      if (id === ref.requesterId || id === ref.actorId) continue;
+      out.push({ employeeId: id, type: 'overtime.manager_approved', title: 'Overtime menunggu persetujuan HC', body: `${ref.requesterName}: ${ref.brief}. Sudah disetujui atasan.`, href: OT_HREF.admin, entityId: ref.requestId });
+    }
+  }
+  return out;
+}
+
+/** Keputusan akhir HC. Bila disetujui, karyawan diberi tahu bahwa kredit Ganti Hari bertambah. */
+export function planOvertimeHcDecision(ref: LeaveRef & { approved: boolean }): NotifyInput[] {
+  return [{
+    employeeId: ref.requesterId, type: ref.approved ? 'overtime.hc_approved' : 'overtime.hc_rejected',
+    title: ref.approved ? 'Overtime disetujui' : 'Overtime ditolak',
+    body: ref.approved ? `${ref.brief}. Kredit Ganti Hari Anda bertambah sesuai aturan overtime.` : ref.brief, href: OT_HREF.mine, entityId: ref.requestId,
+  }];
+}
+
+export function planOvertimeOverride(ref: LeaveRef & { actorId: string; approved: boolean; managerId: string | null }): NotifyInput[] {
+  const out: NotifyInput[] = [{
+    employeeId: ref.requesterId, type: 'overtime.hc_override',
+    title: ref.approved ? 'Overtime disetujui HC' : 'Overtime ditolak HC',
+    body: `${ref.brief}. Diputuskan langsung oleh HC.`, href: OT_HREF.mine, entityId: ref.requestId,
+  }];
+  if (ref.managerId && ref.managerId !== ref.actorId && ref.managerId !== ref.requesterId) {
+    out.push({ employeeId: ref.managerId, type: 'overtime.hc_override', title: 'Overtime bawahan diputuskan HC', body: `${ref.requesterName}: ${ref.brief}.`, href: OT_HREF.approver, entityId: ref.requestId });
+  }
+  return out;
+}
+
+/** HC mencabut overtime yang sudah disetujui: kredit Ganti Hari dikurangi. */
+export function planOvertimeRevoked(ref: LeaveRef): NotifyInput[] {
+  return [{
+    employeeId: ref.requesterId, type: 'overtime.revoked', title: 'Overtime dibatalkan HC',
+    body: `${ref.brief}. Kredit Ganti Hari dari overtime ini dicabut.`, href: OT_HREF.mine, entityId: ref.requestId,
+  }];
+}
+

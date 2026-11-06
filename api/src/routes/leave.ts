@@ -8,6 +8,7 @@ import {
   isAdmin,
   leaveBrief,
   leaveTypeAllowsStatus,
+  parseIsoDate,
   planHcDecision,
   planManagerDecision,
   planOverride,
@@ -60,9 +61,12 @@ leave.get('/meta', async (c) => {
   if (!me) return c.json({ error: 'Sesi berakhir' }, 401);
   const year = Number(c.req.query('year')) || new Date().getUTCFullYear();
   if (!Number.isInteger(year) || year < 2020 || year > 2100) return c.json({ error: 'Tahun tidak valid' }, 400);
+  // Tanggal acuan sisa (mis. tanggal mulai di form): penting untuk Ganti Hari karena kredit overtime punya masa berlaku.
+  const asOfParam = c.req.query('asOf');
+  const asOf = asOfParam && parseIsoDate(asOfParam) && asOfParam.startsWith(`${year}-`) ? asOfParam : undefined;
 
   const [balances, manager, hols, reports, types] = await Promise.all([
-    getBalances(db, me.id, year),
+    getBalances(db, me.id, year, asOf),
     me.manager_id ? one(db.select({ name: employees.name }).from(employees).where(eq(employees.id, me.manager_id)).limit(1)) : null,
     db.select().from(holidays).where(and(gte(holidays.date, `${year - 1}-01-01`), lte(holidays.date, `${year + 1}-12-31`))).orderBy(asc(holidays.date)),
     one(db.select({ id: employees.id }).from(employees).where(and(eq(employees.manager_id, me.id), eq(employees.active, true))).limit(1)),
@@ -150,7 +154,7 @@ leave.post('/', async (c) => {
   )).limit(1));
   if (overlap) return c.json({ error: 'Tanggal ini bertumpang tindih dengan pengajuan Anda yang lain' }, 400);
 
-  const balance = (await getBalances(db, me.id, Number(start.slice(0, 4)))).find((x) => x.type === type)!;
+  const balance = (await getBalances(db, me.id, Number(start.slice(0, 4)), start)).find((x) => x.type === type)!;
   if (balance.remaining !== null && days > balance.remaining) {
     return c.json({ error: `Kuota ${meta.label} tidak mencukupi: diajukan ${days} hari kerja, tersisa ${Math.max(balance.remaining, 0)} hari` }, 400);
   }
@@ -334,8 +338,9 @@ leave.get('/admin', async (c) => {
 
 /** Kuota pengaju masih cukup untuk menyetujui? `remaining` sudah memotong pengajuan ini (statusnya pending). */
 async function quotaError(db: Db, req: LeaveRow): Promise<string | null> {
-  const b = (await getBalances(db, req.employee_id, Number(req.start_date.slice(0, 4)))).find((x) => x.type === req.leave_type);
-  return b && b.remaining !== null && b.remaining < 0
+  const b = (await getBalances(db, req.employee_id, Number(req.start_date.slice(0, 4)), req.start_date)).find((x) => x.type === req.leave_type);
+  // Ganti Hari tidak pernah minus (sisa dari lot yang berlaku); kelebihan ditandai `shortfall`.
+  return b && ((b.remaining !== null && b.remaining < 0) || b.shortfall > 0)
     ? `Kuota ${b.label} karyawan tidak mencukupi. Ubah jatah di menu Kuota Cuti atau tolak pengajuan.`
     : null;
 }

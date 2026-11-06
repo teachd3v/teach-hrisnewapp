@@ -30,6 +30,8 @@ export const LEAVE_KEYS = {
   duty: 'Dinas Luar Kota',
   lateIn: 'Izin Terlambat',
   earlyOut: 'Izin Pulang Cepat',
+  /** Ganti Hari: kuotanya terisi otomatis dari overtime yang disetujui (lihat shared/src/overtime.ts) */
+  compensation: 'Ganti Hari',
 } as const;
 
 export const GENDERS = ['Laki-laki', 'Perempuan'] as const;

@@ -139,6 +139,36 @@ export const leave_requests = sqliteTable('leave_requests', {
   attachmentUnique: uniqueIndex('leave_requests_attachment_unique').on(t.attachment_key),
 }));
 
+// Pengajuan overtime (Lembur / Kerja di Hari Libur). Alur sama dengan cuti: atasan langsung -> HC. Yang disetujui HC mengisi kuota Ganti Hari
+// otomatis (kredit dihitung saat saldo dibaca; lihat shared/src/overtime.ts). `cancelled` + `revoked_*` = dicabut HC setelah disetujui.
+export const overtime_requests = sqliteTable('overtime_requests', {
+  id: text('id').primaryKey(),
+  employee_id: text('employee_id').notNull(),
+  kind: text('kind', { enum: ['lembur', 'hari_libur'] }).notNull(),
+  date: text('date').notNull(), // tanggal WIB
+  start_time: text('start_time').notNull(), // HH:MM
+  end_time: text('end_time').notNull(),
+  minutes: integer('minutes').notNull(),
+  reason: text('reason'),
+  status: text('status', { enum: ['pending_manager', 'pending_hc', 'approved', 'rejected', 'cancelled'] }).notNull(),
+  manager_decided_by: text('manager_decided_by'),
+  manager_decided_at: text('manager_decided_at'),
+  manager_notes: text('manager_notes'),
+  hc_decided_by: text('hc_decided_by'),
+  hc_decided_at: text('hc_decided_at'),
+  hc_notes: text('hc_notes'),
+  hc_override: integer('hc_override', { mode: 'boolean' }).notNull().default(false),
+  hc_override_reason: text('hc_override_reason'),
+  revoked_by: text('revoked_by'),
+  revoked_at: text('revoked_at'),
+  revoke_reason: text('revoke_reason'),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull(),
+}, (t) => ({
+  employeeDateIdx: index('overtime_requests_employee_date_idx').on(t.employee_id, t.date),
+  statusIdx: index('overtime_requests_status_idx').on(t.status),
+}));
+
 export const attendances = sqliteTable('attendances', {
   id: text('id').primaryKey(),
   employee_id: text('employee_id').notNull(),

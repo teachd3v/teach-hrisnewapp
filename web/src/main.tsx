@@ -22,6 +22,7 @@ import AdminHolidays from './pages/AdminHolidays';
 import AdminMaster from './pages/AdminMaster';
 import AdminAttendanceSettings from './pages/AdminAttendanceSettings';
 import Profile from './pages/Profile';
+import OvertimeForm from './pages/OvertimeForm';
 import Attendance from './pages/Attendance';
 import AttendanceCapture from './pages/AttendanceCapture';
 import AdminAttendance from './pages/AdminAttendance';
@@ -54,7 +55,7 @@ const router = createBrowserRouter(
         <Route element={<TabLayout />}>
           <Route path="/" element={<Home />} handle={{ title: 'Beranda' }} />
           <Route path="/presensi" element={<Attendance />} handle={{ title: 'Presensi' }} />
-          <Route path="/cuti" element={<Leave />} handle={{ title: 'Cuti' }} />
+          <Route path="/cuti" element={<Leave />} handle={{ title: 'Izin' }} />
           <Route path="/notifikasi" element={<Notifications />} handle={{ title: 'Notifikasi' }} />
           <Route path="/akun" element={<Account />} handle={{ title: 'Akun' }} />
         </Route>
@@ -62,12 +63,13 @@ const router = createBrowserRouter(
           <Route path="/presensi/koreksi" element={<AttendanceCorrection />} handle={{ title: 'Koreksi presensi', back: '/presensi' }} />
           <Route path="/admin/koreksi-presensi" element={<AdminCorrections />} handle={{ title: 'Koreksi presensi (HC)', back: '/akun' }} />
           <Route path="/presensi/ambil/:type" element={<AttendanceCapture />} handle={{ title: 'Presensi', back: '/presensi' }} />
-          <Route path="/persetujuan" element={<Approvals />} handle={{ title: 'Persetujuan', back: '/cuti' }} />
+          <Route path="/persetujuan" element={<Approvals />} handle={{ title: 'Persetujuan izin & overtime', back: '/cuti' }} />
           <Route path="/admin/audit" element={<AdminAudit />} handle={{ title: 'Log audit', back: '/akun' }} />
           <Route path="/admin/rekap" element={<AdminReport />} handle={{ title: 'Rekap presensi & cuti', back: '/akun' }} />
           <Route path="/admin/presensi" element={<AdminAttendance />} handle={{ title: 'Presensi (HC)', back: '/akun' }} />
           <Route path="/cuti/ajukan" element={<LeaveForm />} handle={{ title: 'Ajukan cuti', back: '/cuti' }} />
-          <Route path="/admin/cuti" element={<AdminLeave />} handle={{ title: 'Cuti (HC)', back: '/akun' }} />
+          <Route path="/cuti/overtime" element={<OvertimeForm />} handle={{ title: 'Ajukan overtime', back: '/cuti' }} />
+          <Route path="/admin/cuti" element={<AdminLeave />} handle={{ title: 'Izin & overtime (HC)', back: '/akun' }} />
           <Route path="/admin/karyawan" element={<AdminEmployees />} handle={{ title: 'Karyawan', back: '/akun' }} />
           <Route path="/profil" element={<Profile />} handle={{ title: 'Profil saya', back: '/akun' }} />
           <Route path="/admin/karyawan/:id/profil" element={<Profile />} handle={{ title: 'Profil karyawan', back: '/admin/karyawan' }} />

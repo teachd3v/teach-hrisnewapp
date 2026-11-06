@@ -4,14 +4,20 @@ import { and, between, eq, gte, inArray, isNull, lte, ne, sql } from 'drizzle-or
 import {
   ACTIONABLE_TYPES,
   ACTIVE_STATUSES,
+  LEAVE_KEYS,
+  allocateLots,
+  baseLot,
+  compensationBalance,
   computeBalances,
   jointLeaveDeduction,
   leaveTypeAllowsStatus,
+  overtimeLots,
+  wibDate,
   type LeaveBalance,
   type LeaveStatus,
   type NotifyInput,
 } from '@hris/shared';
-import { employees, holidays, leave_quotas, leave_requests, notifications } from '../db/schema';
+import { employees, holidays, leave_quotas, leave_requests, notifications, overtime_requests } from '../db/schema';
 import { loadLeaveTypes } from './leave-types';
 import { loadJointLeaveSettings } from './settings';
 
@@ -33,11 +39,64 @@ async function jointDeductionOf(db: Db, emp: { join_date: string | null; status:
 }
 
 /**
+ * Saldo Ganti Hari satu tahun dari lot dasar + kredit overtime yang disetujui (lihat shared/src/overtime.ts). Null bila kuota Ganti Hari
+ * tanpa batas (tidak ada yang perlu dihitung). Kuota dasar tahun sebelumnya ikut dimuat karena kredit overtime berlaku sampai 31 Maret tahun berikutnya.
+ */
+async function compensationFor(db: Db, employeeId: string, year: number, asOf: string, defaultQuota: number | null) {
+  const key = LEAVE_KEYS.compensation;
+  const [quotaRows, overtime, uses] = await Promise.all([
+    db.select().from(leave_quotas).where(and(eq(leave_quotas.employee_id, employeeId), eq(leave_quotas.leave_type, key), inArray(leave_quotas.year, [year - 1, year]))),
+    db.select({ id: overtime_requests.id, kind: overtime_requests.kind, date: overtime_requests.date, minutes: overtime_requests.minutes }).from(overtime_requests)
+      .where(and(eq(overtime_requests.employee_id, employeeId), eq(overtime_requests.status, 'approved'), between(overtime_requests.date, `${year - 1}-01-01`, `${year}-12-31`))),
+    db.select({ start: leave_requests.start_date, days: leave_requests.total_days }).from(leave_requests)
+      .where(and(eq(leave_requests.employee_id, employeeId), eq(leave_requests.leave_type, key), inArray(leave_requests.status, ACTIVE_STATUSES),
+        between(leave_requests.start_date, `${year - 1}-01-01`, `${year}-12-31`))),
+  ]);
+  const quotaOf = (y: number) => quotaRows.find((r) => r.year === y)?.quota ?? defaultQuota;
+  const prev = quotaOf(year - 1);
+  const current = quotaOf(year);
+  if (prev === null || current === null) return null;
+  return compensationBalance({ year, asOf, baseQuota: { prev, current }, overtime, uses });
+}
+
+/**
+ * Total hari pemakaian Ganti Hari yang tidak tertutup lot (kuota dasar + kredit overtime) pada tahun-1 sampai tahun+1 dari `year`.
+ * `excludeOvertimeId` menghitung seolah overtime itu tidak ada (untuk memeriksa apakah pencabutannya aman). 0 bila kuota tanpa batas.
+ */
+export async function compensationShortfall(db: Db, employeeId: string, year: number, excludeOvertimeId?: string): Promise<number> {
+  const key = LEAVE_KEYS.compensation;
+  const types = await loadLeaveTypes(db);
+  const defaultQuota = types.find((t) => t.key === key)?.defaultQuota ?? null;
+  const years = [year - 1, year, year + 1];
+  const [quotaRows, overtime, uses] = await Promise.all([
+    db.select().from(leave_quotas).where(and(eq(leave_quotas.employee_id, employeeId), eq(leave_quotas.leave_type, key), inArray(leave_quotas.year, years))),
+    db.select({ id: overtime_requests.id, kind: overtime_requests.kind, date: overtime_requests.date, minutes: overtime_requests.minutes }).from(overtime_requests)
+      .where(and(eq(overtime_requests.employee_id, employeeId), eq(overtime_requests.status, 'approved'), between(overtime_requests.date, `${year - 1}-01-01`, `${year + 1}-12-31`))),
+    db.select({ start: leave_requests.start_date, days: leave_requests.total_days }).from(leave_requests)
+      .where(and(eq(leave_requests.employee_id, employeeId), eq(leave_requests.leave_type, key), inArray(leave_requests.status, ACTIVE_STATUSES),
+        between(leave_requests.start_date, `${year - 1}-01-01`, `${year + 1}-12-31`))),
+  ]);
+  const bases = [];
+  for (const y of years) {
+    const q = quotaRows.find((r) => r.year === y)?.quota ?? defaultQuota;
+    if (q === null) return 0;
+    bases.push(baseLot(y, q));
+  }
+  return allocateLots([...bases, ...overtimeLots(overtime.filter((o) => o.id !== excludeOvertimeId))], uses).shortfall;
+}
+
+/** Tanggal acuan bawaan: hari ini (tahun berjalan), akhir tahun (tahun lalu), atau awal tahun (tahun depan). */
+export function defaultAsOf(year: number, today = wibDate()): string {
+  const cur = Number(today.slice(0, 4));
+  return year === cur ? today : year < cur ? `${year}-12-31` : `${year}-01-01`;
+}
+
+/**
  * Saldo per jenis cuti. Jenis nonaktif hanya ikut bila masih punya pemakaian/potongan tahun itu (agar saldonya tetap terlihat);
  * jenis nonaktif yang tidak dipakai disembunyikan. Jenis yang dibatasi status lain (mis. Cuti Besar khusus karyawan tetap)
  * disembunyikan dari karyawan yang tidak berhak, kecuali sudah punya pemakaian.
  */
-export async function getBalances(db: Db, employeeId: string, year: number): Promise<LeaveBalance[]> {
+export async function getBalances(db: Db, employeeId: string, year: number, asOf: string = defaultAsOf(year)): Promise<LeaveBalance[]> {
   const [emp] = await db.select({ join_date: employees.join_date, status: employees.employment_status_id })
     .from(employees).where(eq(employees.id, employeeId)).limit(1);
   const [types, jointDeducted, quotaRows, usage] = await Promise.all([
@@ -65,6 +124,17 @@ export async function getBalances(db: Db, employeeId: string, year: number): Pro
     usage.map((u) => ({ type: u.type, status: u.status as LeaveStatus, days: Number(u.days) })),
     jointDeducted,
   );
+  // Ganti Hari: kuota = dasar + kredit overtime (dengan masa berlaku), sisa dinilai pada tanggal acuan.
+  const compType = types.find((t) => t.key === LEAVE_KEYS.compensation);
+  const compIdx = all.findIndex((b) => b.type === LEAVE_KEYS.compensation);
+  if (compType && compIdx >= 0) {
+    const defaultQuota = all[compIdx]!.explicit ? all[compIdx]!.quota : compType.defaultQuota;
+    const comp = await compensationFor(db, employeeId, year, asOf, defaultQuota);
+    if (comp) {
+      const b = all[compIdx]!;
+      all[compIdx] = { ...b, quota: comp.quota, overtimeCredit: comp.overtimeCredit, expired: comp.expired, shortfall: comp.shortfall, remaining: comp.remaining };
+    }
+  }
   const visible = new Set(types.filter((t) => t.active && leaveTypeAllowsStatus(t, emp?.status)).map((t) => t.key));
   return all.filter((b) => visible.has(b.type) || b.used + b.pending + b.jointDeducted > 0);
 }

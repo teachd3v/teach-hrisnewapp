@@ -3,9 +3,9 @@ import { Button, Field, Sheet, Textarea } from '../ui';
 
 /** Lembar konfirmasi keputusan: catatan (opsional atau wajib) lalu konfirmasi. Galat tetap di dalam lembar. */
 export default function DecisionSheet({
-  open, onClose, title, summary, approve, requireText = false, textLabel = 'Catatan', onConfirm,
+  open, onClose, title, summary, approve, requireText = false, textLabel = 'Catatan', confirmLabel, onConfirm,
 }: {
-  open: boolean; onClose: () => void; title: string; summary?: string; approve: boolean; requireText?: boolean; textLabel?: string;
+  open: boolean; onClose: () => void; title: string; summary?: string; approve: boolean; requireText?: boolean; textLabel?: string; confirmLabel?: string;
   onConfirm: (text: string) => Promise<unknown>;
 }) {
   const [text, setText] = useState('');
@@ -27,7 +27,7 @@ export default function DecisionSheet({
       </Field>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <Button variant="secondary" onClick={onClose} disabled={busy}>Batal</Button>
-        <Button variant={approve ? 'primary' : 'danger'} onClick={() => void confirm()} loading={busy}>{approve ? 'Setujui' : 'Tolak'}</Button>
+        <Button variant={approve ? 'primary' : 'danger'} onClick={() => void confirm()} loading={busy}>{confirmLabel ?? (approve ? 'Setujui' : 'Tolak')}</Button>
       </div>
     </Sheet>
   );

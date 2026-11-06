@@ -30,6 +30,10 @@ function summarize(it: AuditItem): string {
     case 'leave.submitted': return `${d.type} · ${range(d.start, d.end)} (${d.days} hari)`;
     case 'leave.manager_decision': case 'leave.hc_decision': case 'leave.hc_override':
       return `${d.decision} · ${d.type} · ${range(d.start, d.end)}${d.reason ? ` · alasan ambil alih: ${d.reason}` : d.notes ? ` · ${d.notes}` : ''}`;
+    case 'overtime.submitted': return `${d.kind} · ${sd(d.date)} (${d.minutes} menit)`;
+    case 'overtime.manager_decision': case 'overtime.hc_decision': case 'overtime.hc_override':
+      return `${d.decision} · ${d.kind} · ${sd(d.date)}${d.reason ? ` · alasan ambil alih: ${d.reason}` : d.notes ? ` · ${d.notes}` : ''}`;
+    case 'overtime.revoked': return `${d.kind} · ${sd(d.date)} · alasan: ${d.reason}`;
     case 'leave.quota_set': return `${d.leaveType} ${d.year}: ${d.quota === null ? 'kembali ke bawaan' : `${d.quota} hari`}`;
     case 'attendance.clock_in': case 'attendance.clock_out': return `jarak ${d.distance == null ? 'tanpa lokasi' : `${d.distance} m`}${d.face === false ? ' · wajah tidak terdeteksi' : ''}`;
     case 'attendance.correction_requested': return `${sd(d.date)} · ${d.kind === 'both' ? 'masuk dan pulang' : 'jam pulang'}`;

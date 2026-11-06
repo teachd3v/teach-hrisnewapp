@@ -42,7 +42,8 @@ export function useTitle(): RouteHandle {
 export function useBadges() {
   const notif = useQuery({ queryKey: ['notifications'], queryFn: () => api<{ unread: number; items: unknown[] }>('/notifications'), refetchInterval: 60_000 });
   const approvals = useQuery({ queryKey: ['approvals', 'pending'], queryFn: () => api<unknown[]>('/leave/approvals?tab=pending'), refetchInterval: 60_000 });
-  return { unread: notif.data?.unread ?? 0, approvals: approvals.data?.length ?? 0 };
+  const overtime = useQuery({ queryKey: ['overtime-approvals', 'pending'], queryFn: () => api<unknown[]>('/overtime/approvals?tab=pending'), refetchInterval: 60_000 });
+  return { unread: notif.data?.unread ?? 0, approvals: (approvals.data?.length ?? 0) + (overtime.data?.length ?? 0) };
 }
 
 function Badge({ n }: { n: number }) {
@@ -55,7 +56,7 @@ function Badge({ n }: { n: number }) {
 const TABS = [
   { to: '/', label: 'Beranda', icon: House, end: true },
   { to: '/presensi', label: 'Presensi', icon: ScanFace },
-  { to: '/cuti', label: 'Cuti', icon: CalendarDays },
+  { to: '/cuti', label: 'Izin', icon: CalendarDays },
   { to: '/notifikasi', label: 'Notifikasi', icon: Bell },
   { to: '/akun', label: 'Akun', icon: UserRound },
 ] as const;
@@ -65,7 +66,7 @@ export function TabLayout() {
   const { title } = useTitle();
   const { unread, approvals } = useBadges();
   const location = useLocation();
-  // Pengajuan menunggu persetujuan saya ditandai di tab Cuti.
+  // Pengajuan (cuti dan overtime) menunggu persetujuan saya ditandai di tab Izin.
   const counts: Record<string, number> = { '/cuti': approvals, '/notifikasi': unread };
   return (
     <div className="mx-auto flex h-dvh max-w-md flex-col bg-bg">

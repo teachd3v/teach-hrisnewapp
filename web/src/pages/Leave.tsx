@@ -1,18 +1,21 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation, useSearchParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarOff, CalendarPlus, CheckCircle2, ChevronRight, ClipboardCheck } from 'lucide-react';
+import { CalendarOff, CalendarPlus, CheckCircle2, ChevronRight, ClipboardCheck, Clock } from 'lucide-react';
 import { PENDING_STATUSES } from '@hris/shared';
 import { api } from '../lib/api';
 import { STATUS_LABEL, STATUS_TONE, fmtRange, leaveLabel, useLeaveTypes, type LeaveItem, type LeaveMeta } from '../lib/leave-types';
 import AttachmentLink from '../components/AttachmentLink';
-import { Button, Card, Chip, Empty, ErrorNote, Sheet, Spinner } from '../ui';
+import { OvertimeHistory } from '../components/OvertimeLists';
+import { Button, Card, Chip, Empty, ErrorNote, Segmented, Sheet, Spinner } from '../ui';
 import { useBadges } from '../layouts';
 
-/** Tab Cuti: saldo ringkas dan riwayat pengajuan saya. Form pengajuan ada di layar sendiri (/cuti/ajukan). */
+/** Tab Izin: saldo ringkas dan riwayat pengajuan cuti serta overtime saya. Formulir ada di layar sendiri (/cuti/ajukan dan /cuti/overtime). */
 export default function Leave() {
   const qc = useQueryClient();
   const flash = (useLocation().state as { flash?: string } | null)?.flash;
+  const [params, setParams] = useSearchParams();
+  const riwayat = params.get('riwayat') === 'overtime' ? 'overtime' : 'cuti';
   const year = new Date().getFullYear();
   const meta = useQuery({ queryKey: ['leave-meta', year], queryFn: () => api<LeaveMeta>(`/leave/meta?year=${year}`) });
   const mine = useQuery({ queryKey: ['leave-mine'], queryFn: () => api<LeaveItem[]>('/leave/mine') });
@@ -37,12 +40,17 @@ export default function Leave() {
               <p className="text-sm text-muted">{b.label}</p>
               <p className="text-2xl font-bold">{b.remaining}<span className="text-sm font-medium text-muted"> hari</span></p>
               <p className="text-xs text-muted">terpakai {b.used}{b.pending ? ` · menunggu ${b.pending}` : ''}{b.jointDeducted ? ` · cuti bersama ${b.jointDeducted}` : ''} / {b.quota}</p>
+              {b.overtimeCredit > 0 && <p className="text-xs text-muted">termasuk {b.overtimeCredit} hari dari overtime</p>}
+              {b.expired > 0 && <p className="text-xs text-bad">{b.expired} hari hangus</p>}
             </Card>
           ))}
         </div>
       )}
 
-      <Link to="/cuti/ajukan"><Button className="w-full"><CalendarPlus className="size-5" aria-hidden="true" />Ajukan cuti</Button></Link>
+      <div className="grid grid-cols-2 gap-3">
+        <Link to="/cuti/ajukan"><Button className="w-full"><CalendarPlus className="size-5" aria-hidden="true" />Ajukan cuti</Button></Link>
+        <Link to="/cuti/overtime"><Button className="w-full" variant="secondary"><Clock className="size-5" aria-hidden="true" />Ajukan overtime</Button></Link>
+      </div>
 
       {meta.data?.isManager && (
         <Link to="/persetujuan" className="flex min-h-14 items-center gap-3 rounded-2xl border border-line bg-surface p-3 active:bg-sub">
@@ -54,6 +62,8 @@ export default function Leave() {
       )}
 
       <h2 className="text-lg font-semibold">Riwayat</h2>
+      <Segmented value={riwayat} onChange={(v) => setParams(v === 'overtime' ? { riwayat: 'overtime' } : {}, { replace: true })} options={[{ value: 'cuti', label: 'Cuti' }, { value: 'overtime', label: 'Overtime' }]} />
+      {riwayat === 'overtime' ? <OvertimeHistory /> : <>
       {mine.isPending && <Spinner />}
       <ErrorNote error={mine.error} />
       {mine.data?.length === 0 && <Empty icon={<CalendarOff className="size-10" />}>Belum ada pengajuan cuti.</Empty>}
@@ -84,6 +94,7 @@ export default function Leave() {
           <Button variant="danger" loading={cancel.isPending} onClick={() => toCancel && cancel.mutate(toCancel.id)}>Batalkan</Button>
         </div>
       </Sheet>
+      </>}
     </div>
   );
 }

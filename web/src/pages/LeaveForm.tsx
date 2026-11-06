@@ -22,7 +22,12 @@ export default function LeaveForm() {
   const [fileError, setFileError] = useState<string | null>(null);
 
   const year = start ? Number(start.slice(0, 4)) : new Date().getFullYear();
-  const meta = useQuery({ queryKey: ['leave-meta', year], queryFn: () => api<LeaveMeta>(`/leave/meta?year=${year}`) });
+  // `asOf` = tanggal mulai: sisa Ganti Hari bergantung pada masa berlaku kredit overtime (sampai 31 Maret tahun berikutnya).
+  const meta = useQuery({
+    queryKey: ['leave-meta', year, start],
+    queryFn: () => api<LeaveMeta>(`/leave/meta?year=${year}${start ? `&asOf=${start}` : ''}`),
+    placeholderData: (prev) => prev, // jangan kembali ke spinner tiap tanggal diubah
+  });
 
   const types = meta.data?.types ?? [];
   // Pilihan pertama (Cuti Tahunan bila aktif) dipakai sampai pengguna memilih lain.

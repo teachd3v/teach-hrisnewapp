@@ -27,6 +27,10 @@ export interface ReportSummaryRow {
   leaveOther: number;
   izinLateCount: number;
   izinEarlyCount: number;
+  /** total menit lembur yang disetujui pada rentang ini */
+  overtimeMinutes: number;
+  /** jumlah hari Kerja di Hari Libur yang disetujui pada rentang ini */
+  holidayWorkDays: number;
 }
 
 export interface ReportDailyRow {

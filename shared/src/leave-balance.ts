@@ -19,6 +19,12 @@ export interface LeaveBalance {
   pending: number;
   /** dipotong cuti bersama (hanya Cuti Tahunan, hanya bila pengaturannya menyala); 0 untuk lainnya */
   jointDeducted: number;
+  /** bagian kuota yang berasal dari kredit overtime (hanya Ganti Hari); 0 untuk lainnya */
+  overtimeCredit: number;
+  /** kredit overtime yang sudah hangus per tanggal acuan (hanya Ganti Hari) */
+  expired: number;
+  /** hari pemakaian yang tidak tertutup kuota (hanya Ganti Hari; > 0 = kelebihan, mis. kredit dicabut) */
+  shortfall: number;
   /** null = tidak dibatasi */
   remaining: number | null;
   /** true jika admin menetapkan jatah khusus */
@@ -62,6 +68,6 @@ export function computeBalances(
     const used = usage.filter((u) => u.type === key && u.status === 'approved').reduce((a, u) => a + u.days, 0);
     const pending = usage.filter((u) => u.type === key && PENDING_STATUSES.includes(u.status)).reduce((a, u) => a + u.days, 0);
     const joint = key === JOINT_LEAVE_DEDUCTS_TYPE ? jointDeducted : 0;
-    return { type: key, label, quota, used, pending, jointDeducted: joint, remaining: quota === null ? null : quota - used - pending - joint, explicit };
+    return { type: key, label, quota, used, pending, jointDeducted: joint, overtimeCredit: 0, expired: 0, shortfall: 0, remaining: quota === null ? null : quota - used - pending - joint, explicit };
   });
 }

@@ -1,15 +1,28 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Inbox } from 'lucide-react';
 import { api } from '../lib/api';
 import DecisionSheet from '../components/DecisionSheet';
 import AttachmentLink from '../components/AttachmentLink';
 import { STATUS_LABEL, STATUS_TONE, fmtRange, leaveLabel, useLeaveTypes, type LeaveItem } from '../lib/leave-types';
+import { OvertimeAdmin } from '../components/OvertimeLists';
 import { Button, Card, Chip, Empty, ErrorNote, Segmented, Spinner } from '../ui';
 
 type Tab = 'pending_hc' | 'pending_manager' | 'all';
 
 export default function AdminLeave() {
+  const [params, setParams] = useSearchParams();
+  const jenis = params.get('jenis') === 'overtime' ? 'overtime' : 'cuti';
+  return (
+    <div className="flex flex-col gap-4">
+      <Segmented value={jenis} onChange={(v) => setParams(v === 'overtime' ? { jenis: 'overtime' } : {}, { replace: true })} options={[{ value: 'cuti', label: 'Cuti' }, { value: 'overtime', label: 'Overtime' }]} />
+      {jenis === 'overtime' ? <OvertimeAdmin /> : <AdminLeaveList />}
+    </div>
+  );
+}
+
+function AdminLeaveList() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>('pending_hc');
   const [decision, setDecision] = useState<{ item: LeaveItem; approve: boolean } | null>(null);

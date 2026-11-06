@@ -47,7 +47,7 @@ export default function Account() {
         <section aria-labelledby="admin-h">
           <h2 id="admin-h" className="mb-2 px-1 text-sm font-semibold text-muted">Admin</h2>
           <div className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
-            <MenuRow to="/admin/cuti" icon={<ClipboardList className="size-5" />} label="Cuti (HC)" />
+            <MenuRow to="/admin/cuti" icon={<ClipboardList className="size-5" />} label="Izin & overtime (HC)" />
             <MenuRow to="/admin/rekap" icon={<FileSpreadsheet className="size-5" />} label="Rekap & ekspor Excel" />
             <MenuRow to="/admin/koreksi-presensi" icon={<FilePen className="size-5" />} label="Koreksi presensi (HC)" />
             <MenuRow to="/admin/presensi" icon={<ScanFace className="size-5" />} label="Presensi (HC)" />
