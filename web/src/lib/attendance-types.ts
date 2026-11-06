@@ -1,6 +1,4 @@
-import { isOutsideOffice } from '@hris/shared';
-
-export interface PunchInfo { lat: number | null; lng: number | null; accuracy: number | null; distance: number | null; face: boolean | null; photo: string | null; corrected?: boolean }
+export interface PunchInfo { lat: number | null; lng: number | null; accuracy: number | null; distance: number | null; outside?: boolean | null; face: boolean | null; photo: string | null; corrected?: boolean }
 export interface DayFlags { lateMinutes?: number; lateExcused: boolean; leaveType: string | null; dayOff: string | null }
 export interface AttendanceRec {
   id: string; employee_id: string; date: string; clock_in: string | null; clock_out: string | null;
@@ -41,6 +39,6 @@ export const km = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `$
 export function locationFlag(p: PunchInfo | null): { tone: 'ok' | 'warn' | 'neutral'; text: string } | null {
   if (!p || p.corrected) return null; // hasil koreksi HC tidak punya lokasi; sudah ada penanda "Dikoreksi"
   if (p.distance == null) return { tone: 'warn', text: 'Tanpa lokasi' };
-  if (isOutsideOffice(p.distance)) return { tone: 'warn', text: `Di luar kantor (${km(p.distance)})` };
+  if (p.outside) return { tone: 'warn', text: `Di luar kantor (${km(p.distance)})` };
   return { tone: 'ok', text: 'Di area kantor' };
 }

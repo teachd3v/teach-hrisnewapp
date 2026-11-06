@@ -58,6 +58,8 @@ export interface AttendanceReport {
   /** tanggal terakhir yang dihitung untuk "tidak hadir" (maksimal kemarin; hari ini belum selesai) */
   cutoff: string;
   departmentName: string | null;
+  /** aturan jam masuk yang berlaku pada rentang ini (teks, bisa berisi perubahan di tengah rentang) */
+  lateRule: string;
   summary: ReportSummaryRow[];
   daily: ReportDailyRow[];
 }

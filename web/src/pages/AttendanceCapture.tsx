@@ -5,6 +5,7 @@ import { Camera, CameraOff, Loader2, MapPin, MapPinOff, RotateCcw } from 'lucide
 import type { FaceDetector } from '@mediapipe/tasks-vision';
 import { api } from '../lib/api';
 import { getPosition, type Fix } from '../lib/geo';
+import { useToday } from './Attendance';
 import { isFaceReady, loadFaceDetector, mapBoxToView, type ViewBox } from '../lib/face';
 import { BottomBar, Button, ErrorNote } from '../ui';
 
@@ -44,6 +45,8 @@ export default function AttendanceCapture() {
   const [detector, setDetector] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [countdown, setCountdown] = useState<number | null>(null);
   const [geo, setGeo] = useState<Geo>({ state: 'loading' });
+  // Mode blokir: lokasi wajib, jadi "Kirim tanpa lokasi" tidak tersedia.
+  const needsLocation = useToday().data?.policy.locationMode === 'block';
   const [attempt, setAttempt] = useState(0);
   const [photo, setPhoto] = useState<{ blob: Blob; url: string; face: boolean } | null>(null);
 
@@ -172,12 +175,14 @@ export default function AttendanceCapture() {
           {!photo.face && <span className="text-muted">Wajah tidak terdeteksi otomatis pada foto ini.</span>}
           {geo.state === 'error' && <button onClick={fetchLocation} className="mt-1 min-h-11 self-start rounded-lg px-2 font-medium underline active:bg-line">Coba lokasi lagi</button>}
         </div>
-        {geo.state === 'error' && <p className="text-sm text-muted">Jika dilanjutkan tanpa lokasi, presensi tercatat tanpa titik lokasi dan HC dapat melihatnya.</p>}
+        {geo.state === 'error' && (needsLocation
+          ? <p role="alert" className="rounded-xl bg-bad-bg p-3 text-sm text-bad">Presensi di aplikasi ini memerlukan lokasi. Aktifkan izin lokasi lalu ketuk "Coba lokasi lagi".</p>
+          : <p className="text-sm text-muted">Jika dilanjutkan tanpa lokasi, presensi tercatat tanpa titik lokasi dan HC dapat melihatnya.</p>)}
         <ErrorNote error={send.error} />
         <BottomBar>
           <div className="grid grid-cols-2 gap-3">
             <Button variant="secondary" onClick={retake} disabled={send.isPending}><RotateCcw className="size-5" aria-hidden="true" />Ulangi</Button>
-            <Button onClick={() => send.mutate()} loading={send.isPending} disabled={geo.state === 'loading'}>{geo.state === 'error' ? 'Kirim tanpa lokasi' : isIn ? 'Kirim masuk' : 'Kirim pulang'}</Button>
+            <Button onClick={() => send.mutate()} loading={send.isPending} disabled={geo.state === 'loading' || (needsLocation && geo.state === 'error')}>{geo.state === 'error' ? 'Kirim tanpa lokasi' : isIn ? 'Kirim masuk' : 'Kirim pulang'}</Button>
           </div>
         </BottomBar>
       </div>

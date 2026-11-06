@@ -1,4 +1,4 @@
-import { WORK_START_LABEL, type AttendanceReport } from '@hris/shared';
+import type { AttendanceReport } from '@hris/shared';
 import { fmtLongDate } from './attendance-types';
 import { buildXlsx, downloadXlsx } from './xlsx';
 
@@ -12,7 +12,7 @@ export function reportToXlsx(rep: AttendanceReport): Uint8Array {
     `Periode: ${periode}`,
     `Departemen: ${rep.departmentName ?? 'Semua'}`,
     `Hari kerja dihitung sampai ${fmtLongDate(rep.cutoff)} (hari ini belum dihitung sebagai tidak hadir).`,
-    `Aturan: batas masuk ${WORK_START_LABEL} WIB tanpa toleransi; terlambat berizin = ada Izin Keterlambatan yang disetujui; hari kerja = Senin-Jumat di luar hari libur.`,
+    `Aturan: ${rep.lateRule}; terlambat berizin = ada Izin Keterlambatan yang disetujui; hari kerja = Senin-Jumat di luar hari libur.`,
   ];
 
   const summary = {

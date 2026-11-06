@@ -2,8 +2,17 @@ import type { NotifyInput } from './leave-notifications';
 
 // Presensi: zona waktu WIB, jarak ke kantor. Dipakai server (penentu) dan klien (tampilan).
 
-/** Kantor. Sementara konstanta; geofence hanya dicatat (tidak memblokir). Pindah ke pengaturan bila perlu. */
-export const OFFICE = { lat: -6.4733643, lng: 106.7274949, radiusM: 1000 } as const;
+/** Lokasi kantor (tabel office_locations, dikelola super admin). */
+export interface OfficeLocation { id: string; name: string; lat: number; lng: number; radiusM: number; active: boolean }
+
+/** Aturan presensi yang berlaku mulai `effectiveFrom` (tanggal WIB). Mode 'flag' = lokasi hanya ditandai; 'block' = di luar radius ditolak. */
+export interface AttendancePolicy { effectiveFrom: string; workStart: string; graceMinutes: number; locationMode: 'flag' | 'block' }
+
+/** Aturan bila belum ada satu pun di database (sama dengan perilaku sebelum pengaturan dibuat). */
+export const DEFAULT_ATTENDANCE_POLICY: AttendancePolicy = { effectiveFrom: '0001-01-01', workStart: '09:00', graceMinutes: 0, locationMode: 'flag' };
+
+/** Margin akurasi GPS yang ditambahkan ke radius pada mode 'block' (maksimal sekian meter). */
+export const GPS_MARGIN_MAX_M = 100;
 
 const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
 
@@ -20,8 +29,32 @@ export function distanceMeters(a: { lat: number; lng: number }, b: { lat: number
   return Math.round(2 * R * Math.asin(Math.sqrt(h)));
 }
 
-export const distanceToOffice = (p: { lat: number; lng: number }) => distanceMeters(p, OFFICE);
-export const isOutsideOffice = (distanceM: number | null | undefined) => distanceM != null && distanceM > OFFICE.radiusM;
+/** Lokasi aktif terdekat dari titik `p` dan jaraknya (meter); null bila tidak ada lokasi aktif. */
+export function nearestOffice(p: { lat: number; lng: number }, offices: readonly OfficeLocation[]): { office: OfficeLocation; distance: number } | null {
+  let best: { office: OfficeLocation; distance: number } | null = null;
+  for (const o of offices) {
+    if (!o.active) continue;
+    const distance = distanceMeters(p, o);
+    if (!best || distance < best.distance) best = { office: o, distance };
+  }
+  return best;
+}
+
+/**
+ * Penilaian lokasi saat presensi. `outside` = di luar radius (snapshot yang disimpan). `blocked` = harus ditolak pada mode 'block':
+ * di luar radius ditambah margin akurasi GPS (maks. GPS_MARGIN_MAX_M). Tanpa lokasi aktif tidak ada penilaian (null).
+ */
+export function assessLocation(
+  p: { lat: number; lng: number } | null,
+  accuracyM: number | null,
+  offices: readonly OfficeLocation[],
+): { distance: number; outside: boolean; blocked: boolean; office: OfficeLocation } | null {
+  if (!p) return null;
+  const near = nearestOffice(p, offices);
+  if (!near) return null;
+  const margin = Math.min(Math.max(accuracyM ?? 0, 0), GPS_MARGIN_MAX_M);
+  return { distance: near.distance, office: near.office, outside: near.distance > near.office.radiusM, blocked: near.distance > near.office.radiusM + margin };
+}
 
 /** Koordinat valid (rentang bumi). */
 export const validLatLng = (lat: unknown, lng: unknown): lat is number =>
@@ -34,9 +67,20 @@ export function workDuration(inIso: string | null, outIso: string | null): strin
   return `${Math.floor(mins / 60)}j ${mins % 60}m`;
 }
 
-/** Jam masuk paling lambat 09:00 WIB, tanpa toleransi (lewat dari 09:00:00 = terlambat). */
-export const WORK_START_SECONDS = 9 * 3600;
-export const WORK_START_LABEL = '09:00';
+/** Aturan yang berlaku pada tanggal WIB `ymd`: yang `effectiveFrom`-nya terbaru dan <= tanggal itu; bila tidak ada, bawaan. */
+export function policyFor(policies: readonly AttendancePolicy[], ymd: string): AttendancePolicy {
+  let best: AttendancePolicy | null = null;
+  for (const p of policies) if (p.effectiveFrom <= ymd && (!best || p.effectiveFrom > best.effectiveFrom)) best = p;
+  return best ?? DEFAULT_ATTENDANCE_POLICY;
+}
+
+/** Ringkasan satu baris sebuah aturan, mis. "batas masuk 09:00 WIB, toleransi 5 menit". */
+export const policyText = (p: Pick<AttendancePolicy, 'workStart' | 'graceMinutes'>) =>
+  `batas masuk ${p.workStart} WIB${p.graceMinutes > 0 ? `, toleransi ${p.graceMinutes} menit` : ', tanpa toleransi'}`;
+
+/** "09:00" -> detik sejak tengah malam. */
+export const hhmmToSeconds = (hhmm: string) => Number(hhmm.slice(0, 2)) * 3600 + Number(hhmm.slice(3, 5)) * 60;
+export const policyStartSeconds = (p: Pick<AttendancePolicy, 'workStart'>) => hhmmToSeconds(p.workStart);
 
 /** Detik sejak tengah malam WIB dari waktu ISO. */
 export function wibSecondsOfDay(iso: string): number {
@@ -44,11 +88,15 @@ export function wibSecondsOfDay(iso: string): number {
   return d.getUTCHours() * 3600 + d.getUTCMinutes() * 60 + d.getUTCSeconds();
 }
 
-/** Menit keterlambatan (pembulatan ke atas), atau 0 bila tepat waktu. */
-export function lateMinutes(clockInIso: string | null): number {
+/**
+ * Menit keterlambatan (pembulatan ke atas), atau 0 bila tepat waktu. Memakai aturan yang berlaku pada tanggal presensi (WIB).
+ * Terlambat bila lewat jam masuk + toleransi; menit dihitung dari jam masuk.
+ */
+export function lateMinutes(clockInIso: string | null, policies: readonly AttendancePolicy[]): number {
   if (!clockInIso) return 0;
-  const over = wibSecondsOfDay(clockInIso) - WORK_START_SECONDS;
-  return over > 0 ? Math.ceil(over / 60) : 0;
+  const policy = policyFor(policies, wibDate(new Date(clockInIso)));
+  const over = wibSecondsOfDay(clockInIso) - policyStartSeconds(policy);
+  return over > policy.graceMinutes * 60 ? Math.ceil(over / 60) : 0;
 }
 
 /** Akhir pekan (Sabtu/Minggu) untuk tanggal kalender YYYY-MM-DD. */

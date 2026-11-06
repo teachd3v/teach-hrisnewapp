@@ -1,11 +1,12 @@
 import { Hono, type Context } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
 import { and, asc, between, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
-import { LEAVE_KEYS, distanceToOffice, isAdmin, isWeekendDate, lateMinutes, validLatLng, wibDate, type AttendanceFlags } from '@hris/shared';
+import { LEAVE_KEYS, assessLocation, isAdmin, isWeekendDate, lateMinutes, policyFor, validLatLng, wibDate, type AttendanceFlags, type AttendancePolicy } from '@hris/shared';
 import type { AppEnv } from '../env';
 import { attendances, audit_log, employees, holidays, leave_requests } from '../db/schema';
 import { auditRow } from '../lib/audit';
 import type { Db } from '../lib/leave-db';
+import { loadOffices, loadPolicies } from '../lib/attendance-policy';
 import { labelMap, loadLeaveTypes, timeBasedKeys } from '../lib/leave-types';
 import { MB, validateUpload } from '../lib/upload';
 import { requireAuth } from '../middleware/auth';
@@ -33,8 +34,8 @@ async function actor(c: Ctx, db: Db) {
 
 const shape = (r: Row) => ({
   id: r.id, employee_id: r.employee_id, date: r.date, clock_in: r.clock_in, clock_out: r.clock_out,
-  in: r.clock_in ? { lat: r.clock_in_lat, lng: r.clock_in_lng, accuracy: r.clock_in_accuracy, distance: r.clock_in_distance, face: r.clock_in_face, photo: r.clock_in_photo_key, corrected: r.clock_in_corrected } : null,
-  out: r.clock_out ? { lat: r.clock_out_lat, lng: r.clock_out_lng, accuracy: r.clock_out_accuracy, distance: r.clock_out_distance, face: r.clock_out_face, photo: r.clock_out_photo_key, corrected: r.clock_out_corrected } : null,
+  in: r.clock_in ? { lat: r.clock_in_lat, lng: r.clock_in_lng, accuracy: r.clock_in_accuracy, distance: r.clock_in_distance, outside: r.clock_in_outside, face: r.clock_in_face, photo: r.clock_in_photo_key, corrected: r.clock_in_corrected } : null,
+  out: r.clock_out ? { lat: r.clock_out_lat, lng: r.clock_out_lng, accuracy: r.clock_out_accuracy, distance: r.clock_out_distance, outside: r.clock_out_outside, face: r.clock_out_face, photo: r.clock_out_photo_key, corrected: r.clock_out_corrected } : null,
 });
 
 /** Konteks hari untuk pasangan (karyawan, tanggal): izin terlambat disetujui, pengajuan lain yang disetujui, hari libur/akhir pekan. */
@@ -70,11 +71,11 @@ async function contexts(db: Db, pairs: { employee_id: string; date: string }[]):
 
 /** Bentuk respons + penanda. Terlambat dihitung saat dibaca (bukan disimpan), jadi izin yang disetujui kemudian ikut berlaku. */
 async function annotate(db: Db, rows: Row[]) {
-  const ctx = await contexts(db, rows.map((r) => ({ employee_id: r.employee_id, date: r.date })));
+  const [ctx, policies] = await Promise.all([contexts(db, rows.map((r) => ({ employee_id: r.employee_id, date: r.date }))), loadPolicies(db)]);
   return rows.map((r) => {
     const c = ctx.get(`${r.employee_id}|${r.date}`)!;
-    // Batas 09:00 hanya berlaku di hari kerja (bukan akhir pekan/libur).
-    const flags: AttendanceFlags = { lateMinutes: c.dayOff ? 0 : lateMinutes(r.clock_in), ...c };
+    // Batas jam masuk (aturan yang berlaku pada tanggal itu) hanya berlaku di hari kerja (bukan akhir pekan/libur).
+    const flags: AttendanceFlags = { lateMinutes: c.dayOff ? 0 : lateMinutes(r.clock_in, policies), ...c };
     return { ...shape(r), flags };
   });
 }
@@ -89,7 +90,8 @@ attendance.get('/today', async (c) => {
   const meId = c.get('user').id;
   const [record] = row ? await annotate(db, [row]) : [null];
   const day = (await contexts(db, [{ employee_id: meId, date }])).get(`${meId}|${date}`) ?? null;
-  return c.json({ date, serverTime: now.toISOString(), record, day });
+  const policy = policyFor(await loadPolicies(db), date);
+  return c.json({ date, serverTime: now.toISOString(), record, day, policy: { workStart: policy.workStart, graceMinutes: policy.graceMinutes, locationMode: policy.locationMode } });
 });
 
 /** Riwayat sendiri per bulan: `?month=YYYY-MM` (default bulan ini WIB). */
@@ -102,6 +104,22 @@ attendance.get('/mine', async (c) => {
     .orderBy(desc(attendances.date));
   return c.json(await annotate(db, rows));
 });
+
+/**
+ * Mode 'block': alasan presensi harus ditolak, atau null bila boleh. Lokasi wajib; di luar radius (+ margin akurasi GPS) ditolak,
+ * kecuali karyawan punya Dinas Luar Kota yang disetujui pada hari itu. Tanpa lokasi kantor aktif tidak ada yang bisa dinilai, jadi tidak memblokir.
+ */
+async function blockedReason(db: Db, policy: AttendancePolicy, hasActiveOffice: boolean, employeeId: string, date: string, hasLoc: boolean, assessed: ReturnType<typeof assessLocation>): Promise<string | null> {
+  if (policy.locationMode !== 'block' || !hasActiveOffice) return null;
+  if (!hasLoc) return 'Lokasi wajib untuk presensi. Aktifkan izin lokasi lalu coba lagi.';
+  if (!assessed?.blocked) return null;
+  const duty = await one(db.select({ id: leave_requests.id }).from(leave_requests).where(and(
+    eq(leave_requests.employee_id, employeeId), eq(leave_requests.status, 'approved'), eq(leave_requests.leave_type, LEAVE_KEYS.duty),
+    lte(leave_requests.start_date, date), gte(leave_requests.end_date, date),
+  )).limit(1));
+  if (duty) return null;
+  return `Anda berada ${assessed.distance} m dari ${assessed.office.name} (batas ${assessed.office.radiusM} m). Presensi hanya dapat dilakukan di area kantor. Bila Anda sedang dinas atau lokasi tidak akurat, hubungi HC untuk koreksi presensi.`;
+}
 
 async function punch(c: Ctx, type: 'in' | 'out') {
   const db = drizzle(c.env.DB);
@@ -121,11 +139,15 @@ async function punch(c: Ctx, type: 'in' | 'out') {
   const hasLoc = lat !== null && lng !== null;
   if (hasLoc && !validLatLng(lat, lng)) return c.json({ error: 'Koordinat tidak valid' }, 400);
   const accuracy = num(form?.accuracy);
-  const distance = hasLoc ? distanceToOffice({ lat: lat!, lng: lng! }) : null;
   const face = form?.face === '1';
 
   const now = new Date();
   const date = wibDate(now);
+  const [policies, offices] = await Promise.all([loadPolicies(db), loadOffices(db)]);
+  const policy = policyFor(policies, date);
+  const assessed = assessLocation(hasLoc ? { lat: lat!, lng: lng! } : null, accuracy, offices);
+  const distance = assessed?.distance ?? null;
+  const outside = assessed ? assessed.outside : null;
   const today = await one(db.select().from(attendances).where(and(eq(attendances.employee_id, me.id), eq(attendances.date, date))).limit(1));
   if (type === 'in' && today) return c.json({ error: 'Anda sudah presensi masuk hari ini' }, 409);
   if (type === 'out') {
@@ -133,12 +155,15 @@ async function punch(c: Ctx, type: 'in' | 'out') {
     if (today.clock_out) return c.json({ error: 'Anda sudah presensi pulang hari ini' }, 409);
   }
 
+  const locationError = await blockedReason(db, policy, offices.some((o) => o.active), me.id, date, hasLoc, assessed);
+  if (locationError) return c.json({ error: locationError }, 403);
+
   const key = `${ATTENDANCE_PREFIX}${me.id}/${date}/${type}-${crypto.randomUUID()}.${v.ext}`;
   await c.env.STORAGE.put(key, v.buffer, { httpMetadata: { contentType: v.contentType } });
   const iso = now.toISOString();
   const auditStmt = db.insert(audit_log).values(auditRow({
     actorId: me.id, actorName: me.name, action: type === 'in' ? 'attendance.clock_in' : 'attendance.clock_out', targetType: 'attendance', targetId: date,
-    ip: c.req.header('CF-Connecting-IP'), details: { distance, accuracy, face, hasLoc },
+    ip: c.req.header('CF-Connecting-IP'), details: { distance, accuracy, face, hasLoc, outside },
   }));
 
   try {
@@ -146,14 +171,14 @@ async function punch(c: Ctx, type: 'in' | 'out') {
       await batch(db, [
         db.insert(attendances).values({
           id: crypto.randomUUID(), employee_id: me.id, date, clock_in: iso, clock_in_lat: lat, clock_in_lng: lng, clock_in_accuracy: accuracy,
-          clock_in_distance: distance, clock_in_face: face, clock_in_photo_key: key, status: 'hadir', created_at: iso,
+          clock_in_distance: distance, clock_in_outside: outside, clock_in_face: face, clock_in_photo_key: key, status: 'hadir', created_at: iso,
         }),
         auditStmt,
       ]);
     } else {
       // Update bersyarat: dua permintaan pulang bersamaan tidak sama-sama lolos.
       const done = await db.update(attendances).set({
-        clock_out: iso, clock_out_lat: lat, clock_out_lng: lng, clock_out_accuracy: accuracy, clock_out_distance: distance, clock_out_face: face, clock_out_photo_key: key,
+        clock_out: iso, clock_out_lat: lat, clock_out_lng: lng, clock_out_accuracy: accuracy, clock_out_distance: distance, clock_out_outside: outside, clock_out_face: face, clock_out_photo_key: key,
       }).where(and(eq(attendances.id, today!.id), isNull(attendances.clock_out))).returning({ id: attendances.id });
       if (!done.length) throw new Error('already');
       await auditStmt;

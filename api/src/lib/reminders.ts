@@ -2,11 +2,12 @@
 // Prinsip: hanya hari kerja; sekali per orang per jenis per hari (reminder_log); hanya yang punya perangkat push dan pengingatnya aktif.
 import { and, eq, gte, inArray, isNotNull, isNull, lte, sql } from 'drizzle-orm';
 import {
-  LEAVE_KEYS, NUDGE_AFTER_HOURS, NUDGE_FROM_SECONDS, NUDGE_UNTIL_SECONDS, REMIND_IN_FROM_SECONDS, REMIND_IN_UNTIL_SECONDS,
-  REMIND_OUT_AFTER_HOURS, REMIND_OUT_UNTIL_SECONDS, isWeekendDate, wibDate, wibSecondsOfDay, type ReminderKind,
+  LEAVE_KEYS, NUDGE_AFTER_HOURS, NUDGE_FROM_SECONDS, NUDGE_UNTIL_SECONDS,
+  REMIND_OUT_AFTER_HOURS, REMIND_OUT_UNTIL_SECONDS, isWeekendDate, policyFor, remindInWindow, wibDate, wibSecondsOfDay, type ReminderKind,
 } from '@hris/shared';
 import type { Bindings } from '../env';
 import { attendance_corrections, attendances, employees, holidays, leave_requests, push_devices, reminder_log } from '../db/schema';
+import { loadPolicies } from './attendance-policy';
 import type { Db } from './leave-db';
 import { loadLeaveTypes, timeBasedKeys } from './leave-types';
 import { sendPushToEmployees, vapidConfig, type PushMessage } from './push';
@@ -36,15 +37,17 @@ export async function planReminders(db: Db, now: Date): Promise<Plan[]> {
   const leaveOf = (type: (t: string) => boolean) => new Set(leaves.filter((l) => type(l.leave_type)).map((l) => l.employee_id));
   const plans: Plan[] = [];
 
-  // 1. Belum presensi masuk, menjelang batas 09:00.
-  if (sod >= REMIND_IN_FROM_SECONDS && sod < REMIND_IN_UNTIL_SECONDS) {
+  // 1. Belum presensi masuk, menjelang batas jam masuk (mengikuti aturan presensi yang berlaku hari ini).
+  const policy = policyFor(await loadPolicies(db), today);
+  const inWindow = remindInWindow(policy);
+  if (sod >= inWindow.from && sod < inWindow.until) {
     const present = new Set((await db.select({ id: attendances.employee_id }).from(attendances).where(eq(attendances.date, today))).map((r) => r.id));
     const offDay = leaveOf((t) => !TIME_BASED.has(t)); // cuti/sakit/dinas sehari penuh yang disetujui
     const excused = leaveOf((t) => t === LEAVE_KEYS.lateIn);
     plans.push({
       kind: 'att_in',
       recipients: eligible.filter((e) => (!e.join_date || e.join_date <= today) && !present.has(e.id) && !offDay.has(e.id) && !excused.has(e.id))
-        .map((e) => ({ employeeId: e.id, message: { title: 'Belum presensi masuk', body: 'Batas presensi masuk pukul 09:00. Ketuk untuk presensi sekarang.', href: '/presensi', tag: 'reminder:att_in' } })),
+        .map((e) => ({ employeeId: e.id, message: { title: 'Belum presensi masuk', body: `Batas presensi masuk pukul ${policy.workStart}. Ketuk untuk presensi sekarang.`, href: '/presensi', tag: 'reminder:att_in' } })),
     });
   }
 

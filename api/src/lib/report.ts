@@ -2,11 +2,12 @@
 // jadi angka di Excel konsisten dengan yang dilihat HC di aplikasi.
 import { and, between, eq, gte, inArray, lte } from 'drizzle-orm';
 import {
-  LEAVE_KEYS, calculateLeaveDuration, isOutsideOffice, isWeekendDate, lateMinutes, wibSecondsOfDay, workDuration,
+  LEAVE_KEYS, calculateLeaveDuration, isWeekendDate, policyFor, policyText, lateMinutes, wibSecondsOfDay, workDuration,
   type AttendanceReport, type ReportDailyRow, type ReportSummaryRow,
 } from '@hris/shared';
 import { attendances, employees, holidays, leave_requests, master_options } from '../db/schema';
 import type { Db } from './leave-db';
+import { loadPolicies } from './attendance-policy';
 import { loadLeaveTypes, timeBasedKeys } from './leave-types';
 
 const DAY_NAMES = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -20,8 +21,8 @@ function datesOf(first: string, last: string): string[] {
   return out;
 }
 
-const locText = (distance: number | null | undefined, hasPunch: boolean, corrected: boolean) =>
-  !hasPunch ? '' : corrected ? 'Dikoreksi (tanpa lokasi)' : distance == null ? 'Tanpa lokasi' : isOutsideOffice(distance) ? `Di luar kantor (${km(distance)})` : 'Di area kantor';
+const locText = (distance: number | null | undefined, outside: boolean | null | undefined, hasPunch: boolean, corrected: boolean) =>
+  !hasPunch ? '' : corrected ? 'Dikoreksi (tanpa lokasi)' : distance == null ? 'Tanpa lokasi' : outside ? `Di luar kantor (${km(distance)})` : 'Di area kantor';
 
 export async function buildReport(db: Db, first: string, last: string, departmentId: string | null, today: string): Promise<AttendanceReport> {
   const yesterday = new Date(new Date(`${today}T00:00:00Z`).getTime() - 86_400_000).toISOString().slice(0, 10);
@@ -29,6 +30,7 @@ export async function buildReport(db: Db, first: string, last: string, departmen
   const days = datesOf(first, last);
 
   const TIME_BASED = timeBasedKeys(await loadLeaveTypes(db));
+  const policies = await loadPolicies(db);
   const [opts, emps, attRows, leaves, hols] = await Promise.all([
     db.select().from(master_options),
     db.select().from(employees),
@@ -86,12 +88,12 @@ export async function buildReport(db: Db, first: string, last: string, departmen
       if (row?.clock_in) {
         s.present += 1;
         // Batas 09:00 hanya berlaku di hari kerja; akhir pekan/libur tidak dihitung terlambat.
-        const late = workday ? lateMinutes(row.clock_in) : 0;
+        const late = workday ? lateMinutes(row.clock_in, policies) : 0;
         if (late > 0 && excused) s.lateExcusedDays += 1;
         else if (late > 0) { s.lateDays += 1; s.lateMinutes += late; }
         if (!row.clock_out && date <= cutoff) s.noClockOut += 1;
         if (row.clock_in_corrected || row.clock_out_corrected) s.corrected += 1;
-        if (isOutsideOffice(row.clock_in_distance)) s.outsideOffice += 1;
+        if (row.clock_in_outside) s.outsideOffice += 1;
         if (!row.clock_in_corrected && row.clock_in_distance == null) s.noLocation += 1;
         if (row.clock_out) s.workMinutes += Math.max(0, Math.round((new Date(row.clock_out).getTime() - new Date(row.clock_in).getTime()) / 60_000));
 
@@ -101,7 +103,7 @@ export async function buildReport(db: Db, first: string, last: string, departmen
           clockIn: hhmm(row.clock_in), clockOut: row.clock_out ? hhmm(row.clock_out) : null, duration: workDuration(row.clock_in, row.clock_out),
           lateMinutes: late, lateStatus: !workday ? '' : late > 0 ? (excused ? 'Terlambat (izin disetujui)' : 'Terlambat') : 'Tepat waktu',
           note: [dayNote, fullLeave ? `Disetujui: ${fullLeave.leave_type}` : ''].filter(Boolean).join('; '), corrected: corr,
-          locationIn: locText(row.clock_in_distance, true, row.clock_in_corrected), locationOut: locText(row.clock_out_distance, Boolean(row.clock_out), row.clock_out_corrected),
+          locationIn: locText(row.clock_in_distance, row.clock_in_outside, true, row.clock_in_corrected), locationOut: locText(row.clock_out_distance, row.clock_out_outside, Boolean(row.clock_out), row.clock_out_corrected),
         });
       } else if (workday && joined && date <= cutoff) {
         if (fullLeave) {
@@ -116,7 +118,9 @@ export async function buildReport(db: Db, first: string, last: string, departmen
   }
 
   daily.sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
-  return { from: first, to: last, cutoff, departmentName: departmentId ? name.get(departmentId) ?? null : null, summary, daily };
+  const changes = policies.filter((p) => p.effectiveFrom > first && p.effectiveFrom <= last);
+  const lateRule = [policyText(policyFor(policies, first)), ...changes.map((p) => `mulai ${p.effectiveFrom} ${policyText(p)}`)].join('; ');
+  return { from: first, to: last, cutoff, departmentName: departmentId ? name.get(departmentId) ?? null : null, lateRule, summary, daily };
 }
 
 /** Dipakai untuk memastikan id departemen yang diminta benar-benar ada. */

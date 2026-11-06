@@ -20,6 +20,7 @@ import AdminEmployeeForm from './pages/AdminEmployeeForm';
 import AdminQuotas from './pages/AdminQuotas';
 import AdminHolidays from './pages/AdminHolidays';
 import AdminMaster from './pages/AdminMaster';
+import AdminAttendanceSettings from './pages/AdminAttendanceSettings';
 import Attendance from './pages/Attendance';
 import AttendanceCapture from './pages/AttendanceCapture';
 import AdminAttendance from './pages/AdminAttendance';
@@ -69,6 +70,7 @@ const router = createBrowserRouter(
           <Route path="/admin/karyawan" element={<AdminEmployees />} handle={{ title: 'Karyawan', back: '/akun' }} />
           <Route path="/admin/karyawan/:id" element={<AdminEmployeeForm />} handle={{ title: 'Data karyawan', back: '/admin/karyawan' }} />
           <Route path="/admin/master" element={<AdminMaster />} handle={{ title: 'Data master', back: '/akun' }} />
+          <Route path="/admin/pengaturan-presensi" element={<AdminAttendanceSettings />} handle={{ title: 'Pengaturan presensi', back: '/akun' }} />
           <Route path="/admin/kuota" element={<AdminQuotas />} handle={{ title: 'Kuota cuti', back: '/akun' }} />
           <Route path="/admin/libur" element={<AdminHolidays />} handle={{ title: 'Hari libur', back: '/akun' }} />
         </Route>

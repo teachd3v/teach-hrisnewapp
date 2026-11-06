@@ -130,7 +130,8 @@ export const attendances = sqliteTable('attendances', {
   clock_in_lat: real('clock_in_lat'),
   clock_in_lng: real('clock_in_lng'),
   clock_in_accuracy: real('clock_in_accuracy'), // meter (perkiraan perangkat)
-  clock_in_distance: integer('clock_in_distance'), // meter dari kantor, dihitung server
+  clock_in_distance: integer('clock_in_distance'), // meter ke lokasi kantor aktif terdekat, dihitung server
+  clock_in_outside: integer('clock_in_outside', { mode: 'boolean' }), // snapshot: di luar radius saat presensi; null = tanpa lokasi/koreksi
   clock_in_face: integer('clock_in_face', { mode: 'boolean' }), // wajah terdeteksi di perangkat (bukan verifikasi identitas)
   clock_in_corrected: integer('clock_in_corrected', { mode: 'boolean' }).notNull().default(false), // diisi lewat koreksi HC (tanpa foto/lokasi)
   clock_in_photo_key: text('clock_in_photo_key'),
@@ -139,6 +140,7 @@ export const attendances = sqliteTable('attendances', {
   clock_out_lng: real('clock_out_lng'),
   clock_out_accuracy: real('clock_out_accuracy'),
   clock_out_distance: integer('clock_out_distance'),
+  clock_out_outside: integer('clock_out_outside', { mode: 'boolean' }),
   clock_out_face: integer('clock_out_face', { mode: 'boolean' }),
   clock_out_corrected: integer('clock_out_corrected', { mode: 'boolean' }).notNull().default(false),
   clock_out_photo_key: text('clock_out_photo_key'),
@@ -227,6 +229,31 @@ export const leave_types = sqliteTable('leave_types', {
   system: integer('system', { mode: 'boolean' }).notNull().default(false), // bawaan sistem: tidak dapat dihapus
   created_at: text('created_at').notNull(),
 });
+
+// Lokasi kantor untuk geofence presensi (Pengaturan presensi, super admin). Presensi dinilai terhadap lokasi aktif terdekat.
+export const office_locations = sqliteTable('office_locations', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  lat: real('lat').notNull(),
+  lng: real('lng').notNull(),
+  radius_m: integer('radius_m').notNull(),
+  active: integer('active', { mode: 'boolean' }).notNull().default(true),
+  created_at: text('created_at').notNull(),
+});
+
+// Aturan presensi yang berlaku mulai tanggal tertentu (WIB). Aturan untuk sebuah tanggal = yang `effective_from`-nya terbaru dan <= tanggal itu,
+// jadi perubahan tidak menulis ulang riwayat. Mode lokasi: 'flag' = hanya ditandai, 'block' = presensi di luar radius ditolak.
+export const attendance_policies = sqliteTable('attendance_policies', {
+  id: text('id').primaryKey(),
+  effective_from: text('effective_from').notNull(), // YYYY-MM-DD
+  work_start: text('work_start').notNull().default('09:00'), // HH:MM WIB
+  grace_minutes: integer('grace_minutes').notNull().default(0),
+  location_mode: text('location_mode', { enum: ['flag', 'block'] }).notNull().default('flag'),
+  created_by: text('created_by'),
+  created_at: text('created_at').notNull(),
+}, (t) => ({
+  effectiveUnique: uniqueIndex('attendance_policies_effective_unique').on(t.effective_from),
+}));
 
 // Pengaturan aplikasi (kunci-nilai) yang diubah super admin, mis. kebijakan cuti bersama. Nilai berupa teks; tafsirannya ada di shared/src/settings.ts.
 export const app_settings = sqliteTable('app_settings', {
