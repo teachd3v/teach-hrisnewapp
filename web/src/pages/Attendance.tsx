@@ -3,13 +3,13 @@ import { Link, useLocation } from 'react-router';
 import { FilePen } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, LogIn, LogOut, ScanFace } from 'lucide-react';
-import { policyText, workDuration, type AttendancePolicy } from '@hris/shared';
+import { policyText, workDuration, type AttendancePolicy, type OfficeLocation } from '@hris/shared';
 import { api } from '../lib/api';
 import { dayChips, recordChips, fmtLongDate, fmtShortDate, fmtTime, locationFlag, type AttendanceRec, type DayFlags } from '../lib/attendance-types';
 import { Button, Card, Chip, Empty, ErrorNote, Field, Input, Spinner } from '../ui';
 
 export const useToday = () =>
-  useQuery({ queryKey: ['att-today'], queryFn: () => api<{ date: string; serverTime: string; record: AttendanceRec | null; day: DayFlags | null; policy: Pick<AttendancePolicy, 'workStart' | 'graceMinutes' | 'locationMode'> }>('/attendance/today') });
+  useQuery({ queryKey: ['att-today'], queryFn: () => api<{ date: string; serverTime: string; record: AttendanceRec | null; day: DayFlags | null; policy: Pick<AttendancePolicy, 'workStart' | 'graceMinutes' | 'locationMode'>; offices: OfficeLocation[] }>('/attendance/today') });
 
 /** Tombol presensi sesuai keadaan hari ini; dipakai di tab Presensi dan Beranda. */
 export function PunchButton({ record }: { record: AttendanceRec | null | undefined }) {

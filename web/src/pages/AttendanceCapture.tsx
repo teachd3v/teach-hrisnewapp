@@ -5,7 +5,9 @@ import { Camera, CameraOff, Loader2, MapPin, MapPinOff, RotateCcw } from 'lucide
 import type { FaceDetector } from '@mediapipe/tasks-vision';
 import { api } from '../lib/api';
 import { getPosition, type Fix } from '../lib/geo';
+import { assessLocation } from '@hris/shared';
 import { useToday } from './Attendance';
+import { km } from '../lib/attendance-types';
 import { isFaceReady, loadFaceDetector, mapBoxToView, type ViewBox } from '../lib/face';
 import { BottomBar, Button, ErrorNote } from '../ui';
 
@@ -46,7 +48,8 @@ export default function AttendanceCapture() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [geo, setGeo] = useState<Geo>({ state: 'loading' });
   // Mode blokir: lokasi wajib, jadi "Kirim tanpa lokasi" tidak tersedia.
-  const needsLocation = useToday().data?.policy.locationMode === 'block';
+  const todayData = useToday().data;
+  const needsLocation = todayData?.policy.locationMode === 'block';
   const [attempt, setAttempt] = useState(0);
   const [photo, setPhoto] = useState<{ blob: Blob; url: string; face: boolean } | null>(null);
 
@@ -160,10 +163,23 @@ export default function AttendanceCapture() {
   useEffect(() => () => { stopCamera(); }, [stopCamera]);
   if (type !== 'in' && type !== 'out') return <Navigate to="/presensi" replace />;
 
+  // Penilaian di layar hanya informasi; keputusan resmi (termasuk pengecualian dinas luar kota) tetap di server.
+  const assessed = geo.state === 'ok' && todayData ? assessLocation(geo.fix, geo.fix.accuracy, todayData.offices ?? []) : null;
   const geoLine = geo.state === 'loading'
     ? <span className="flex items-center gap-2"><Loader2 className="size-4 animate-spin" aria-hidden="true" />Mencari lokasi…</span>
     : geo.state === 'ok'
-      ? <span className="flex items-center gap-2"><MapPin className="size-4" aria-hidden="true" />Lokasi diperoleh (±{Math.round(geo.fix.accuracy)} m)</span>
+      ? (
+        <div className="flex flex-col gap-1">
+          <span className="flex items-center gap-2"><MapPin className="size-4" aria-hidden="true" />Lokasi diperoleh (akurasi GPS ±{Math.round(geo.fix.accuracy)} m)</span>
+          {assessed && (
+            <span className={assessed.outside ? 'font-medium text-bad' : 'font-medium text-ok'}>
+              Jarak ke {assessed.office.name}: {km(assessed.distance)}, {assessed.outside ? `di luar radius ${assessed.office.radiusM} m` : `di dalam radius ${assessed.office.radiusM} m`}
+              {assessed.outside && needsLocation && assessed.blocked ? '. Presensi akan ditolak kecuali Anda sedang dinas luar kota yang disetujui.' : ''}
+            </span>
+          )}
+          <button onClick={fetchLocation} className="mt-1 min-h-11 self-start rounded-lg px-2 font-medium underline active:bg-line">Perbarui lokasi</button>
+        </div>
+      )
       : <span className="flex items-center gap-2 text-bad"><MapPinOff className="size-4" aria-hidden="true" />{geo.message}</span>;
 
   if (phase === 'review' && photo) {

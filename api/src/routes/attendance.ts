@@ -90,8 +90,14 @@ attendance.get('/today', async (c) => {
   const meId = c.get('user').id;
   const [record] = row ? await annotate(db, [row]) : [null];
   const day = (await contexts(db, [{ employee_id: meId, date }])).get(`${meId}|${date}`) ?? null;
-  const policy = policyFor(await loadPolicies(db), date);
-  return c.json({ date, serverTime: now.toISOString(), record, day, policy: { workStart: policy.workStart, graceMinutes: policy.graceMinutes, locationMode: policy.locationMode } });
+  const [policies, offices] = await Promise.all([loadPolicies(db), loadOffices(db)]);
+  const policy = policyFor(policies, date);
+  // Lokasi kantor aktif ikut dikirim agar layar presensi dapat menampilkan jarak sebelum dikirim (penilaian resmi tetap di server).
+  return c.json({
+    date, serverTime: now.toISOString(), record, day,
+    policy: { workStart: policy.workStart, graceMinutes: policy.graceMinutes, locationMode: policy.locationMode },
+    offices: offices.filter((o) => o.active).map((o) => ({ id: o.id, name: o.name, lat: o.lat, lng: o.lng, radiusM: o.radiusM, active: true })),
+  });
 });
 
 /** Riwayat sendiri per bulan: `?month=YYYY-MM` (default bulan ini WIB). */
