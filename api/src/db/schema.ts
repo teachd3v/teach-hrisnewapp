@@ -180,6 +180,11 @@ export const attendances = sqliteTable('attendances', {
   clock_in_distance: integer('clock_in_distance'), // meter ke lokasi kantor aktif terdekat, dihitung server
   clock_in_outside: integer('clock_in_outside', { mode: 'boolean' }), // snapshot: di luar radius saat presensi; null = tanpa lokasi/koreksi
   clock_in_face: integer('clock_in_face', { mode: 'boolean' }), // wajah terdeteksi di perangkat (bukan verifikasi identitas)
+  // Verifikasi wajah (docs/FACE.md): snapshot saat presensi; null/'none' = tidak dinilai (mode mati, belum terdaftar, atau perangkat tidak mengirim embedding).
+  clock_in_face_score: real('clock_in_face_score'), // kemiripan kosinus ke template
+  clock_in_face_result: text('clock_in_face_result', { enum: ['match', 'mismatch', 'spoof', 'none'] }),
+  clock_in_live: real('clock_in_live'), // skor wajah asli (liveness pasif) dari perangkat
+  clock_in_face_vec: text('clock_in_face_vec'), // embedding (base64 float32) agar bisa diverifikasi ulang secara sampling
   clock_in_corrected: integer('clock_in_corrected', { mode: 'boolean' }).notNull().default(false), // diisi lewat koreksi HC (tanpa foto/lokasi)
   clock_in_photo_key: text('clock_in_photo_key'),
   clock_out: text('clock_out'),
@@ -189,6 +194,10 @@ export const attendances = sqliteTable('attendances', {
   clock_out_distance: integer('clock_out_distance'),
   clock_out_outside: integer('clock_out_outside', { mode: 'boolean' }),
   clock_out_face: integer('clock_out_face', { mode: 'boolean' }),
+  clock_out_face_score: real('clock_out_face_score'),
+  clock_out_face_result: text('clock_out_face_result', { enum: ['match', 'mismatch', 'spoof', 'none'] }),
+  clock_out_live: real('clock_out_live'),
+  clock_out_face_vec: text('clock_out_face_vec'),
   clock_out_corrected: integer('clock_out_corrected', { mode: 'boolean' }).notNull().default(false),
   clock_out_photo_key: text('clock_out_photo_key'),
   status: text('status'),
@@ -306,6 +315,28 @@ export const employee_documents = sqliteTable('employee_documents', {
 }, (t) => ({
   employeeIdx: index('employee_documents_employee_idx').on(t.employee_id, t.created_at),
   keyUnique: uniqueIndex('employee_documents_key_unique').on(t.file_key),
+}));
+
+// Template wajah untuk verifikasi presensi (docs/FACE.md). `vectors` = sampel embedding (base64 float32, shared/src/face.ts), tidak pernah dikirim ke klien.
+// Satu template 'approved' aktif per karyawan; pendaftaran ulang berstatus 'pending' sampai HC menyetujui (lalu menggantikan yang lama).
+// Foto referensi di R2 `face_reference/{employee_id}/...` untuk dicocokkan HC dengan KTP; dihapus bersama template.
+export const face_templates = sqliteTable('face_templates', {
+  id: text('id').primaryKey(),
+  employee_id: text('employee_id').notNull(),
+  vectors: text('vectors').notNull(),
+  sample_count: integer('sample_count').notNull(),
+  model_version: text('model_version').notNull(),
+  status: text('status', { enum: ['pending', 'approved', 'rejected'] }).notNull(),
+  consent_at: text('consent_at').notNull(),
+  consent_version: text('consent_version').notNull(),
+  reference_photo_key: text('reference_photo_key').notNull(),
+  stats: text('stats'), // JSON {lum, sharp, eyeRatio} keadaan saat pendaftaran (untuk analisis)
+  created_at: text('created_at').notNull(),
+  decided_by: text('decided_by'),
+  decided_at: text('decided_at'),
+  decision_note: text('decision_note'),
+}, (t) => ({
+  employeeIdx: index('face_templates_employee_idx').on(t.employee_id, t.status),
 }));
 
 // Lokasi kantor untuk geofence presensi (Pengaturan presensi, super admin). Presensi dinilai terhadap lokasi aktif terdekat.

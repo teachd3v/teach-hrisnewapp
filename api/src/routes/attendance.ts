@@ -1,12 +1,13 @@
 import { Hono, type Context } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
 import { and, asc, between, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
-import { LEAVE_KEYS, assessLocation, isAdmin, isWeekendDate, lateMinutes, policyFor, validLatLng, wibDate, type AttendanceFlags, type AttendancePolicy } from '@hris/shared';
+import { LEAVE_KEYS, assessFace, assessLocation, bestScore, decodeVectors, encodeVectors, isAdmin, isWeekendDate, lateMinutes, normalize, policyFor, validEmbedding, validLatLng, wibDate, type AttendanceFlags, type AttendancePolicy, type FaceResult } from '@hris/shared';
 import type { AppEnv } from '../env';
 import { attendances, audit_log, employees, holidays, leave_requests } from '../db/schema';
 import { auditRow } from '../lib/audit';
 import type { Db } from '../lib/leave-db';
 import { loadOffices, loadPolicies } from '../lib/attendance-policy';
+import { approvedTemplate, loadFaceSettings } from '../lib/face';
 import { labelMap, loadLeaveTypes, timeBasedKeys } from '../lib/leave-types';
 import { MB, validateUpload } from '../lib/upload';
 import { requireAuth } from '../middleware/auth';
@@ -32,10 +33,17 @@ async function actor(c: Ctx, db: Db) {
   return e && e.active ? e : null;
 }
 
-const shape = (r: Row) => ({
+/** `detail`: sertakan skor mentah (hanya untuk HC; karyawan hanya melihat hasilnya). */
+const shape = (r: Row, detail = false) => ({
   id: r.id, employee_id: r.employee_id, date: r.date, clock_in: r.clock_in, clock_out: r.clock_out,
-  in: r.clock_in ? { lat: r.clock_in_lat, lng: r.clock_in_lng, accuracy: r.clock_in_accuracy, distance: r.clock_in_distance, outside: r.clock_in_outside, face: r.clock_in_face, photo: r.clock_in_photo_key, corrected: r.clock_in_corrected } : null,
-  out: r.clock_out ? { lat: r.clock_out_lat, lng: r.clock_out_lng, accuracy: r.clock_out_accuracy, distance: r.clock_out_distance, outside: r.clock_out_outside, face: r.clock_out_face, photo: r.clock_out_photo_key, corrected: r.clock_out_corrected } : null,
+  in: r.clock_in ? {
+    lat: r.clock_in_lat, lng: r.clock_in_lng, accuracy: r.clock_in_accuracy, distance: r.clock_in_distance, outside: r.clock_in_outside, face: r.clock_in_face, photo: r.clock_in_photo_key, corrected: r.clock_in_corrected,
+    faceResult: r.clock_in_face_result, ...(detail ? { faceScore: r.clock_in_face_score, live: r.clock_in_live } : {}),
+  } : null,
+  out: r.clock_out ? {
+    lat: r.clock_out_lat, lng: r.clock_out_lng, accuracy: r.clock_out_accuracy, distance: r.clock_out_distance, outside: r.clock_out_outside, face: r.clock_out_face, photo: r.clock_out_photo_key, corrected: r.clock_out_corrected,
+    faceResult: r.clock_out_face_result, ...(detail ? { faceScore: r.clock_out_face_score, live: r.clock_out_live } : {}),
+  } : null,
 });
 
 /** Konteks hari untuk pasangan (karyawan, tanggal): izin terlambat disetujui, pengajuan lain yang disetujui, hari libur/akhir pekan. */
@@ -70,13 +78,13 @@ async function contexts(db: Db, pairs: { employee_id: string; date: string }[]):
 }
 
 /** Bentuk respons + penanda. Terlambat dihitung saat dibaca (bukan disimpan), jadi izin yang disetujui kemudian ikut berlaku. */
-async function annotate(db: Db, rows: Row[]) {
+async function annotate(db: Db, rows: Row[], detail = false) {
   const [ctx, policies] = await Promise.all([contexts(db, rows.map((r) => ({ employee_id: r.employee_id, date: r.date }))), loadPolicies(db)]);
   return rows.map((r) => {
     const c = ctx.get(`${r.employee_id}|${r.date}`)!;
     // Batas jam masuk (aturan yang berlaku pada tanggal itu) hanya berlaku di hari kerja (bukan akhir pekan/libur).
     const flags: AttendanceFlags = { lateMinutes: c.dayOff ? 0 : lateMinutes(r.clock_in, policies), ...c };
-    return { ...shape(r), flags };
+    return { ...shape(r, detail), flags };
   });
 }
 
@@ -96,6 +104,7 @@ attendance.get('/today', async (c) => {
   return c.json({
     date, serverTime: now.toISOString(), record, day,
     policy: { workStart: policy.workStart, graceMinutes: policy.graceMinutes, locationMode: policy.locationMode },
+    faceMode: (await loadFaceSettings(db)).mode,
     offices: offices.filter((o) => o.active).map((o) => ({ id: o.id, name: o.name, lat: o.lat, lng: o.lng, radiusM: o.radiusM, active: true })),
   });
 });
@@ -146,6 +155,11 @@ async function punch(c: Ctx, type: 'in' | 'out') {
   if (hasLoc && !validLatLng(lat, lng)) return c.json({ error: 'Koordinat tidak valid' }, 400);
   const accuracy = num(form?.accuracy);
   const face = form?.face === '1';
+  // Verifikasi wajah: embedding (JSON) dan skor wajah asli dari perangkat. Penilaian resmi di server (template tidak pernah dikirim ke klien).
+  let emb: Float32Array | null = null;
+  try { const raw: unknown = JSON.parse(typeof form?.embedding === 'string' ? form.embedding : 'null'); if (validEmbedding(raw)) emb = normalize(raw); } catch { /* tanpa embedding */ }
+  const liveRaw = num(form?.live);
+  const live = liveRaw !== null && liveRaw >= 0 && liveRaw <= 1 ? liveRaw : null;
 
   const now = new Date();
   const date = wibDate(now);
@@ -164,12 +178,24 @@ async function punch(c: Ctx, type: 'in' | 'out') {
   const locationError = await blockedReason(db, policy, offices.some((o) => o.active), me.id, date, hasLoc, assessed);
   if (locationError) return c.json({ error: locationError }, 403);
 
+  // Mode mati: tidak ada penilaian (kolom null). Mode 'flag': hasil hanya ditandai; presensi tidak pernah ditolak karena wajah.
+  const faceSettings = await loadFaceSettings(db);
+  let faceResult: FaceResult | null = null;
+  let faceScore: number | null = null;
+  if (faceSettings.mode !== 'off') {
+    const tpl = await approvedTemplate(db, me.id);
+    if (tpl && emb) faceScore = bestScore(decodeVectors(tpl.vectors), emb);
+    faceResult = assessFace({ hasTemplate: Boolean(tpl), score: faceScore, live: emb ? live : null }, faceSettings);
+  }
+  const faceVec = faceResult && emb ? encodeVectors([emb]) : null;
+  const faceLive = faceResult && emb ? live : null;
+
   const key = `${ATTENDANCE_PREFIX}${me.id}/${date}/${type}-${crypto.randomUUID()}.${v.ext}`;
   await c.env.STORAGE.put(key, v.buffer, { httpMetadata: { contentType: v.contentType } });
   const iso = now.toISOString();
   const auditStmt = db.insert(audit_log).values(auditRow({
     actorId: me.id, actorName: me.name, action: type === 'in' ? 'attendance.clock_in' : 'attendance.clock_out', targetType: 'attendance', targetId: date,
-    ip: c.req.header('CF-Connecting-IP'), details: { distance, accuracy, face, hasLoc, outside },
+    ip: c.req.header('CF-Connecting-IP'), details: { distance, accuracy, face, hasLoc, outside, ...(faceResult ? { faceResult, faceScore: faceScore === null ? undefined : Math.round(faceScore * 1000) / 1000, live: faceLive ?? undefined } : {}) },
   }));
 
   try {
@@ -177,14 +203,16 @@ async function punch(c: Ctx, type: 'in' | 'out') {
       await batch(db, [
         db.insert(attendances).values({
           id: crypto.randomUUID(), employee_id: me.id, date, clock_in: iso, clock_in_lat: lat, clock_in_lng: lng, clock_in_accuracy: accuracy,
-          clock_in_distance: distance, clock_in_outside: outside, clock_in_face: face, clock_in_photo_key: key, status: 'hadir', created_at: iso,
+          clock_in_distance: distance, clock_in_outside: outside, clock_in_face: face, clock_in_face_score: faceScore, clock_in_face_result: faceResult, clock_in_live: faceLive, clock_in_face_vec: faceVec,
+          clock_in_photo_key: key, status: 'hadir', created_at: iso,
         }),
         auditStmt,
       ]);
     } else {
       // Update bersyarat: dua permintaan pulang bersamaan tidak sama-sama lolos.
       const done = await db.update(attendances).set({
-        clock_out: iso, clock_out_lat: lat, clock_out_lng: lng, clock_out_accuracy: accuracy, clock_out_distance: distance, clock_out_outside: outside, clock_out_face: face, clock_out_photo_key: key,
+        clock_out: iso, clock_out_lat: lat, clock_out_lng: lng, clock_out_accuracy: accuracy, clock_out_distance: distance, clock_out_outside: outside, clock_out_face: face, clock_out_face_score: faceScore, clock_out_face_result: faceResult, clock_out_live: faceLive, clock_out_face_vec: faceVec,
+        clock_out_photo_key: key,
       }).where(and(eq(attendances.id, today!.id), isNull(attendances.clock_out))).returning({ id: attendances.id });
       if (!done.length) throw new Error('already');
       await auditStmt;
@@ -197,7 +225,7 @@ async function punch(c: Ctx, type: 'in' | 'out') {
     if (dup) return c.json({ error: type === 'in' ? 'Anda sudah presensi masuk hari ini' : 'Anda sudah presensi pulang hari ini' }, 409);
     throw e;
   }
-  return c.json({ ok: true, time: iso, date, distance });
+  return c.json({ ok: true, time: iso, date, distance, face: faceResult });
 }
 
 attendance.post('/clock-in', (c) => punch(c, 'in'));
@@ -215,6 +243,6 @@ attendance.get('/admin', async (c) => {
     db.select({ id: employees.id, name: employees.name }).from(employees).where(eq(employees.active, true)).orderBy(asc(employees.name)),
     db.select().from(attendances).where(eq(attendances.date, date)),
   ]);
-  const annotated = new Map((await annotate(db, rows)).map((r) => [r.employee_id, r]));
+  const annotated = new Map((await annotate(db, rows, true)).map((r) => [r.employee_id, r]));
   return c.json({ date, rows: people.map((p) => ({ employeeId: p.id, name: p.name, record: annotated.get(p.id) ?? null })) });
 });

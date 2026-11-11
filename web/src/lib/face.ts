@@ -34,3 +34,17 @@ export function isFaceReady(b: VideoBox, videoW: number, videoH: number): boolea
   const cy = (b.originY + b.height / 2) / videoH;
   return cx > 0.2 && cx < 0.8 && cy > 0.15 && cy < 0.85;
 }
+
+/** Foto dari bingkai video: potong tengah 3:4, maks. `outW` px lebar, JPEG, tidak dicerminkan (hasil nyata, bukan tampilan cermin). */
+export function snapshotVideo(video: HTMLVideoElement, outW = 900): Promise<Blob | null> {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const targetRatio = 3 / 4;
+  let sw = vw, sh = vh, sx = 0, sy = 0;
+  if (vw / vh > targetRatio) { sw = Math.round(vh * targetRatio); sx = Math.round((vw - sw) / 2); } else { sh = Math.round(vw / targetRatio); sy = Math.round((vh - sh) / 2); }
+  const scale = Math.min(1, outW / sw);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(sw * scale);
+  canvas.height = Math.round(sh * scale);
+  canvas.getContext('2d')!.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+}

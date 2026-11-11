@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router';
+import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Camera, CameraOff, Loader2, MapPin, MapPinOff, RotateCcw } from 'lucide-react';
 import type { FaceDetector } from '@mediapipe/tasks-vision';
 import { api } from '../lib/api';
 import { getPosition, type Fix } from '../lib/geo';
-import { assessLocation } from '@hris/shared';
+import { assessLocation, FACE_RESULT_LABEL, type FaceResult } from '@hris/shared';
 import { useToday } from './Attendance';
 import { km } from '../lib/attendance-types';
-import { isFaceReady, loadFaceDetector, mapBoxToView, type ViewBox } from '../lib/face';
+import { isFaceReady, loadFaceDetector, mapBoxToView, snapshotVideo, type ViewBox } from '../lib/face';
+import { alignFace, embedFace, liveScore, loadFaceModels, type FaceModels, type Keypoints, type PixelBox } from '../lib/face-ml';
+import { useFaceStatus } from '../lib/face-status';
 import { BottomBar, Button, ErrorNote } from '../ui';
 
 const HOLD_MS = 3000; // wajah harus stabil selama ini sebelum foto diambil otomatis
@@ -16,20 +18,6 @@ const OUT_W = 900;
 
 type Phase = 'live' | 'review';
 type Geo = { state: 'loading' } | { state: 'ok'; fix: Fix } | { state: 'error'; message: string };
-
-/** Ambil foto dari frame video: potong tengah 3:4, tidak dicerminkan (hasil nyata, bukan tampilan cermin). */
-function snapshot(video: HTMLVideoElement): Promise<Blob | null> {
-  const vw = video.videoWidth, vh = video.videoHeight;
-  const targetRatio = 3 / 4;
-  let sw = vw, sh = vh, sx = 0, sy = 0;
-  if (vw / vh > targetRatio) { sw = Math.round(vh * targetRatio); sx = Math.round((vw - sw) / 2); } else { sh = Math.round(vw / targetRatio); sy = Math.round((vh - sh) / 2); }
-  const scale = Math.min(1, OUT_W / sw);
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(sw * scale);
-  canvas.height = Math.round(sh * scale);
-  canvas.getContext('2d')!.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-  return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
-}
 
 export default function AttendanceCapture() {
   const { type } = useParams();
@@ -41,6 +29,8 @@ export default function AttendanceCapture() {
   const holdSince = useRef<number | null>(null);
   const capturing = useRef(false);
   const faceNow = useRef(false); // ada wajah siap pada frame terakhir (untuk tombol manual)
+  const lastDet = useRef<{ kps: Keypoints; bb: PixelBox; w: number; h: number; at: number } | null>(null); // deteksi terakhir (untuk verifikasi wajah)
+  const modelsRef = useRef<FaceModels | null>(null);
 
   const [phase, setPhase] = useState<Phase>('live');
   const [camError, setCamError] = useState<string | null>(null);
@@ -51,7 +41,12 @@ export default function AttendanceCapture() {
   const todayData = useToday().data;
   const needsLocation = todayData?.policy.locationMode === 'block';
   const [attempt, setAttempt] = useState(0);
-  const [photo, setPhoto] = useState<{ blob: Blob; url: string; face: boolean } | null>(null);
+  // Verifikasi wajah: aktif bila admin menyalakan modenya dan karyawan punya template yang disetujui. Embedding dihitung di perangkat; keputusan di server.
+  const faceStatus = useFaceStatus().data;
+  const faceActive = faceStatus ? faceStatus.settings.mode !== 'off' && faceStatus.active : false;
+  const [modelState, setModelState] = useState<'idle' | 'loading' | 'ready' | 'failed'>('idle');
+  const [checking, setChecking] = useState(false);
+  const [photo, setPhoto] = useState<{ blob: Blob; url: string; face: boolean; check: { embedding: number[]; live: number | null } | null } | null>(null);
 
   const isIn = type === 'in';
   const stopCamera = useCallback(() => { streamRef.current?.getTracks().forEach((t) => t.stop()); streamRef.current = null; }, []);
@@ -63,6 +58,15 @@ export default function AttendanceCapture() {
 
   // Lokasi: mulai sejak layar dibuka (paralel dengan kamera).
   useEffect(() => { fetchLocation(); }, [fetchLocation]);
+
+  // Model verifikasi wajah dimuat di latar belakang sejak layar dibuka (gagal dimuat tidak menghalangi presensi).
+  useEffect(() => {
+    if (!faceActive) return;
+    let cancelled = false;
+    setModelState('loading');
+    loadFaceModels().then((m) => { modelsRef.current = m; if (!cancelled) setModelState('ready'); }).catch(() => { if (!cancelled) setModelState('failed'); });
+    return () => { cancelled = true; };
+  }, [faceActive]);
 
   // Kamera + deteksi wajah (hanya saat fase 'live').
   useEffect(() => {
@@ -105,6 +109,8 @@ export default function AttendanceCapture() {
         last = now;
         const dets = det.detectForVideo(v, now).detections;
         const b = dets[0]?.boundingBox;
+        const k = dets[0]?.keypoints;
+        if (b && k && k.length >= 4) lastDet.current = { kps: k, bb: b, w: v.videoWidth, h: v.videoHeight, at: now };
         const ready = b && isFaceReady(b, v.videoWidth, v.videoHeight);
         faceNow.current = Boolean(ready);
         if (el) {
@@ -131,16 +137,28 @@ export default function AttendanceCapture() {
     const v = videoRef.current;
     if (!v || capturing.current || v.readyState < 2) return;
     capturing.current = true;
-    const blob = await snapshot(v);
+    // Bagian bingkai yang dipakai verifikasi wajah diambil SEKARANG (sinkron) agar sama dengan foto; penghitungannya menyusul.
+    const det = lastDet.current;
+    const models = modelsRef.current;
+    const useFace = faceActive && models && det && performance.now() - det.at < 1500;
+    const aligned = useFace ? alignFace(v, det.kps, det.w, det.h) : null;
+    const livePromise = useFace ? liveScore(models, v, det.bb, det.w, det.h).catch(() => null) : Promise.resolve(null);
+    const blob = await snapshotVideo(v, OUT_W);
     if (!blob) { capturing.current = false; return; }
+    let check: { embedding: number[]; live: number | null } | null = null;
+    if (aligned && models) {
+      setChecking(true);
+      try { check = { embedding: Array.from(await embedFace(models, aligned), (x) => +x.toFixed(5)), live: await livePromise }; } catch (e) { console.error('verifikasi wajah gagal dihitung', e); }
+      setChecking(false);
+    }
     stopCamera();
-    setPhoto({ blob, url: URL.createObjectURL(blob), face });
+    setPhoto({ blob, url: URL.createObjectURL(blob), face, check });
     setPhase('review');
   }
 
   function onSystemCamera(file: File | null) {
     if (!file) return;
-    setPhoto({ blob: file, url: URL.createObjectURL(file), face: false });
+    setPhoto({ blob: file, url: URL.createObjectURL(file), face: false, check: null });
     setPhase('review');
   }
   function retake() { if (photo) URL.revokeObjectURL(photo.url); setPhoto(null); setPhase('live'); }
@@ -151,12 +169,17 @@ export default function AttendanceCapture() {
       fd.append('photo', photo!.blob, 'presensi.jpg');
       if (geo.state === 'ok') { fd.append('lat', String(geo.fix.lat)); fd.append('lng', String(geo.fix.lng)); fd.append('accuracy', String(Math.round(geo.fix.accuracy))); }
       fd.append('face', photo!.face ? '1' : '0');
-      return api(`/attendance/${isIn ? 'clock-in' : 'clock-out'}`, { method: 'POST', body: fd });
+      if (photo!.check) { fd.append('embedding', JSON.stringify(photo!.check.embedding)); if (photo!.check.live !== null) fd.append('live', String(photo!.check.live)); }
+      return api<{ face?: FaceResult | null }>(`/attendance/${isIn ? 'clock-in' : 'clock-out'}`, { method: 'POST', body: fd });
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ['att-today'] });
       void qc.invalidateQueries({ queryKey: ['att-mine'] });
-      navigate('/presensi', { replace: true, state: { flash: isIn ? 'Presensi masuk tercatat.' : 'Presensi pulang tercatat.' } });
+      const face = res.face ?? null;
+      const faceNote = face === 'match' ? ' Wajah cocok.' : '';
+      // Mismatch/spoof/none hanya ditandai untuk HC (presensi tidak ditolak karena wajah).
+      const faceWarn = face === 'mismatch' || face === 'spoof' ? `${FACE_RESULT_LABEL[face]}. Presensi tetap tercatat dan ditandai untuk HC.` : face === 'none' ? 'Wajah tidak dinilai pada presensi ini; presensi tetap tercatat dan ditandai untuk HC.' : null;
+      navigate('/presensi', { replace: true, state: { flash: `${isIn ? 'Presensi masuk tercatat.' : 'Presensi pulang tercatat.'}${faceNote}`, faceWarn } });
     },
   });
 
@@ -182,6 +205,13 @@ export default function AttendanceCapture() {
       )
       : <span className="flex items-center gap-2 text-bad"><MapPinOff className="size-4" aria-hidden="true" />{geo.message}</span>;
 
+  // Keterangan verifikasi wajah (hanya bila admin menyalakan modenya): teks selalu ada, hasil resmi di server.
+  const faceMode = faceStatus?.settings.mode ?? 'off';
+  const faceNote = faceMode === 'off' ? null : !faceStatus?.active
+    ? <p className="rounded-xl bg-sub p-3 text-sm text-muted">{faceStatus?.pending ? 'Pendaftaran wajah Anda menunggu HC. Presensi tetap bisa dilakukan.' : <>Wajah Anda belum didaftarkan, jadi tidak diverifikasi. <Link to="/profil/wajah" className="font-medium underline">Daftarkan wajah</Link></>}</p>
+    : modelState === 'failed' ? <p className="rounded-xl bg-warn-bg p-3 text-sm text-warn">Verifikasi wajah tidak dapat dijalankan di perangkat ini. Presensi tetap tercatat dan ditandai untuk HC.</p>
+      : <p className="rounded-xl bg-sub p-3 text-sm text-muted" role="status">{modelState === 'ready' ? 'Verifikasi wajah aktif: wajah Anda akan dicocokkan dengan yang didaftarkan.' : 'Menyiapkan verifikasi wajah…'}</p>;
+
   if (phase === 'review' && photo) {
     return (
       <div className="flex flex-1 flex-col gap-4">
@@ -189,6 +219,7 @@ export default function AttendanceCapture() {
         <div className="flex flex-col gap-1 rounded-xl bg-sub p-3 text-sm" role="status">
           {geoLine}
           {!photo.face && <span className="text-muted">Wajah tidak terdeteksi otomatis pada foto ini.</span>}
+          {faceActive && !photo.check && <span className="text-warn">Wajah tidak dapat diperiksa pada foto ini; presensi tetap tercatat dan ditandai untuk HC.</span>}
           {geo.state === 'error' && <button onClick={fetchLocation} className="mt-1 min-h-11 self-start rounded-lg px-2 font-medium underline active:bg-line">Coba lokasi lagi</button>}
         </div>
         {geo.state === 'error' && (needsLocation
@@ -227,9 +258,10 @@ export default function AttendanceCapture() {
       <p className="text-center text-sm text-muted" role="status" aria-live="polite">
         {camError ? '' : detector === 'unavailable' ? 'Deteksi wajah tidak tersedia. Ketuk "Ambil foto" setelah wajah di tengah.' : detector === 'loading' ? 'Menyiapkan deteksi wajah…' : countdown !== null ? `Tahan posisi, foto otomatis dalam ${countdown}…` : 'Posisikan wajah di tengah bingkai.'}
       </p>
+      {faceNote}
       <div className="rounded-xl bg-sub p-3 text-sm" role="status">{geoLine}</div>
       {geo.state === 'error' && <button onClick={fetchLocation} className="min-h-11 self-start rounded-lg px-2 text-sm font-medium underline active:bg-sub">Coba lokasi lagi</button>}
-      {!camError && <BottomBar><Button className="w-full" onClick={() => void capture(detector === 'ready' && faceNow.current)}><Camera className="size-5" aria-hidden="true" />Ambil foto</Button></BottomBar>}
+      {!camError && <BottomBar><Button className="w-full" loading={checking} onClick={() => void capture(detector === 'ready' && faceNow.current)}><Camera className="size-5" aria-hidden="true" />{checking ? 'Memeriksa wajah…' : 'Ambil foto'}</Button></BottomBar>}
     </div>
   );
 }

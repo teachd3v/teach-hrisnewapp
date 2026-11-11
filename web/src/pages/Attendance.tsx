@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, LogIn, LogOut, ScanFace } from 'lucide-react';
 import { policyText, workDuration, type AttendancePolicy, type OfficeLocation } from '@hris/shared';
 import { api } from '../lib/api';
-import { dayChips, recordChips, fmtLongDate, fmtShortDate, fmtTime, locationFlag, type AttendanceRec, type DayFlags } from '../lib/attendance-types';
+import { dayChips, faceChip, recordChips, fmtLongDate, fmtShortDate, fmtTime, locationFlag, type AttendanceRec, type DayFlags } from '../lib/attendance-types';
 import { Button, Card, Chip, Empty, ErrorNote, Field, Input, Spinner } from '../ui';
 
 export const useToday = () =>
@@ -56,13 +56,16 @@ const thisDate = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0
 const thisMonth = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 7);
 
 export default function Attendance() {
-  const flash = (useLocation().state as { flash?: string } | null)?.flash;
+  const navState = useLocation().state as { flash?: string; faceWarn?: string | null } | null;
+  const flash = navState?.flash;
+  const faceWarn = navState?.faceWarn;
   const [month, setMonth] = useState(thisMonth());
   const mine = useQuery({ queryKey: ['att-mine', month], queryFn: () => api<AttendanceRec[]>(`/attendance/mine?month=${month}`) });
 
   return (
     <div className="flex flex-col gap-4">
       {flash && <p role="status" className="flex items-center gap-2 rounded-xl bg-ok-bg p-3 text-sm font-medium text-ok"><CheckCircle2 className="size-5" aria-hidden="true" />{flash}</p>}
+      {faceWarn && <p role="status" className="rounded-xl bg-warn-bg p-3 text-sm font-medium text-warn">{faceWarn}</p>}
       <TodayCard />
       <Link to="/presensi/koreksi" className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-field px-4 font-medium active:bg-sub"><FilePen className="size-5" aria-hidden="true" />Lupa presensi? Ajukan koreksi</Link>
 
@@ -75,7 +78,7 @@ export default function Attendance() {
       {mine.data?.length === 0 && <Empty icon={<ScanFace className="size-10" />}>Belum ada presensi pada bulan ini.</Empty>}
       <ul className="flex flex-col gap-2">
         {mine.data?.map((r) => {
-          const flags = [...recordChips(r), ...[locationFlag(r.in), r.out ? locationFlag(r.out) : null].filter((x) => x && x.tone === 'warn')] as { tone: 'ok' | 'warn' | 'bad' | 'info' | 'neutral'; text: string }[];
+          const flags = [...recordChips(r), ...[locationFlag(r.in), r.out ? locationFlag(r.out) : null].filter((x) => x && x.tone === 'warn'), faceChip(r.in, 'Masuk'), faceChip(r.out, 'Pulang')].filter(Boolean) as { tone: 'ok' | 'warn' | 'bad' | 'info' | 'neutral'; text: string }[];
           return (
             <li key={r.id}>
               <Card className="!p-3">

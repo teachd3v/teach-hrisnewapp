@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LocateFixed, MapPin, Plus } from 'lucide-react';
-import { policyText, type AttendancePolicy, type OfficeLocation } from '@hris/shared';
+import { FACE_LIVE_THRESHOLD_RANGE, FACE_THRESHOLD_RANGE, policyText, type AttendancePolicy, type FaceMode, type OfficeLocation } from '@hris/shared';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { getPosition } from '../lib/geo';
 import { fmtLongDate } from '../lib/attendance-types';
+import { useFaceStatus } from '../lib/face-status';
 import { Button, Card, Chip, ErrorNote, Field, Input, Select, Sheet, Spinner } from '../ui';
 
 interface Settings { today: string; locations: OfficeLocation[]; policies: (AttendancePolicy & { id?: string })[]; current: AttendancePolicy }
@@ -29,6 +30,7 @@ export default function AdminAttendanceSettings() {
       {!canEdit && <p className="rounded-xl bg-sub p-3 text-sm text-muted">Hanya super admin yang dapat mengubah pengaturan ini.</p>}
       <PolicySection s={s} canEdit={canEdit} onChanged={refresh} />
       <LocationSection s={s} canEdit={canEdit} onChanged={refresh} />
+      <FaceSection canEdit={canEdit} />
     </div>
   );
 }
@@ -199,6 +201,49 @@ function LocationSection({ s, canEdit, onChanged }: { s: Settings; canEdit: bool
           </form>
         )}
       </Sheet>
+    </section>
+  );
+}
+
+// ------------------------------------------------------------------ verifikasi wajah
+
+const FACE_MODE_LABEL: Record<FaceMode, string> = { off: 'Mati', flag: 'Hanya ditandai' };
+
+/** Verifikasi wajah pada presensi (docs/FACE.md): mode dan ambang. Admin hanya melihat; hanya super admin yang mengubah. */
+function FaceSection({ canEdit }: { canEdit: boolean }) {
+  const qc = useQueryClient();
+  const status = useFaceStatus();
+  const cur = status.data?.settings;
+  const [mode, setMode] = useState<FaceMode | null>(null);
+  const [thr, setThr] = useState<string | null>(null);
+  const [live, setLive] = useState<string | null>(null);
+  const m = mode ?? cur?.mode ?? 'off';
+  const t = thr ?? String(cur?.threshold ?? 0.5);
+  const l = live ?? String(cur?.liveThreshold ?? 0.4);
+  const tn = Number(t), ln = Number(l);
+  const valid = t.trim() !== '' && l.trim() !== '' && tn >= FACE_THRESHOLD_RANGE.min && tn <= FACE_THRESHOLD_RANGE.max && ln >= FACE_LIVE_THRESHOLD_RANGE.min && ln <= FACE_LIVE_THRESHOLD_RANGE.max;
+  const dirty = Boolean(cur) && (m !== cur!.mode || tn !== cur!.threshold || ln !== cur!.liveThreshold);
+
+  const save = useMutation({
+    mutationFn: () => api('/face/settings', { method: 'PUT', json: { mode: m, threshold: tn, liveThreshold: ln } }),
+    onSuccess: () => { setMode(null); setThr(null); setLive(null); void qc.invalidateQueries({ queryKey: ['face-status'] }); void qc.invalidateQueries({ queryKey: ['face-admin'] }); void qc.invalidateQueries({ queryKey: ['att-today'] }); },
+  });
+  if (!cur || cur.threshold === undefined) return null; // karyawan biasa tidak melihat ambang
+
+  return (
+    <section className="flex flex-col gap-3" aria-labelledby="face-h">
+      <h2 id="face-h" className="text-lg font-semibold">Verifikasi wajah</h2>
+      <p className="text-sm text-muted">Mencocokkan wajah saat presensi dengan wajah yang didaftarkan karyawan dan menilai apakah wajah di kamera asli (bukan foto/layar). Pada mode "Hanya ditandai" hasil muncul untuk HC dan presensi tidak pernah ditolak karena wajah. Berlaku langsung.</p>
+      <Card className="flex flex-col gap-3">
+        <Field label="Mode">{(id) => <Select id={id} disabled={!canEdit} value={m} onChange={(e) => setMode(e.target.value as FaceMode)}>{(Object.keys(FACE_MODE_LABEL) as FaceMode[]).map((k) => <option key={k} value={k}>{FACE_MODE_LABEL[k]}</option>)}</Select>}</Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Ambang kemiripan" hint={`${FACE_THRESHOLD_RANGE.min}-${FACE_THRESHOLD_RANGE.max}. Awal 0,5.`}>{(id, d) => <Input id={id} aria-describedby={d} inputMode="decimal" disabled={!canEdit} value={t} onChange={(e) => setThr(e.target.value)} />}</Field>
+          <Field label="Ambang wajah asli" hint={`${FACE_LIVE_THRESHOLD_RANGE.min}-${FACE_LIVE_THRESHOLD_RANGE.max}. Awal 0,4.`}>{(id, d) => <Input id={id} aria-describedby={d} inputMode="decimal" disabled={!canEdit} value={l} onChange={(e) => setLive(e.target.value)} />}</Field>
+        </div>
+        <p className="text-xs text-muted">Skor di bawah ambang kemiripan = "tidak cocok"; skor wajah asli di bawah ambangnya = "diduga foto/layar". Dari uji awal: orang lain ≤ 0,31, orang sama ≥ 0,78, wajah asli ≥ 0,57, serangan ≤ 0,17. Pantau hasilnya di Presensi (HC) sebelum mengubah ambang.</p>
+        <ErrorNote error={save.error} />
+        {canEdit && <Button loading={save.isPending} disabled={!dirty || !valid} onClick={() => save.mutate()}>Simpan</Button>}
+      </Card>
     </section>
   );
 }

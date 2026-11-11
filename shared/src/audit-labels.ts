@@ -1,6 +1,6 @@
 // Label dan kelompok aksi log audit. Aksi yang tidak dikenal tetap ditampilkan dengan kode aslinya.
 
-export type AuditGroup = 'auth' | 'leave' | 'attendance' | 'employee' | 'master' | 'holiday' | 'setting' | 'profile' | 'overtime' | 'file' | 'report';
+export type AuditGroup = 'auth' | 'leave' | 'attendance' | 'employee' | 'master' | 'holiday' | 'setting' | 'profile' | 'overtime' | 'file' | 'report' | 'face';
 
 export const AUDIT_GROUPS: { key: AuditGroup; label: string }[] = [
   { key: 'auth', label: 'Login & keamanan' },
@@ -14,6 +14,7 @@ export const AUDIT_GROUPS: { key: AuditGroup; label: string }[] = [
   { key: 'overtime', label: 'Overtime' },
   { key: 'file', label: 'Akses berkas' },
   { key: 'report', label: 'Rekap & ekspor' },
+  { key: 'face', label: 'Verifikasi wajah' },
 ];
 
 /** `attention`: aksi yang layak diperhatikan saat meninjau (kegagalan, pengambilalihan, akses data pihak lain). */
@@ -57,6 +58,10 @@ export const AUDIT_ACTIONS: Record<string, { label: string; attention?: boolean 
   'profile.document': { label: 'Ubah dokumen karyawan' },
   'file.access': { label: 'Buka berkas milik orang lain', attention: true },
   'report.range': { label: 'Ambil rekap presensi & cuti', attention: true },
+  'face.enrolled': { label: 'Daftarkan wajah (menunggu HC)' },
+  'face.decision': { label: 'Keputusan pendaftaran wajah' },
+  'face.withdrawn': { label: 'Tarik persetujuan wajah (template dihapus)' },
+  'face.reset': { label: 'Reset pendaftaran wajah karyawan', attention: true },
 };
 
 export const auditLabel = (action: string) => AUDIT_ACTIONS[action]?.label ?? action;

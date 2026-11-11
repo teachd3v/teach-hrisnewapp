@@ -18,6 +18,7 @@
     "@tauri-apps/plugin-geolocation": "^2.5.0",
     "fflate": "^0.8.3",
     "lucide-react": "^1.68.0",
+    "onnxruntime-web": "1.31.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router": "^7.9.0"

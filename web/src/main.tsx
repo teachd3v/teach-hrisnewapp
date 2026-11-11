@@ -30,6 +30,8 @@ import AttendanceCorrection from './pages/AttendanceCorrection';
 import AdminCorrections from './pages/AdminCorrections';
 import AdminReport from './pages/AdminReport';
 import AdminAudit from './pages/AdminAudit';
+import FaceEnroll from './pages/FaceEnroll';
+import AdminFace from './pages/AdminFace';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: true } } });
 
@@ -72,6 +74,8 @@ const router = createBrowserRouter(
           <Route path="/admin/cuti" element={<AdminLeave />} handle={{ title: 'Izin & overtime (HC)', back: '/akun' }} />
           <Route path="/admin/karyawan" element={<AdminEmployees />} handle={{ title: 'Karyawan', back: '/akun' }} />
           <Route path="/profil" element={<Profile />} handle={{ title: 'Profil saya', back: '/akun' }} />
+          <Route path="/profil/wajah" element={<FaceEnroll />} handle={{ title: 'Wajah untuk presensi', back: '/akun' }} />
+          <Route path="/admin/wajah" element={<AdminFace />} handle={{ title: 'Pendaftaran wajah (HC)', back: '/akun' }} />
           <Route path="/admin/karyawan/:id/profil" element={<Profile />} handle={{ title: 'Profil karyawan', back: '/admin/karyawan' }} />
           <Route path="/admin/karyawan/:id" element={<AdminEmployeeForm />} handle={{ title: 'Data karyawan', back: '/admin/karyawan' }} />
           <Route path="/admin/master" element={<AdminMaster />} handle={{ title: 'Data master', back: '/akun' }} />

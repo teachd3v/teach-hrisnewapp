@@ -8,6 +8,7 @@ import { PushCard } from '../components/PushCard';
 import { InstallRow } from '../components/Install';
 import ProfilePhoto from '../components/ProfilePhoto';
 import { useProfileCard } from '../lib/profile';
+import { useFaceStatus } from '../lib/face-status';
 
 const ROLE_LABEL: Record<Role, string> = { employee: 'Karyawan', admin: 'Admin (HC)', super_admin: 'Super Admin' };
 
@@ -24,6 +25,9 @@ export default function Account() {
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const card = useProfileCard('me').data;
+  const face = useFaceStatus().data;
+  // Karyawan melihat menu wajah bila verifikasi dinyalakan atau mereka sudah punya pendaftaran; admin selalu (untuk menyiapkan).
+  const showFace = Boolean(user && (isAdmin(user.role) || (face && (face.settings.mode !== 'off' || face.active || face.pending))));
   return (
     <div className="flex flex-col gap-5">
       <Card className="flex items-center gap-4">
@@ -40,6 +44,7 @@ export default function Account() {
       <section aria-label="Akun" className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
         <InstallRow />
         <MenuRow to="/profil" icon={<UserRound className="size-5" />} label="Profil saya" />
+        {showFace && <MenuRow to="/profil/wajah" icon={<ScanFace className="size-5" />} label="Wajah untuk presensi" />}
         <MenuRow to="/ganti-password" icon={<KeyRound className="size-5" />} label="Ganti password" />
       </section>
 
@@ -51,6 +56,7 @@ export default function Account() {
             <MenuRow to="/admin/rekap" icon={<FileSpreadsheet className="size-5" />} label="Rekap & ekspor Excel" />
             <MenuRow to="/admin/koreksi-presensi" icon={<FilePen className="size-5" />} label="Koreksi presensi (HC)" />
             <MenuRow to="/admin/presensi" icon={<ScanFace className="size-5" />} label="Presensi (HC)" />
+            <MenuRow to="/admin/wajah" icon={<ScanFace className="size-5" />} label="Pendaftaran wajah (HC)" />
             <MenuRow to="/admin/karyawan" icon={<Users className="size-5" />} label="Karyawan" />
             {user.role === 'super_admin' && <MenuRow to="/admin/audit" icon={<ScrollText className="size-5" />} label="Log audit" />}
             {user.role === 'super_admin' && <MenuRow to="/admin/master" icon={<ListTree className="size-5" />} label="Data master" />}

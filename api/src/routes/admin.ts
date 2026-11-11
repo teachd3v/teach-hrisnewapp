@@ -6,6 +6,7 @@ import {
   planJointHolidayChange, planJointSettingChange, type Role,
 } from '@hris/shared';
 import type { AppEnv } from '../env';
+import { purgeFace } from '../lib/face';
 import { app_settings, audit_log, credentials, employees, holidays, leave_quotas, leave_types, master_options, refresh_tokens } from '../db/schema';
 import { auditRow } from '../lib/audit';
 import { getBalances, notifyStmts, type Db } from '../lib/leave-db';
@@ -218,6 +219,7 @@ admin.patch('/employees/:id', async (c) => {
     ...(deactivate ? [db.update(refresh_tokens).set({ revoked_at: set.updated_at }).where(and(eq(refresh_tokens.employee_id, id), isNull(refresh_tokens.revoked_at)))] : []),
     db.insert(audit_log).values(auditRow({ actorId: me.id, actorName: me.name, action: 'employee.updated', targetType: 'employee', targetId: id, targetLabel: target.name, ip: ip(c), details: { before: Object.fromEntries(Object.keys(changes).map((k) => [k, target[k as keyof Employee]])), after: changes } })),
   ]);
+  if (deactivate) await purgeFace(c.env.STORAGE, db, id); // template wajah dihapus saat akun dinonaktifkan
   return c.json({ ok: true, changed: true });
 });
 

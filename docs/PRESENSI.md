@@ -15,6 +15,7 @@ Aturan lokasi dan jam masuk diatur di **Akun > Pengaturan presensi** (super admi
   - Jam pulang dan durasi kerja hanya dicatat (belum ada aturan jam pulang).
   - Pengingat "belum presensi masuk" mengikuti jam masuk pada aturan yang berlaku hari itu (15 menit sebelum batas).
 - **Foto selfie wajib** saat masuk dan pulang.
+- **Verifikasi wajah (opsional, bawaan mati):** lihat bagian "Verifikasi wajah" di bawah.
 
 ## Alur di HP
 Tab Presensi (kartu hari ini + riwayat per bulan) → "Presensi masuk/pulang" → layar kamera:
@@ -46,7 +47,7 @@ Karyawan mengajukan, **HC memutuskan** (satu tahap). Menu: Presensi → "Lupa pr
 - API: `/api/attendance-corrections` (`POST /`, `GET /state?date=`, `GET /mine`, `POST /:id/cancel`, `GET /admin`, `POST /:id/decision`).
 
 ## Batasan yang perlu diketahui
-- "Wajah terdeteksi" berasal dari perangkat; bukan verifikasi identitas. Foto dilihat HC bila perlu.
+- "Wajah terdeteksi" berasal dari perangkat; bukan verifikasi identitas. Verifikasi identitas hanya ada bila fitur Verifikasi wajah diaktifkan dan karyawan sudah terdaftar. Foto dilihat HC bila perlu.
 - Lokasi palsu (aplikasi mock GPS) dan jam perangkat tidak bisa dideteksi dari web; jam memang dari server, lokasi tidak.
 - Tidak ada penutupan otomatis untuk lupa pulang; baris tetap "Belum pulang" sampai dikoreksi (batas 7 hari). Koreksi tidak membuktikan kehadiran; mengandalkan penilaian HC.
 - Presensi di hari cuti/libur/akhir pekan ditandai, tidak dicegah. Hari libur mengikuti tabel Hari Libur; tidak ada kalender kerja per karyawan.
@@ -60,3 +61,11 @@ Akun → Rekap & ekspor Excel. HC memilih **rentang tanggal bebas** (dari - samp
 - Aturan sama dengan layar: batas jam masuk pada aturan yang berlaku di tiap tanggal (ditulis di bagian atas file Excel), izin terlambat disetujui, libur dari tabel Hari Libur. "Tidak hadir" = hari kerja tanpa presensi dan tanpa cuti/izin sehari penuh yang disetujui, dihitung sampai kemarin (hari ini belum selesai) dan sejak tanggal masuk kerja karyawan.
 - API `GET /api/reports/range?from=&to=&department=` hanya untuk admin; setiap pengambilan tercatat di audit (`report.range`).
 - Di aplikasi Tauri, unduh berkas butuh plugin tambahan (belum dikerjakan); di browser/PWA berfungsi.
+
+## Verifikasi wajah
+Detail rancangan dan hasil uji: `docs/FACE.md`. Bawaan **mati**; super admin menyalakannya di Akun > Pengaturan presensi > Verifikasi wajah.
+- **Mode:** Mati (tidak ada penilaian) atau Hanya ditandai (hasil terlihat oleh HC; presensi tidak pernah ditolak karena wajah). Ambang kemiripan (bawaan 0,5) dan ambang wajah asli (bawaan 0,4) dapat diubah super admin; perubahan tercatat di audit dan berlaku langsung.
+- **Pendaftaran:** Akun > Wajah untuk presensi. Persetujuan biometrik, hadap depan lalu putar kepala melingkar, kirim ke HC. HC mencocokkan foto referensi dengan KTP (Akun > Pendaftaran wajah (HC)) lalu menyetujui atau menolak (alasan wajib). Pendaftaran ulang tetap memakai template lama sampai yang baru disetujui. Karyawan dapat menarik persetujuan (template dan foto referensi dihapus); HC dapat mereset; template juga dihapus saat akun dinonaktifkan.
+- **Saat presensi:** kamera menghitung embedding wajah dan skor "wajah asli" (foto/layar) di perangkat; server menilai terhadap template dan menyimpan hasil per masuk/pulang: `match` (cocok), `mismatch` (tidak cocok), `spoof` (diduga foto/layar; diperiksa lebih dulu karena foto pemilik bisa sangat mirip), `none` (belum terdaftar, model gagal dimuat, kamera sistem, atau koreksi HC). Karyawan melihat hasilnya; skor mentah hanya untuk HC.
+- **API:** `/api/face/*` (lihat FACE.md); `POST /api/attendance/clock-in|clock-out` menerima `embedding` (JSON 128 angka) dan `live` (0-1); respons memuat `face`.
+- **Batasan:** embedding dan skor wajah asli dihitung di perangkat, jadi klien yang dimodifikasi bisa mengirim nilai palsu (terdeteksi hanya lewat verifikasi ulang dari foto yang belum dibuat); deepfake langsung ke kamera di luar jangkauan; akurasi menurun pada cahaya redup, buram, atau wajah menoleh; jalur "Buka kamera sistem" tidak dinilai (`none`). Hasil uji awal ada di FACE.md.

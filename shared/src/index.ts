@@ -9,3 +9,4 @@ export * from './reminders';
 export * from './settings';
 export * from './profile';
 export * from './overtime';
+export * from './face';

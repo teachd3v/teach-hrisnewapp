@@ -1,4 +1,7 @@
-export interface PunchInfo { lat: number | null; lng: number | null; accuracy: number | null; distance: number | null; outside?: boolean | null; face: boolean | null; photo: string | null; corrected?: boolean }
+import { FACE_RESULT_LABEL, type FaceResult } from '@hris/shared';
+
+/** `faceResult`: hasil verifikasi wajah (null = tidak dinilai/mode mati). `faceScore` dan `live` hanya dikirim ke HC. */
+export interface PunchInfo { lat: number | null; lng: number | null; accuracy: number | null; distance: number | null; outside?: boolean | null; face: boolean | null; photo: string | null; corrected?: boolean; faceResult?: FaceResult | null; faceScore?: number | null; live?: number | null }
 export interface DayFlags { lateMinutes?: number; lateExcused: boolean; leaveType: string | null; dayOff: string | null }
 export interface AttendanceRec {
   id: string; employee_id: string; date: string; clock_in: string | null; clock_out: string | null;
@@ -41,4 +44,13 @@ export function locationFlag(p: PunchInfo | null): { tone: 'ok' | 'warn' | 'neut
   if (p.distance == null) return { tone: 'warn', text: 'Tanpa lokasi' };
   if (p.outside) return { tone: 'warn', text: `Di luar kantor (${km(p.distance)})` };
   return { tone: 'ok', text: 'Di area kantor' };
+}
+
+/** Penanda hasil verifikasi wajah satu presensi (null bila tidak ada penilaian). HC juga melihat skornya. */
+export function faceChip(p: PunchInfo | null, label: string): { tone: Tone; text: string } | null {
+  const r = p?.faceResult;
+  if (!p || !r) return null;
+  const tone: Tone = r === 'match' ? 'ok' : r === 'mismatch' ? 'warn' : r === 'spoof' ? 'bad' : 'neutral';
+  const detail = p.faceScore != null || p.live != null ? ` (${p.faceScore != null ? `kemiripan ${p.faceScore.toFixed(2)}` : ''}${p.faceScore != null && p.live != null ? ', ' : ''}${p.live != null ? `asli ${p.live.toFixed(2)}` : ''})` : '';
+  return { tone, text: `${label}: ${FACE_RESULT_LABEL[r]}${detail}` };
 }

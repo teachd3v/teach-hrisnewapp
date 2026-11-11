@@ -3,7 +3,8 @@ import { drizzle } from 'drizzle-orm/d1';
 import { eq, or } from 'drizzle-orm';
 import { isAdmin } from '@hris/shared';
 import type { AppEnv } from '../env';
-import { attendances, employee_documents, employees, leave_requests } from '../db/schema';
+import { attendances, employee_documents, employees, face_templates, leave_requests } from '../db/schema';
+import { FACE_PREFIX } from '../lib/face';
 import { writeAudit } from '../lib/audit';
 import { signFileLink, verifyFileLink } from '../lib/signed-url';
 import { requireAuth } from '../middleware/auth';
@@ -18,7 +19,7 @@ const LEAVE_PREFIX = 'leave_attachments/';
 const ATTENDANCE_PREFIX = 'attendance/';
 const PROFILE_PHOTO_PREFIX = 'profile_photos/';
 const DOCUMENT_PREFIX = 'employee_documents/';
-const validPrefix = (key: string) => (key.startsWith(LEAVE_PREFIX) || key.startsWith(ATTENDANCE_PREFIX) || key.startsWith(PROFILE_PHOTO_PREFIX) || key.startsWith(DOCUMENT_PREFIX)) && !key.includes('..');
+const validPrefix = (key: string) => (key.startsWith(LEAVE_PREFIX) || key.startsWith(ATTENDANCE_PREFIX) || key.startsWith(PROFILE_PHOTO_PREFIX) || key.startsWith(DOCUMENT_PREFIX) || key.startsWith(FACE_PREFIX)) && !key.includes('..');
 
 files.post('/link', requireAuth, async (c) => {
   const { key } = await c.req.json<{ key?: string }>().catch(() => ({} as { key?: string }));
@@ -43,6 +44,17 @@ files.post('/link', requireAuth, async (c) => {
     if (!doc || !(doc.owner === meId || isAdmin(me.role))) return c.json({ error: 'Berkas tidak ditemukan' }, 404);
     if (doc.owner !== meId) {
       await writeAudit(db, { actorId: me.id, actorName: me.name, action: 'file.access', targetType: 'employee_document', targetId: key, targetLabel: doc.owner, ip: c.req.header('CF-Connecting-IP') });
+    }
+    const signed = await signFileLink(c.env.URL_SIGNING_SECRET, key);
+    return c.json({ url: `/api/files/get?key=${encodeURIComponent(key)}&exp=${signed.exp}&sig=${signed.sig}`, expiresAt: signed.exp });
+  }
+
+  // Foto referensi pendaftaran wajah: hanya pemilik dan admin; akses admin ke foto orang lain dicatat.
+  if (key.startsWith(FACE_PREFIX)) {
+    const [ref] = await db.select({ owner: face_templates.employee_id }).from(face_templates).where(eq(face_templates.reference_photo_key, key)).limit(1);
+    if (!ref || !(ref.owner === meId || isAdmin(me.role))) return c.json({ error: 'Berkas tidak ditemukan' }, 404);
+    if (ref.owner !== meId) {
+      await writeAudit(db, { actorId: me.id, actorName: me.name, action: 'file.access', targetType: 'face_reference', targetId: key, targetLabel: ref.owner, ip: c.req.header('CF-Connecting-IP') });
     }
     const signed = await signFileLink(c.env.URL_SIGNING_SECRET, key);
     return c.json({ url: `/api/files/get?key=${encodeURIComponent(key)}&exp=${signed.exp}&sig=${signed.sig}`, expiresAt: signed.exp });
