@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, ChevronLeft, ChevronRight, FilePen, ScanFace } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, FilePen, ScanFace, Share2 } from 'lucide-react';
 import { policyText, workDuration, type AttendancePolicy, type OfficeLocation } from '@hris/shared';
 import { api } from '../lib/api';
 import { faceChip, recordChips, fmtLongDate, fmtShortDate, fmtTime, locationFlag, type AttendanceRec, type DayFlags, type Tone } from '../lib/attendance-types';
@@ -133,6 +133,9 @@ export default function Attendance() {
 
       <h2 className="-mb-1 text-lg font-extrabold">{fmtLongDate(selected)}</h2>
       {pending ? <Spinner /> : <DayDetail date={selected} rec={byDate.get(selected)} today={today} />}
+      {byDate.get(selected)?.clock_out && (
+        <Link to={`/presensi/selesai?date=${selected}`} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-primary px-4 font-semibold text-primary-fg shadow-primary active:bg-[#0b5f58]"><Share2 className="size-5" aria-hidden="true" />Lihat dan bagikan kartu hari ini</Link>
+      )}
       {selected <= today && (
         <Link to={`/presensi/koreksi?date=${selected}`} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-surface px-4 font-semibold shadow-card active:bg-sub"><FilePen className="size-5" aria-hidden="true" />Lupa presensi? Ajukan koreksi</Link>
       )}

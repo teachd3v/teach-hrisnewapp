@@ -73,7 +73,7 @@ function PunchTab() {
     load: { to: '/presensi', label: 'Presensi', aria: 'Presensi', Icon: ScanFace, bg: 'bg-primary' },
     in: { to: '/presensi/ambil/in', label: 'Masuk', aria: 'Presensi masuk', Icon: ScanFace, bg: 'bg-punch-in' },
     out: { to: '/presensi/ambil/out', label: 'Pulang', aria: 'Presensi pulang', Icon: LogOut, bg: 'bg-punch-out' },
-    done: { to: '/presensi', label: 'Selesai', aria: 'Presensi hari ini selesai, buka riwayat', Icon: CircleCheck, bg: 'bg-muted' },
+    done: { to: '/presensi/selesai', label: 'Selesai', aria: 'Presensi hari ini selesai, buka kartu hari ini', Icon: CircleCheck, bg: 'bg-muted' },
   }[state];
   const text = state === 'in' ? 'text-punch-in' : state === 'out' ? 'text-punch-out' : 'text-muted';
   return (

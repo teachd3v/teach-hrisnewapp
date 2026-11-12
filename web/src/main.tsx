@@ -25,6 +25,7 @@ import Profile from './pages/Profile';
 import OvertimeForm from './pages/OvertimeForm';
 import Attendance from './pages/Attendance';
 import AttendanceCapture from './pages/AttendanceCapture';
+import DayCard from './pages/DayCard';
 import AdminAttendance from './pages/AdminAttendance';
 import AttendanceCorrection from './pages/AttendanceCorrection';
 import AdminCorrections from './pages/AdminCorrections';
@@ -65,6 +66,7 @@ const router = createBrowserRouter(
           <Route path="/presensi/koreksi" element={<AttendanceCorrection />} handle={{ title: 'Koreksi presensi', back: '/presensi' }} />
           <Route path="/admin/koreksi-presensi" element={<AdminCorrections />} handle={{ title: 'Koreksi presensi', back: '/akun' }} />
           <Route path="/presensi/ambil/:type" element={<AttendanceCapture />} handle={{ title: 'Presensi', back: '/' }} />
+          <Route path="/presensi/selesai" element={<DayCard />} handle={{ title: 'Kartu hari ini', back: '/' }} />
           <Route path="/persetujuan" element={<Approvals />} handle={{ title: 'Persetujuan izin & overtime', back: '/cuti' }} />
           <Route path="/admin/audit" element={<AdminAudit />} handle={{ title: 'Log audit', back: '/akun' }} />
           <Route path="/admin/rekap" element={<AdminReport />} handle={{ title: 'Rekap presensi & cuti', back: '/akun' }} />

@@ -221,7 +221,9 @@ export default function AttendanceCapture() {
       const faceNote = face === 'match' ? ' Wajah cocok.' : '';
       // Mismatch/spoof/none hanya ditandai untuk HC (presensi tidak ditolak karena wajah).
       const faceWarn = face === 'mismatch' || face === 'spoof' ? `${FACE_RESULT_LABEL[face]}. Presensi tetap tercatat dan ditandai untuk HC.` : face === 'none' ? 'Wajah tidak dinilai pada presensi ini; presensi tetap tercatat dan ditandai untuk HC.' : null;
-      navigate('/presensi', { replace: true, state: { flash: `${isIn ? 'Presensi masuk tercatat.' : 'Presensi pulang tercatat.'}${faceNote}`, faceWarn } });
+      const flash = `${isIn ? 'Presensi masuk tercatat.' : 'Presensi pulang tercatat.'}${faceNote}`;
+      // Presensi pulang berujung di kartu "Selesai hari ini" (bisa dibagikan); presensi masuk kembali ke riwayat seperti biasa.
+      navigate(isIn ? '/presensi' : '/presensi/selesai', { replace: true, state: isIn ? { flash, faceWarn } : { flash, faceWarn, fresh: true } });
     },
   });
 

@@ -32,5 +32,5 @@ export function useRecordsByDate(dates: string[]) {
   const results = useQueries({ queries: months.map((m) => ({ queryKey: ['att-mine', m], queryFn: () => api<AttendanceRec[]>(`/attendance/mine?month=${m}`) })) });
   const byDate = new Map<string, AttendanceRec>();
   for (const r of results) for (const rec of r.data ?? []) byDate.set(rec.date, rec);
-  return { byDate, pending: results.some((r) => r.isPending) };
+  return { byDate, all: [...byDate.values()], pending: results.some((r) => r.isPending) };
 }
