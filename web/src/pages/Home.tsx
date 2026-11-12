@@ -6,10 +6,12 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useBadges } from '../layouts';
 import type { LeaveMeta } from '../lib/leave-types';
-import { Button, Card, Spinner } from '../ui';
+import { Button, Card, Segmented, Spinner } from '../ui';
 import { TodayCard } from './Attendance';
 import { PushPrompt } from '../components/PushCard';
 import { InstallCard } from '../components/Install';
+import Overview from '../components/dashboard/Overview';
+import { usePersisted } from '../components/dashboard/parts';
 
 function Row({ to, icon, title, sub }: { to: string; icon: React.ReactNode; title: string; sub: string }) {
   return (
@@ -29,6 +31,9 @@ export default function Home() {
     queryKey: ['admin-leave', 'pending_hc'], enabled: Boolean(user && isAdmin(user.role)),
     queryFn: () => api<unknown[]>('/leave/admin?status=pending_hc'),
   });
+  // Admin/super admin: tab [Saya | Ringkasan]. Bawaan "Saya" (presensi tetap di depan); pilihan terakhir diingat. Karyawan biasa tidak melihat tab.
+  const admin = Boolean(user && isAdmin(user.role));
+  const [tab, setTab] = usePersisted<'me' | 'overview'>('hris.homeTab', 'me', ['me', 'overview']);
   const annual = meta.data?.balances.find((b) => b.type === 'Cuti Tahunan');
   const pct = annual?.quota ? Math.max(0, Math.min(100, ((annual.remaining ?? 0) / annual.quota) * 100)) : 0;
 
@@ -39,26 +44,31 @@ export default function Home() {
         <p className="text-2xl font-bold">{user?.name}</p>
       </div>
 
-      <InstallCard />
-      <PushPrompt />
+      {admin && <Segmented value={tab} onChange={setTab} options={[{ value: 'me', label: 'Saya' }, { value: 'overview', label: 'Ringkasan' }]} />}
+      {admin && tab === 'overview' ? <Overview /> : (
+        <>
+          <InstallCard />
+          <PushPrompt />
 
-      <TodayCard />
+          <TodayCard />
 
-      <Card>
-        <p className="text-sm font-medium text-muted">Sisa cuti tahunan {new Date().getFullYear()}</p>
-        {meta.isPending ? <Spinner /> : annual ? (
-          <>
-            <p className="mt-1 text-4xl font-bold">{annual.remaining}<span className="text-lg font-medium text-muted"> / {annual.quota} hari</span></p>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-sub" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label="Sisa cuti tahunan"><div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} /></div>
-            <p className="mt-2 text-sm text-muted">Terpakai {annual.used}{annual.pending ? ` · menunggu persetujuan ${annual.pending}` : ''}</p>
-          </>
-        ) : <p className="text-muted">Data kuota belum tersedia.</p>}
-      </Card>
+          <Card>
+            <p className="text-sm font-medium text-muted">Sisa cuti tahunan {new Date().getFullYear()}</p>
+            {meta.isPending ? <Spinner /> : annual ? (
+              <>
+                <p className="mt-1 text-4xl font-bold">{annual.remaining}<span className="text-lg font-medium text-muted"> / {annual.quota} hari</span></p>
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-sub" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label="Sisa cuti tahunan"><div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} /></div>
+                <p className="mt-2 text-sm text-muted">Terpakai {annual.used}{annual.pending ? ` · menunggu persetujuan ${annual.pending}` : ''}</p>
+              </>
+            ) : <p className="text-muted">Data kuota belum tersedia.</p>}
+          </Card>
 
-      <Link to="/cuti/ajukan"><Button className="w-full"><CalendarPlus className="size-5" aria-hidden="true" />Ajukan cuti</Button></Link>
+          <Link to="/cuti/ajukan"><Button className="w-full"><CalendarPlus className="size-5" aria-hidden="true" />Ajukan cuti</Button></Link>
 
-      {approvals > 0 && <Row to="/persetujuan" icon={<ClipboardCheck className="size-5" />} title="Perlu persetujuan Anda" sub={`${approvals} pengajuan bawahan`} />}
-      {user && isAdmin(user.role) && (hcQueue.data?.length ?? 0) > 0 && <Row to="/admin/cuti" icon={<Hourglass className="size-5" />} title="Menunggu HC" sub={`${hcQueue.data!.length} pengajuan`} />}
+          {approvals > 0 && <Row to="/persetujuan" icon={<ClipboardCheck className="size-5" />} title="Perlu persetujuan Anda" sub={`${approvals} pengajuan bawahan`} />}
+          {user && isAdmin(user.role) && (hcQueue.data?.length ?? 0) > 0 && <Row to="/admin/cuti" icon={<Hourglass className="size-5" />} title="Menunggu HC" sub={`${hcQueue.data!.length} pengajuan`} />}
+        </>
+      )}
     </div>
   );
 }

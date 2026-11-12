@@ -29,6 +29,14 @@ Menu Admin di tab Akun dikelompokkan dan bisa dilipat (`web/src/pages/Account.ts
 
 Angka lencana dari `GET /api/admin/queues` (admin): `leave` dan `overtime` berstatus menunggu HC, `corrections` koreksi presensi menunggu, `face` pendaftaran wajah menunggu. Dimuat ulang setiap Akun dibuka dan tiap menit. Akhiran "(HC)" tidak dipakai di nama menu dan judul halaman.
 
+## Dashboard Beranda (admin dan super admin)
+Beranda admin punya tab **[Saya | Ringkasan]** (`web/src/pages/Home.tsx`); karyawan biasa tidak melihat tab dan tidak memanggil API dashboard. Bawaan "Saya", pilihan terakhir diingat di perangkat. Isi Ringkasan, tiap kartu memuat datanya sendiri:
+- **Perlu tindakan**: ubin antrean (izin & overtime, koreksi, wajah) dari `GET /api/admin/queues`; hanya tampil bila ada yang menunggu.
+- **Kehadiran** Harian/Bulanan, `GET /api/dashboard/attendance?mode=day&date=` dan `?mode=month&month=`. Memakai aturan Rekap (jam masuk berefektif-tanggal, izin terlambat, hari libur, cuti sehari penuh). Hari berjalan: "Belum presensi"; "Tidak hadir" hanya sampai kemarin. Tingkat bulanan = hadir / (hadir + tidak hadir). Tanggal sebelum 2024-01-01 atau masa depan ditolak.
+- **Momen karyawan**, `GET /api/dashboard/people?month=`: tab Ulang tahun, Masa kerja (tonggak LSA ditandai), LSA (bulan ini + 3 bulan ke depan; tonggak 5, 7, 10, 14, 20 tahun). Ulang tahun hanya tanggal dan bulan (tahun lahir tidak dikirim). Ada petunjuk "N karyawan belum punya tanggal lahir/masuk".
+Endpoint hanya untuk admin. Aturan murni ada di `shared/src/moments.ts`. Tanpa migrasi; tidak ada audit per pemuatan dashboard.
+Belum ada: pencatatan LSA "sudah diberikan", ulang tahun terlihat semua karyawan, grafik tren, notifikasi push ulang tahun.
+
 ## Data master (`/api/master`)
 Departemen, level, dan status kepegawaian adalah pilihan dropdown di form karyawan. Karyawan menyimpan **id** (`department_id`, `level_id`, `employment_status_id`), jadi mengganti nama berlaku untuk semua. Jabatan tetap teks bebas.
 - Nama unik per jenis (tanpa membedakan huruf besar kecil). Item yang dipakai tidak bisa dihapus, hanya dinonaktifkan; item nonaktif hilang dari dropdown tetapi karyawan lama tetap menampilkannya dan boleh menyimpan perubahan lain.

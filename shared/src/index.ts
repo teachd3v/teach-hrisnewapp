@@ -10,3 +10,5 @@ export * from './settings';
 export * from './profile';
 export * from './overtime';
 export * from './face';
+export * from './moments';
+export * from './dashboard';

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Users } from 'lucide-react';
 import { workDuration } from '@hris/shared';
@@ -11,7 +12,10 @@ const today = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 1
 
 /** HC: presensi semua karyawan aktif pada satu tanggal. */
 export default function AdminAttendance() {
-  const [date, setDate] = useState(today());
+  const [params] = useSearchParams();
+  const fromLink = params.get('date') ?? '';
+  // Tanggal awal dapat datang dari tautan dashboard (?date=YYYY-MM-DD); nilai di luar batas diabaikan.
+  const [date, setDate] = useState(/^\d{4}-\d{2}-\d{2}$/.test(fromLink) && fromLink <= today() ? fromLink : today());
   const q = useQuery({
     queryKey: ['att-admin', date],
     queryFn: () => api<{ date: string; rows: { employeeId: string; name: string; record: AttendanceRec | null; faceTries: Record<'in' | 'out', { total: number; failed: number }> | null }[] }>(`/attendance/admin?date=${date}`),
