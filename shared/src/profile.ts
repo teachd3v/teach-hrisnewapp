@@ -203,6 +203,8 @@ export const DOCUMENT_CATEGORIES: readonly DocumentCategory[] = [
   { key: 'npwp', label: 'NPWP' },
   { key: 'ijazah', label: 'Ijazah' },
   { key: 'sertifikat', label: 'Sertifikat' },
+  { key: 'pekerjaan', label: 'Dokumen pekerjaan' },
+  { key: 'prestasi', label: 'Prestasi' },
   { key: 'kontrak', label: 'Kontrak kerja', hcOnly: true },
   { key: 'sk', label: 'Surat keputusan (SK)', hcOnly: true },
   { key: 'lainnya', label: 'Lainnya' },
