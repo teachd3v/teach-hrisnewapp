@@ -16,6 +16,9 @@ export interface DayCardData {
   /** null = tanpa foto (inisial). */
   inPhoto: ImageBitmap | null;
   outPhoto: ImageBitmap | null;
+  /** Wallpaper pengguna sebagai latar kartu (null = latar gradasi bawaan) dan keburamannya, 0..1 (1 - transparansi). */
+  wallpaper?: ImageBitmap | null;
+  wallpaperAlpha?: number;
 }
 
 export const CARD_W = 1080;
@@ -112,6 +115,12 @@ export async function renderDayCard(d: DayCardData): Promise<Blob> {
   bg.addColorStop(1, '#fce7f3');
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, CARD_W, CARD_H);
+  if (d.wallpaper) {
+    ctx.save();
+    ctx.globalAlpha = d.wallpaperAlpha ?? 1; // sama seperti di aplikasi: wallpaper di atas gradasi bawaan, sebesar (1 - transparansi)
+    drawCover(ctx, d.wallpaper, 0, 0, CARD_W, CARD_H);
+    ctx.restore();
+  }
 
   const initial = (d.firstName[0] ?? '?').toUpperCase();
   const dateLabel = new Date(`${d.date}T00:00:00Z`).toLocaleDateString('id-ID', { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase();
@@ -136,13 +145,19 @@ export async function renderDayCard(d: DayCardData): Promise<Blob> {
   polaroid(ctx, { cx: 300, cy: 650, angle: -3.5, label: `Masuk ${d.inTime}`, photo: d.inPhoto, initial });
   polaroid(ctx, { cx: 780, cy: 720, angle: 3.5, label: `Pulang ${d.outTime}`, photo: d.outPhoto, initial });
 
-  // Durasi
+  // Durasi (bila ada wallpaper: selubung putih tipis agar tetap terbaca di atas gambar ramai)
+  const wp = Boolean(d.wallpaper);
+  if (wp) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.62)';
+    roundRect(ctx, 150, 1040, CARD_W - 300, 290, 64);
+    ctx.fill();
+  }
   ctx.fillStyle = '#1e293b';
   ctx.textAlign = 'center';
   ctx.font = `800 170px ${FONT}`;
   ctx.fillText(d.duration, CARD_W / 2, 1200);
-  ctx.fillStyle = '#475569';
-  ctx.font = `500 44px ${FONT}`;
+  ctx.fillStyle = wp ? '#1e293b' : '#475569';
+  ctx.font = `600 44px ${FONT}`;
   ctx.fillText('kerja hari ini', CARD_W / 2, 1290);
 
   // Lencana (hanya pencapaian positif)
@@ -176,9 +191,15 @@ export async function renderDayCard(d: DayCardData): Promise<Blob> {
   lines.forEach((l, i) => ctx.fillText(l, CARD_W / 2, nextY + 45 + lh * (i + 0.78)));
 
   // Kaki
-  ctx.fillStyle = '#475569';
-  ctx.font = `600 32px ${FONT}`;
-  ctx.fillText('IT TEACH GREAT Edunesia', CARD_W / 2, CARD_H - 70);
+  ctx.font = `700 32px ${FONT}`;
+  if (wp) {
+    const fw = ctx.measureText('IT TEACH GREAT Edunesia').width + 64;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+    roundRect(ctx, (CARD_W - fw) / 2, CARD_H - 116, fw, 62, 31);
+    ctx.fill();
+  }
+  ctx.fillStyle = wp ? '#1e293b' : '#475569';
+  ctx.fillText('IT TEACH GREAT Edunesia', CARD_W / 2, CARD_H - 73);
 
   return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Gagal membuat gambar'))), 'image/png'));
 }

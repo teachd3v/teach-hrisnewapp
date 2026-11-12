@@ -1,9 +1,11 @@
 /**
- * Wallpaper pribadi: gambar yang diunggah karyawan menjadi latar aplikasi. Disimpan di perangkat ini saja (IndexedDB), per akun,
- * tidak dikirim ke server. Tingkat transparansi disimpan di localStorage. Gambar dikecilkan saat diunggah (sisi terpanjang 1280 px, JPEG).
+ * Wallpaper aplikasi: pilihan bawaan (berkas statis, `wallpaper-presets.ts`) atau gambar milik karyawan sendiri.
+ * Gambar sendiri disimpan di perangkat ini saja (IndexedDB, per akun), tidak dikirim ke server. Pilihan aktif dan tingkat transparansi
+ * disimpan di localStorage per akun. Gambar unggahan dikecilkan (sisi terpanjang 1280 px, JPEG).
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useAuth } from './auth';
+import { findPreset, presetUrl } from './wallpaper-presets';
 
 const DB_NAME = 'hris-wallpaper';
 const STORE = 'kv';
@@ -36,11 +38,25 @@ async function idb<T>(mode: IDBTransactionMode, run: (s: IDBObjectStore) => IDBR
 
 const blobKey = (userId: string) => `bg:${userId}`;
 const tKey = (userId: string) => `hris.wallpaper.t.${userId}`;
+const srcKey = (userId: string) => `hris.wallpaper.src.${userId}`;
+
+/** Sumber wallpaper aktif: tanpa, gambar sendiri, atau salah satu pilihan bawaan. */
+export type WallpaperChoice = { kind: 'none' } | { kind: 'custom' } | { kind: 'preset'; id: string };
+const NONE: WallpaperChoice = { kind: 'none' };
+
+const encodeChoice = (c: WallpaperChoice) => (c.kind === 'preset' ? `preset:${c.id}` : c.kind);
+function decodeChoice(raw: string | null, hasCustom: boolean): WallpaperChoice {
+  if (raw === 'none') return NONE;
+  if (raw === 'custom') return hasCustom ? { kind: 'custom' } : NONE;
+  if (raw?.startsWith('preset:')) { const id = raw.slice(7); return findPreset(id) ? { kind: 'preset', id } : NONE; }
+  return hasCustom ? { kind: 'custom' } : NONE; // pengguna lama: gambar tersimpan tanpa catatan pilihan = gambar sendiri aktif
+}
 
 function readTransparency(userId: string): number {
   try {
-    const n = Number(localStorage.getItem(tKey(userId)));
-    return localStorage.getItem(tKey(userId)) !== null && Number.isFinite(n) ? Math.min(MAX_TRANSPARENCY, Math.max(0, Math.round(n))) : DEFAULT_TRANSPARENCY;
+    const raw = localStorage.getItem(tKey(userId));
+    const n = Number(raw);
+    return raw !== null && Number.isFinite(n) ? Math.min(MAX_TRANSPARENCY, Math.max(0, Math.round(n))) : DEFAULT_TRANSPARENCY;
   } catch { return DEFAULT_TRANSPARENCY; }
 }
 
@@ -99,42 +115,75 @@ export function minTransparencyFor(lum: number | null): number {
 }
 
 interface WallpaperState {
-  /** Alamat objek gambar (blob:), null bila belum ada wallpaper. */
+  choice: WallpaperChoice;
+  /** Gambar aktif (null = tanpa wallpaper, atau pilihan bawaan masih dimuat). Dipakai kartu hari ini untuk menggambar latarnya. */
+  blob: Blob | null;
+  /** Alamat objek (blob:) gambar aktif untuk latar layar. */
   url: string | null;
+  /** Alamat objek gambar unggahan sendiri untuk pratinjau, null bila belum pernah mengunggah. */
+  customUrl: string | null;
   /** Transparansi yang berlaku: 0 = wallpaper tampak penuh, MAX_TRANSPARENCY = sangat samar. Tidak pernah di bawah `minTransparency`. */
   transparency: number;
   /** Batas bawah untuk gambar yang gelap, supaya teks di luar kartu tetap terbaca (0 untuk gambar terang). */
   minTransparency: number;
   supported: boolean;
+  /** Unggah gambar sendiri dan langsung dipakai. */
   setImage: (file: File) => Promise<void>;
+  /** Hapus gambar unggahan sendiri (bila sedang dipakai, wallpaper jadi kosong). */
+  removeCustom: () => Promise<void>;
+  select: (c: WallpaperChoice) => void;
   setTransparency: (t: number) => void;
-  clear: () => Promise<void>;
 }
 
-const Ctx = createContext<WallpaperState>({ url: null, transparency: DEFAULT_TRANSPARENCY, minTransparency: 0, supported: true, setImage: async () => {}, setTransparency: () => {}, clear: async () => {} });
+const Ctx = createContext<WallpaperState>({
+  choice: NONE, blob: null, url: null, customUrl: null, transparency: DEFAULT_TRANSPARENCY, minTransparency: 0, supported: true,
+  setImage: async () => {}, removeCustom: async () => {}, select: () => {}, setTransparency: () => {},
+});
 export const useWallpaper = () => useContext(Ctx);
 
 export function WallpaperProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
-  const [blob, setBlob] = useState<Blob | null>(null);
-  const [url, setUrl] = useState<string | null>(null);
+  const [custom, setCustom] = useState<Blob | null>(null);
+  const [choice, setChoice] = useState<WallpaperChoice>(NONE);
+  const [presetBlob, setPresetBlob] = useState<Blob | null>(null);
   const [lum, setLum] = useState<number | null>(null);
   const [supported, setSupported] = useState(true);
   const [transparency, setT] = useState(DEFAULT_TRANSPARENCY);
 
-  // Muat wallpaper milik akun yang sedang masuk (ganti akun = ganti wallpaper).
+  const persistChoice = useCallback((c: WallpaperChoice) => {
+    if (userId) { try { localStorage.setItem(srcKey(userId), encodeChoice(c)); } catch { /* pilihan tidak tersimpan */ } }
+  }, [userId]);
+
+  // Muat milik akun yang sedang masuk (ganti akun = ganti wallpaper).
   useEffect(() => {
     let cancelled = false;
-    setBlob(null);
+    setCustom(null);
+    setChoice(NONE);
     if (!userId) return;
     setT(readTransparency(userId));
+    let stored: string | null = null;
+    try { stored = localStorage.getItem(srcKey(userId)); } catch { /* tidak ada catatan */ }
     idb<Blob | undefined>('readonly', (s) => s.get(blobKey(userId)) as IDBRequest<Blob | undefined>)
-      .then((b) => { if (!cancelled) { setBlob(b instanceof Blob ? b : null); setSupported(true); } })
-      .catch(() => { if (!cancelled) setSupported(false); });
+      .then((b) => { if (cancelled) return; const has = b instanceof Blob; setCustom(has ? b : null); setChoice(decodeChoice(stored, has)); setSupported(true); })
+      .catch(() => { if (cancelled) return; setSupported(false); setChoice(decodeChoice(stored, false)); });
     return () => { cancelled = true; };
   }, [userId]);
 
+  // Pilihan bawaan: ambil berkasnya (biasanya sudah di cache peramban).
+  const presetId = choice.kind === 'preset' ? choice.id : null;
+  useEffect(() => {
+    setPresetBlob(null);
+    const p = presetId ? findPreset(presetId) : null;
+    if (!p) return;
+    let cancelled = false;
+    fetch(presetUrl(p)).then((r) => (r.ok ? r.blob() : Promise.reject(new Error('gagal')))).then((b) => { if (!cancelled) setPresetBlob(b); }).catch(() => { /* wallpaper tidak tampil bila berkas tak terambil */ });
+    return () => { cancelled = true; };
+  }, [presetId]);
+
+  const blob = choice.kind === 'custom' ? custom : choice.kind === 'preset' ? presetBlob : null;
+
+  const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!blob) { setUrl(null); setLum(null); return; }
     const u = URL.createObjectURL(blob);
@@ -144,18 +193,33 @@ export function WallpaperProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; URL.revokeObjectURL(u); };
   }, [blob]);
 
+  const [customUrl, setCustomUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!custom) { setCustomUrl(null); return; }
+    const u = URL.createObjectURL(custom);
+    setCustomUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [custom]);
+
+  const select = useCallback((c: WallpaperChoice) => {
+    setChoice(c);
+    persistChoice(c);
+  }, [persistChoice]);
+
   const setImage = useCallback(async (file: File) => {
     if (!userId) return;
     const out = await prepareWallpaper(file);
-    setBlob(out); // tampil segera, meski penyimpanan gagal (berlaku selama aplikasi terbuka)
+    setCustom(out); // tampil segera, meski penyimpanan gagal (berlaku selama aplikasi terbuka)
+    select({ kind: 'custom' });
     try { await idb('readwrite', (s) => s.put(out, blobKey(userId))); setSupported(true); } catch { setSupported(false); }
-  }, [userId]);
+  }, [userId, select]);
 
-  const clear = useCallback(async () => {
+  const removeCustom = useCallback(async () => {
     if (!userId) return;
-    setBlob(null);
+    setCustom(null);
+    if (choice.kind === 'custom') select(NONE);
     try { await idb('readwrite', (s) => s.delete(blobKey(userId))); } catch { /* tidak ada yang perlu dihapus */ }
-  }, [userId]);
+  }, [userId, choice.kind, select]);
 
   const setTransparency = useCallback((t: number) => {
     const v = Math.min(MAX_TRANSPARENCY, Math.max(0, Math.round(t)));
@@ -164,6 +228,9 @@ export function WallpaperProvider({ children }: { children: ReactNode }) {
   }, [userId]);
 
   const minTransparency = minTransparencyFor(lum);
-  const value = useMemo(() => ({ url, transparency: Math.max(transparency, minTransparency), minTransparency, supported, setImage, setTransparency, clear }), [url, transparency, minTransparency, supported, setImage, setTransparency, clear]);
+  const value = useMemo<WallpaperState>(
+    () => ({ choice, blob, url, customUrl, transparency: Math.max(transparency, minTransparency), minTransparency, supported, setImage, removeCustom, select, setTransparency }),
+    [choice, blob, url, customUrl, transparency, minTransparency, supported, setImage, removeCustom, select, setTransparency],
+  );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

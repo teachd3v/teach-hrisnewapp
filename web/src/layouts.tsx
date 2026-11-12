@@ -34,7 +34,8 @@ function UpdateBanner() {
 }
 
 /** `bare`: layar akar tanpa bilah judul (isinya memuat sapaan/judul sendiri). */
-export interface RouteHandle { title?: string; back?: string; bare?: boolean }
+/** `plain`: layar dalam tanpa wallpaper (mis. kartu hari ini, agar kartu yang dibagikan terlihat jelas tanpa latar yang sama). */
+export interface RouteHandle { title?: string; back?: string; bare?: boolean; plain?: boolean }
 
 export function useTitle(): RouteHandle {
   const matches = useMatches();
@@ -136,13 +137,13 @@ export function TabLayout() {
 
 /** Layar dalam: tombol kembali, tanpa tab bar. Kembali ke riwayat; bila dibuka langsung (tautan dalam) ke layar induk. */
 export function StackLayout() {
-  const { title, back = '/' } = useTitle();
+  const { title, back = '/', plain } = useTitle();
   const navigate = useNavigate();
   const location = useLocation();
   const goBack = () => (location.key === 'default' ? navigate(back, { replace: true }) : navigate(-1));
   return (
     <div className="relative isolate mx-auto flex h-dvh max-w-md flex-col bg-app">
-      <WallpaperLayer />
+      {!plain && <WallpaperLayer />}
       <header className="pt-safe pl-safe pr-safe">
         <div className="flex h-16 items-center gap-3 px-4">
           <button onClick={goBack} aria-label="Kembali" className="grid size-11 shrink-0 place-items-center rounded-full bg-surface text-fg shadow-card active:bg-sub"><ChevronLeft className="size-6" aria-hidden="true" /></button>

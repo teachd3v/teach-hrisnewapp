@@ -4,3 +4,5 @@
   Cache-Control: no-cache
 /version.json
   Cache-Control: no-store
+/wallpapers/*
+  Cache-Control: public, max-age=604800

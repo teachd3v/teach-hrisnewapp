@@ -9,10 +9,25 @@ import { fmtLongDate, fmtTime } from '../lib/attendance-types';
 import { renderDayCard } from '../lib/day-card';
 import { pickQuote } from '../lib/quotes';
 import { dotFor, todayWib, useRecordsByDate } from '../lib/week';
+import { useWallpaper } from '../lib/wallpaper';
 import { Button, Empty, ErrorNote, Spinner, cx } from '../ui';
 
 const PHOTO_PREF = 'hris.cardPhoto';
-const readPref = () => { try { return localStorage.getItem(PHOTO_PREF) !== '0'; } catch { return true; } };
+const WALLPAPER_PREF = 'hris.cardWallpaper';
+const readPref = (key: string) => { try { return localStorage.getItem(key) !== '0'; } catch { return true; } };
+
+/** Saklar satu baris. */
+function SwitchRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)}
+      className="flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-surface px-4 text-left shadow-card active:bg-sub">
+      <span className="font-medium">{label}</span>
+      <span aria-hidden="true" className={cx('relative h-7 w-12 shrink-0 rounded-full transition-colors', checked ? 'bg-primary' : 'bg-field')}>
+        <span className={cx('absolute top-0.5 size-6 rounded-full bg-white transition-all', checked ? 'left-[1.375rem]' : 'left-0.5')} />
+      </span>
+    </button>
+  );
+}
 
 /** Foto presensi milik sendiri lewat tautan bertanda tangan; gagal = tanpa foto (kartu memakai inisial). */
 function usePunchPhoto(key: string | null | undefined, enabled: boolean) {
@@ -53,8 +68,13 @@ export default function DayCard() {
   const { byDate, all, pending } = useRecordsByDate([date]);
   const rec = byDate.get(date);
 
-  const [showPhoto, setShowPhoto] = useState(readPref);
+  const [showPhoto, setShowPhoto] = useState(() => readPref(PHOTO_PREF));
   const setPhoto = (v: boolean) => { setShowPhoto(v); try { localStorage.setItem(PHOTO_PREF, v ? '1' : '0'); } catch { /* preferensi tidak tersimpan */ } };
+  const wp = useWallpaper();
+  const [useWp, setUseWpState] = useState(() => readPref(WALLPAPER_PREF));
+  const setUseWp = (v: boolean) => { setUseWpState(v); try { localStorage.setItem(WALLPAPER_PREF, v ? '1' : '0'); } catch { /* preferensi tidak tersimpan */ } };
+  const wpBlob = useWp ? wp.blob : null;
+  const wpAlpha = 1 - wp.transparency / 100;
 
   const inPhoto = usePunchPhoto(rec?.in?.photo, showPhoto);
   const outPhoto = usePunchPhoto(rec?.out?.photo, showPhoto);
@@ -81,7 +101,9 @@ export default function DayCard() {
       try {
         const load = async (b: Blob | undefined) => { if (!showPhoto || !b) return null; try { const bm = await createImageBitmap(b); bitmaps.push(bm); return bm; } catch { return null; } };
         const [a, b] = await Promise.all([load(inPhoto.data), load(outPhoto.data)]);
-        const png = await renderDayCard({ firstName, date, inTime, outTime, duration, onTimeDays, quote: quote.text, inPhoto: a, outPhoto: b });
+        let w: ImageBitmap | null = null;
+        if (wpBlob) { try { w = await createImageBitmap(wpBlob); bitmaps.push(w); } catch { w = null; } }
+        const png = await renderDayCard({ firstName, date, inTime, outTime, duration, onTimeDays, quote: quote.text, inPhoto: a, outPhoto: b, wallpaper: w, wallpaperAlpha: wpAlpha });
         if (cancelled) return;
         url = URL.createObjectURL(png);
         setBlob(png);
@@ -92,7 +114,7 @@ export default function DayCard() {
       }
     })();
     return () => { cancelled = true; if (url) URL.revokeObjectURL(url); for (const bm of bitmaps) bm.close(); };
-  }, [complete, photosBusy, showPhoto, inPhoto.data, outPhoto.data, firstName, date, inTime, outTime, duration, onTimeDays, quote.text]);
+  }, [complete, photosBusy, showPhoto, inPhoto.data, outPhoto.data, firstName, date, inTime, outTime, duration, onTimeDays, quote.text, wpBlob, wpAlpha]);
 
   const canShareFiles = useMemo(() => typeof navigator.canShare === 'function' && navigator.canShare({ files: [new File([], 'a.png', { type: 'image/png' })] }), []);
   const fileName = `hari-kerja-${date}.png`;
@@ -136,13 +158,8 @@ export default function DayCard() {
         </div>
       </div>
 
-      <button type="button" role="switch" aria-checked={showPhoto} onClick={() => setPhoto(!showPhoto)}
-        className="flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-surface px-4 text-left shadow-card active:bg-sub">
-        <span className="font-medium">Tampilkan foto saya di kartu</span>
-        <span aria-hidden="true" className={cx('relative h-7 w-12 shrink-0 rounded-full transition-colors', showPhoto ? 'bg-primary' : 'bg-field')}>
-          <span className={cx('absolute top-0.5 size-6 rounded-full bg-white transition-all', showPhoto ? 'left-[1.375rem]' : 'left-0.5')} />
-        </span>
-      </button>
+      <SwitchRow label="Tampilkan foto saya di kartu" checked={showPhoto} onChange={setPhoto} />
+      {wp.blob && <SwitchRow label="Pakai wallpaperku di kartu" checked={useWp} onChange={setUseWp} />}
 
       <ErrorNote error={error ? new Error(error) : null} />
       <Button onClick={() => void share()} disabled={!blob || photosBusy} className="w-full">
