@@ -63,19 +63,19 @@ const router = createBrowserRouter(
         </Route>
         <Route element={<StackLayout />}>
           <Route path="/presensi/koreksi" element={<AttendanceCorrection />} handle={{ title: 'Koreksi presensi', back: '/presensi' }} />
-          <Route path="/admin/koreksi-presensi" element={<AdminCorrections />} handle={{ title: 'Koreksi presensi (HC)', back: '/akun' }} />
+          <Route path="/admin/koreksi-presensi" element={<AdminCorrections />} handle={{ title: 'Koreksi presensi', back: '/akun' }} />
           <Route path="/presensi/ambil/:type" element={<AttendanceCapture />} handle={{ title: 'Presensi', back: '/presensi' }} />
           <Route path="/persetujuan" element={<Approvals />} handle={{ title: 'Persetujuan izin & overtime', back: '/cuti' }} />
           <Route path="/admin/audit" element={<AdminAudit />} handle={{ title: 'Log audit', back: '/akun' }} />
           <Route path="/admin/rekap" element={<AdminReport />} handle={{ title: 'Rekap presensi & cuti', back: '/akun' }} />
-          <Route path="/admin/presensi" element={<AdminAttendance />} handle={{ title: 'Presensi (HC)', back: '/akun' }} />
+          <Route path="/admin/presensi" element={<AdminAttendance />} handle={{ title: 'Presensi harian', back: '/akun' }} />
           <Route path="/cuti/ajukan" element={<LeaveForm />} handle={{ title: 'Ajukan cuti', back: '/cuti' }} />
           <Route path="/cuti/overtime" element={<OvertimeForm />} handle={{ title: 'Ajukan overtime', back: '/cuti' }} />
-          <Route path="/admin/cuti" element={<AdminLeave />} handle={{ title: 'Izin & overtime (HC)', back: '/akun' }} />
+          <Route path="/admin/cuti" element={<AdminLeave />} handle={{ title: 'Izin & overtime', back: '/akun' }} />
           <Route path="/admin/karyawan" element={<AdminEmployees />} handle={{ title: 'Karyawan', back: '/akun' }} />
           <Route path="/profil" element={<Profile />} handle={{ title: 'Profil saya', back: '/akun' }} />
           <Route path="/profil/wajah" element={<FaceEnroll />} handle={{ title: 'Wajah untuk presensi', back: '/akun' }} />
-          <Route path="/admin/wajah" element={<AdminFace />} handle={{ title: 'Pendaftaran wajah (HC)', back: '/akun' }} />
+          <Route path="/admin/wajah" element={<AdminFace />} handle={{ title: 'Pendaftaran wajah', back: '/akun' }} />
           <Route path="/admin/karyawan/:id/profil" element={<Profile />} handle={{ title: 'Profil karyawan', back: '/admin/karyawan' }} />
           <Route path="/admin/karyawan/:id" element={<AdminEmployeeForm />} handle={{ title: 'Data karyawan', back: '/admin/karyawan' }} />
           <Route path="/admin/master" element={<AdminMaster />} handle={{ title: 'Data master', back: '/akun' }} />

@@ -7,7 +7,7 @@ import {
 } from '@hris/shared';
 import type { AppEnv } from '../env';
 import { purgeFace } from '../lib/face';
-import { app_settings, audit_log, credentials, employees, holidays, leave_quotas, leave_types, master_options, refresh_tokens } from '../db/schema';
+import { app_settings, attendance_corrections, audit_log, credentials, employees, face_templates, holidays, leave_quotas, leave_requests, leave_types, master_options, overtime_requests, refresh_tokens } from '../db/schema';
 import { auditRow } from '../lib/audit';
 import { getBalances, notifyStmts, type Db } from '../lib/leave-db';
 import { jointLeaveEmployees, loadJointLeaveSettings } from '../lib/settings';
@@ -53,6 +53,22 @@ async function adminActor(c: Ctx, db: Db): Promise<Employee | null> {
 
 const text = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const ip = (c: Ctx) => c.req.header('CF-Connecting-IP') ?? null;
+
+// ------------------------------------------------------------------ antrean
+
+/** Jumlah pekerjaan yang menunggu HC (lencana menu admin): izin dan overtime menunggu HC, koreksi presensi, dan pendaftaran wajah. */
+admin.get('/queues', async (c) => {
+  const db = drizzle(c.env.DB);
+  if (!(await adminActor(c, db))) return c.json({ error: 'Tidak diizinkan' }, 403);
+  const n = async (q: Promise<{ n: number }[]>) => Number((await q)[0]?.n ?? 0);
+  const [leave, overtime, corrections, face] = await Promise.all([
+    n(db.select({ n: sql<number>`count(*)` }).from(leave_requests).where(eq(leave_requests.status, 'pending_hc'))),
+    n(db.select({ n: sql<number>`count(*)` }).from(overtime_requests).where(eq(overtime_requests.status, 'pending_hc'))),
+    n(db.select({ n: sql<number>`count(*)` }).from(attendance_corrections).where(eq(attendance_corrections.status, 'pending'))),
+    n(db.select({ n: sql<number>`count(*)` }).from(face_templates).where(eq(face_templates.status, 'pending'))),
+  ]);
+  return c.json({ leave, overtime, corrections, face });
+});
 
 // ------------------------------------------------------------------ karyawan
 

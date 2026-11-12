@@ -5,7 +5,7 @@ Diputuskan dan dibangun 2026-11-06 (lihat `docs/DECISIONS.md`). Migrasi 0015.
 ## Tampilan
 - Tab bawah "Cuti" menjadi **Izin** (alamat `/cuti` tetap). Di bagian atas ada dua tombol sebaris: **Ajukan cuti** (kiri) dan **Ajukan overtime** (kanan, `/cuti/overtime`). Riwayat dipisah dengan tab Cuti | Overtime (`/cuti?riwayat=overtime`).
 - Kartu saldo Ganti Hari menampilkan "termasuk N hari dari overtime" dan "N hari hangus".
-- Persetujuan atasan (`/persetujuan`) dan layar HC (`/admin/cuti`, menu "Izin & overtime (HC)") memiliki tab Cuti | Overtime (`?jenis=overtime`). Lencana tab Izin menghitung cuti dan overtime yang menunggu persetujuan saya.
+- Persetujuan atasan (`/persetujuan`) dan layar HC (`/admin/cuti`, menu "Izin & overtime") memiliki tab Cuti | Overtime (`?jenis=overtime`). Lencana tab Izin menghitung cuti dan overtime yang menunggu persetujuan saya.
 
 ## Aturan
 - Dua jenis: **Lembur** (hanya hari kerja) dan **Kerja di Hari Libur** (hanya akhir pekan atau tanggal di tabel Hari Libur). Pilihan yang tidak cocok dengan tanggalnya ditolak dengan petunjuk memakai jenis yang lain.

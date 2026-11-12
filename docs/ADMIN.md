@@ -18,6 +18,17 @@ Endpoint di `/api/admin` (peran dibaca ulang dari D1, bukan dari token). Semua p
 | Lihat pengaturan cuti bersama memotong Cuti Tahunan (`GET /api/admin/settings/joint-leave`) | ya | ya |
 | Ubah pengaturan itu: saklar dan status yang dikecualikan (`PUT`; disimpan di `app_settings`, tercatat di audit) | tidak | ya |
 
+## Tata letak menu admin (Akun)
+Menu Admin di tab Akun dikelompokkan dan bisa dilipat (`web/src/pages/Account.tsx`). Pilihan buka/tutup tiap kelompok diingat di perangkat; kelompok tanpa menu yang boleh dilihat peran itu disembunyikan.
+| Kelompok | Menu | Catatan |
+|---|---|---|
+| **Persetujuan** (terbuka bawaan) | Izin & overtime, Koreksi presensi, Pendaftaran wajah | Lencana angka = pekerjaan yang menunggu HC. Kelompok yang tertutup menampilkan jumlah totalnya. |
+| Presensi & laporan | Presensi harian, Rekap & ekspor Excel | |
+| Kelola data | Karyawan, Kuota cuti, Hari libur, Data master (super admin) | |
+| Sistem (super admin) | Pengaturan presensi, Log audit | |
+
+Angka lencana dari `GET /api/admin/queues` (admin): `leave` dan `overtime` berstatus menunggu HC, `corrections` koreksi presensi menunggu, `face` pendaftaran wajah menunggu. Dimuat ulang setiap Akun dibuka dan tiap menit. Akhiran "(HC)" tidak dipakai di nama menu dan judul halaman.
+
 ## Data master (`/api/master`)
 Departemen, level, dan status kepegawaian adalah pilihan dropdown di form karyawan. Karyawan menyimpan **id** (`department_id`, `level_id`, `employment_status_id`), jadi mengganti nama berlaku untuk semua. Jabatan tetap teks bebas.
 - Nama unik per jenis (tanpa membedakan huruf besar kecil). Item yang dipakai tidak bisa dihapus, hanya dinonaktifkan; item nonaktif hilang dari dropdown tetapi karyawan lama tetap menampilkannya dan boleh menyimpan perubahan lain.

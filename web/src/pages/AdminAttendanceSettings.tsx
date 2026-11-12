@@ -240,7 +240,7 @@ function FaceSection({ canEdit }: { canEdit: boolean }) {
           <Field label="Ambang kemiripan" hint={`${FACE_THRESHOLD_RANGE.min}-${FACE_THRESHOLD_RANGE.max}. Awal 0,5.`}>{(id, d) => <Input id={id} aria-describedby={d} inputMode="decimal" disabled={!canEdit} value={t} onChange={(e) => setThr(e.target.value)} />}</Field>
           <Field label="Ambang wajah asli" hint={`${FACE_LIVE_THRESHOLD_RANGE.min}-${FACE_LIVE_THRESHOLD_RANGE.max}. Awal 0,4.`}>{(id, d) => <Input id={id} aria-describedby={d} inputMode="decimal" disabled={!canEdit} value={l} onChange={(e) => setLive(e.target.value)} />}</Field>
         </div>
-        <p className="text-xs text-muted">Skor di bawah ambang kemiripan = "tidak cocok"; skor wajah asli di bawah ambangnya = "diduga foto/layar". Dari uji awal: orang lain ≤ 0,31, orang sama ≥ 0,78, wajah asli ≥ 0,57, serangan ≤ 0,17. Pantau hasilnya di Presensi (HC) sebelum mengubah ambang.</p>
+        <p className="text-xs text-muted">Skor di bawah ambang kemiripan = "tidak cocok"; skor wajah asli di bawah ambangnya = "diduga foto/layar". Dari uji awal: orang lain ≤ 0,31, orang sama ≥ 0,78, wajah asli ≥ 0,57, serangan ≤ 0,17. Pantau hasilnya di Presensi harian sebelum mengubah ambang.</p>
         <ErrorNote error={save.error} />
         {canEdit && <Button loading={save.isPending} disabled={!dirty || !valid} onClick={() => save.mutate()}>Simpan</Button>}
       </Card>
