@@ -1,9 +1,9 @@
 import { Hono, type Context } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
-import { and, asc, between, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
+import { and, asc, between, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
 import { LEAVE_KEYS, assessFace, assessLocation, bestScore, decodeVectors, encodeVectors, isAdmin, isWeekendDate, lateMinutes, normalize, policyFor, validEmbedding, validLatLng, wibDate, type AttendanceFlags, type AttendancePolicy, type FaceResult } from '@hris/shared';
 import type { AppEnv } from '../env';
-import { attendances, audit_log, employees, holidays, leave_requests } from '../db/schema';
+import { attendances, audit_log, employees, face_attempts, holidays, leave_requests } from '../db/schema';
 import { auditRow } from '../lib/audit';
 import type { Db } from '../lib/leave-db';
 import { loadOffices, loadPolicies } from '../lib/attendance-policy';
@@ -244,5 +244,15 @@ attendance.get('/admin', async (c) => {
     db.select().from(attendances).where(eq(attendances.date, date)),
   ]);
   const annotated = new Map((await annotate(db, rows, true)).map((r) => [r.employee_id, r]));
-  return c.json({ date, rows: people.map((p) => ({ employeeId: p.id, name: p.name, record: annotated.get(p.id) ?? null })) });
+  // Percobaan verifikasi wajah hari itu (sebelum presensi dikirim): berapa kali dan berapa yang gagal, per masuk/pulang.
+  const attempts = await db.select({ employee_id: face_attempts.employee_id, type: face_attempts.type, result: face_attempts.result, n: sql<number>`count(*)` })
+    .from(face_attempts).where(eq(face_attempts.date, date)).groupBy(face_attempts.employee_id, face_attempts.type, face_attempts.result);
+  const tries = new Map<string, { in: { total: number; failed: number }; out: { total: number; failed: number } }>();
+  for (const a of attempts) {
+    const t = tries.get(a.employee_id) ?? { in: { total: 0, failed: 0 }, out: { total: 0, failed: 0 } };
+    t[a.type].total += Number(a.n);
+    if (a.result !== 'match') t[a.type].failed += Number(a.n);
+    tries.set(a.employee_id, t);
+  }
+  return c.json({ date, rows: people.map((p) => ({ employeeId: p.id, name: p.name, record: annotated.get(p.id) ?? null, faceTries: tries.get(p.id) ?? null })) });
 });

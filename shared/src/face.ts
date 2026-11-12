@@ -111,6 +111,16 @@ export function decodeVectors(b64: string): Float32Array[] {
   return Array.from({ length: n }, (_, i) => Float32Array.from({ length: FACE_DIM }, (_, j) => dv.getFloat32((i * FACE_DIM + j) * 4, true)));
 }
 
+/** Batas percobaan verifikasi (sebelum presensi dikirim) per karyawan: mencegah menebak template lewat percobaan berulang. */
+export const FACE_VERIFY_LIMIT = { max: 10, windowMinutes: 10 } as const;
+
+/** Teks verdict yang ditampilkan di kartu foto presensi. Judul mengikuti permintaan produk; subjudul menjelaskan. */
+export const FACE_VERDICT_TEXT: Record<'match' | 'mismatch' | 'spoof', { title: string; sub: string }> = {
+  match: { title: 'Verified Face', sub: 'Wajah cocok' },
+  mismatch: { title: 'Face not Verified', sub: 'Wajah tidak cocok dengan yang didaftarkan' },
+  spoof: { title: 'Face not Verified', sub: 'Gunakan wajah asli, bukan foto atau layar' },
+};
+
 // ---- penilaian
 
 /**

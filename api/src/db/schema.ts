@@ -339,6 +339,20 @@ export const face_templates = sqliteTable('face_templates', {
   employeeIdx: index('face_templates_employee_idx').on(t.employee_id, t.status),
 }));
 
+// Percobaan verifikasi wajah sebelum presensi dikirim (POST /api/face/verify). Dipakai membatasi percobaan berulang dan agar HC melihat
+// berapa kali karyawan gagal sebelum berhasil. Hanya hasil (tanpa skor, tanpa embedding).
+export const face_attempts = sqliteTable('face_attempts', {
+  id: text('id').primaryKey(),
+  employee_id: text('employee_id').notNull(),
+  date: text('date').notNull(), // tanggal WIB
+  type: text('type', { enum: ['in', 'out'] }).notNull(),
+  result: text('result', { enum: ['match', 'mismatch', 'spoof'] }).notNull(),
+  created_at: text('created_at').notNull(),
+}, (t) => ({
+  recentIdx: index('face_attempts_recent_idx').on(t.employee_id, t.created_at),
+  dayIdx: index('face_attempts_day_idx').on(t.date, t.employee_id),
+}));
+
 // Lokasi kantor untuk geofence presensi (Pengaturan presensi, super admin). Presensi dinilai terhadap lokasi aktif terdekat.
 export const office_locations = sqliteTable('office_locations', {
   id: text('id').primaryKey(),

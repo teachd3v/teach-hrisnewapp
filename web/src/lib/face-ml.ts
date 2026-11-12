@@ -87,11 +87,10 @@ export async function embedFace(m: FaceModels, img: ImageData): Promise<Float32A
 }
 
 /**
- * Skor "wajah asli" 0..1 dari MiniFASNetV2: potong area di sekitar kotak wajah (skala 2,7), 80x80, BGR mentah 0..255.
- * Kelas indeks 1 = asli. null bila model liveness tidak tersedia.
+ * Masukan MiniFASNetV2 dari bingkai: potong area di sekitar kotak wajah (skala 2,7), 80x80, BGR mentah 0..255, NCHW.
+ * Sinkron dan tidak butuh model, jadi bisa dipanggil tepat saat foto diambil lalu dijalankan nanti.
  */
-export async function liveScore(m: FaceModels, source: CanvasImageSource, bb: PixelBox, w: number, h: number): Promise<number | null> {
-  if (!m.spoof) return null;
+export function liveInput(source: CanvasImageSource, bb: PixelBox, w: number, h: number): Float32Array {
   const bw = bb.width, bh = bb.height, scale = Math.min((h - 1) / bh, (w - 1) / bw, 2.7), nw = bw * scale, nh = bh * scale;
   const cx = bb.originX + bw / 2, cy = bb.originY + bh / 2;
   let x0 = cx - nw / 2, y0 = cy - nh / 2, x1 = cx + nw / 2, y1 = cy + nh / 2;
@@ -107,11 +106,20 @@ export async function liveScore(m: FaceModels, source: CanvasImageSource, bb: Pi
   ctx.drawImage(source, x0, y0, x1 - x0 + 1, y1 - y0 + 1, 0, 0, 80, 80);
   const d = ctx.getImageData(0, 0, 80, 80).data, plane = 6400, x = new Float32Array(3 * plane);
   for (let i = 0; i < plane; i++) { x[i] = d[i * 4 + 2]!; x[plane + i] = d[i * 4 + 1]!; x[2 * plane + i] = d[i * 4]!; } // BGR
-  const out = await m.spoof.run({ [m.spoof.inputNames[0]!]: new m.ort.Tensor('float32', x, [1, 3, 80, 80]) });
+  return x;
+}
+
+/** Skor "wajah asli" 0..1 dari masukan `liveInput` (kelas indeks 1 = asli). null bila model liveness tidak tersedia. */
+export async function liveFromInput(m: FaceModels, input: Float32Array): Promise<number | null> {
+  if (!m.spoof) return null;
+  const out = await m.spoof.run({ [m.spoof.inputNames[0]!]: new m.ort.Tensor('float32', input, [1, 3, 80, 80]) });
   const l = Array.from(out[m.spoof.outputNames[0]!]!.data as Float32Array);
   const mx = Math.max(...l), e = l.map((v) => Math.exp(v - mx)), s = e.reduce((a, b) => a + b, 0);
   return e[1]! / s;
 }
+
+/** Skor "wajah asli" langsung dari bingkai (gabungan `liveInput` dan `liveFromInput`). */
+export const liveScore = (m: FaceModels, source: CanvasImageSource, bb: PixelBox, w: number, h: number) => liveFromInput(m, liveInput(source, bb, w, h));
 
 /** Ciri gambar wajah yang sudah diselaraskan: cahaya, ketajaman (variansi Laplacian), dan dominasi tepi pada pita mata. */
 export function faceFeatures(img: ImageData): { lum: number; sharp: number; eyeRatio: number } {

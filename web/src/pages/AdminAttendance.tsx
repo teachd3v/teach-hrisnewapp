@@ -14,7 +14,7 @@ export default function AdminAttendance() {
   const [date, setDate] = useState(today());
   const q = useQuery({
     queryKey: ['att-admin', date],
-    queryFn: () => api<{ date: string; rows: { employeeId: string; name: string; record: AttendanceRec | null }[] }>(`/attendance/admin?date=${date}`),
+    queryFn: () => api<{ date: string; rows: { employeeId: string; name: string; record: AttendanceRec | null; faceTries: Record<'in' | 'out', { total: number; failed: number }> | null }[] }>(`/attendance/admin?date=${date}`),
   });
   const present = q.data?.rows.filter((r) => r.record?.clock_in).length ?? 0;
   const late = q.data?.rows.filter((r) => r.record && r.record.flags.lateMinutes > 0 && !r.record.flags.lateExcused).length ?? 0;
@@ -28,8 +28,10 @@ export default function AdminAttendance() {
           <p className="text-sm text-muted">{fmtLongDate(q.data.date)} · hadir {present} dari {q.data.rows.length} karyawan aktif{late > 0 ? ` · terlambat ${late}` : ''}</p>
           {q.data.rows.length === 0 && <Empty icon={<Users className="size-10" />}>Belum ada karyawan.</Empty>}
           <ul className="flex flex-col gap-2">
-            {q.data.rows.map(({ employeeId, name, record: r }) => {
-              const flags = [...(r ? recordChips(r) : []), ...[locationFlag(r?.in ?? null), locationFlag(r?.out ?? null)].filter((x) => x && x.tone === 'warn'), faceChip(r?.in ?? null, 'Masuk'), faceChip(r?.out ?? null, 'Pulang')].filter(Boolean) as { tone: 'ok' | 'warn' | 'bad' | 'info' | 'neutral'; text: string }[];
+            {q.data.rows.map(({ employeeId, name, record: r, faceTries }) => {
+              const flags = [...(r ? recordChips(r) : []), ...[locationFlag(r?.in ?? null), locationFlag(r?.out ?? null)].filter((x) => x && x.tone === 'warn'), faceChip(r?.in ?? null, 'Masuk'), faceChip(r?.out ?? null, 'Pulang'),
+                // Percobaan verifikasi wajah yang gagal sebelum presensi dikirim (hanya terlihat oleh HC).
+                ...(['in', 'out'] as const).map((k) => (faceTries && faceTries[k].failed > 0 ? { tone: 'warn', text: `${k === 'in' ? 'Masuk' : 'Pulang'}: ${faceTries[k].failed} percobaan wajah gagal (dari ${faceTries[k].total})` } : null))].filter(Boolean) as { tone: 'ok' | 'warn' | 'bad' | 'info' | 'neutral'; text: string }[];
               return (
                 <li key={employeeId}>
                   <Card className="!p-3">

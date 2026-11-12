@@ -1,14 +1,14 @@
 import { Hono, type Context } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import {
-  FACE_CONSENT_TEXT, FACE_CONSENT_VERSION, FACE_ENROLL_MAX, FACE_ENROLL_MIN, FACE_MODEL_VERSION, FACE_SETTING_KEYS,
-  encodeVectors, faceSettingsError, isAdmin, normalize, planFaceDecided, planFaceRequested, validEmbedding,
+  FACE_CONSENT_TEXT, FACE_CONSENT_VERSION, FACE_ENROLL_MAX, FACE_ENROLL_MIN, FACE_MODEL_VERSION, FACE_SETTING_KEYS, FACE_VERIFY_LIMIT,
+  assessFace, bestScore, decodeVectors, encodeVectors, faceSettingsError, isAdmin, normalize, planFaceDecided, planFaceRequested, validEmbedding, wibDate,
 } from '@hris/shared';
 import type { AppEnv } from '../env';
-import { app_settings, audit_log, employee_documents, employees, face_templates } from '../db/schema';
+import { app_settings, audit_log, employee_documents, employees, face_attempts, face_templates } from '../db/schema';
 import { auditRow } from '../lib/audit';
-import { FACE_PREFIX, loadFaceSettings, purgeFace } from '../lib/face';
+import { FACE_PREFIX, approvedTemplate, loadFaceSettings, purgeFace } from '../lib/face';
 import { adminRecipientIds, notifyStmts, resolveStmt, type Db } from '../lib/leave-db';
 import { pushNotify } from '../lib/push';
 import { MB, validateUpload } from '../lib/upload';
@@ -60,6 +60,38 @@ face.get('/status', async (c) => {
     pending: pending ? publicTemplate(pending) : null,
     rejected: rejected ? publicTemplate(rejected) : null,
   });
+});
+
+/**
+ * Pratinjau verifikasi sebelum presensi dikirim: server menilai embedding terhadap template dan mengembalikan HASILNYA SAJA
+ * (tanpa skor, supaya tidak bisa dipakai menebak template). Tidak menyimpan presensi. Dibatasi per karyawan; setiap percobaan dicatat
+ * (hasil saja) agar HC melihat berapa kali karyawan gagal. Keputusan resmi tetap dibuat saat presensi dikirim.
+ */
+face.post('/verify', async (c) => {
+  const db = drizzle(c.env.DB);
+  const me = await actor(c, db);
+  if (!me) return c.json({ error: 'Sesi berakhir' }, 401);
+  const b = await c.req.json<{ embedding?: unknown; live?: unknown; type?: unknown }>().catch(() => ({} as never));
+  if (b.type !== 'in' && b.type !== 'out') return c.json({ error: 'Jenis presensi tidak valid' }, 400);
+  if (!validEmbedding(b.embedding)) return c.json({ error: 'Data wajah tidak valid' }, 400);
+  const live = typeof b.live === 'number' && b.live >= 0 && b.live <= 1 ? b.live : null;
+
+  const settings = await loadFaceSettings(db);
+  if (settings.mode === 'off') return c.json({ result: 'none' });
+  const tpl = await approvedTemplate(db, me.id);
+  if (!tpl) return c.json({ result: 'none' });
+
+  const since = new Date(Date.now() - FACE_VERIFY_LIMIT.windowMinutes * 60_000).toISOString();
+  const [recent] = await db.select({ n: sql<number>`count(*)` }).from(face_attempts).where(and(eq(face_attempts.employee_id, me.id), gte(face_attempts.created_at, since)));
+  if (Number(recent?.n ?? 0) >= FACE_VERIFY_LIMIT.max) {
+    return c.json({ error: `Terlalu banyak percobaan verifikasi. Tunggu ${FACE_VERIFY_LIMIT.windowMinutes} menit, atau kirim presensi dan akan ditandai untuk HC.` }, 429);
+  }
+  const score = bestScore(decodeVectors(tpl.vectors), normalize(b.embedding));
+  const result = assessFace({ hasTemplate: true, score, live }, settings);
+  if (result === 'none') return c.json({ result: 'none' }); // tidak mungkin: template dan skor ada
+  const now = new Date();
+  await db.insert(face_attempts).values({ id: crypto.randomUUID(), employee_id: me.id, date: wibDate(now), type: b.type, result, created_at: now.toISOString() });
+  return c.json({ result });
 });
 
 /** Daftar wajah: multipart `photo` (referensi), `vectors` (JSON larik vektor), `stats` (JSON), `consent`='1', `consentVersion`. */
