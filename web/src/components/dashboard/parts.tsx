@@ -51,7 +51,7 @@ export function Disclosure({ title, count, children, defaultOpen = false }: { ti
   const LIMIT = 8;
   if (count === 0) return null;
   return (
-    <div className="rounded-xl bg-surface shadow-card">
+    <div className="rounded-xl bg-bg">
       <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex min-h-12 w-full items-center gap-2 px-3 text-left font-medium active:bg-sub">
         <span className="flex-1">{title}</span>
         <span className="rounded-full bg-sub px-2 py-0.5 text-xs font-semibold">{count}</span>

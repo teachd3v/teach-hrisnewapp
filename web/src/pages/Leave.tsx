@@ -37,7 +37,7 @@ export default function Leave() {
       {flash && <p role="status" className="flex items-center gap-2 rounded-xl bg-ok-bg p-3 text-sm font-medium text-ok"><CheckCircle2 className="size-5" aria-hidden="true" />{flash}</p>}
 
       {balances.length > 0 && (
-        <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1">
+        <div className="-mx-4 -mb-4 flex snap-x gap-3 overflow-x-auto px-4 pb-6">
           {balances.map((b) => (
             <Card key={b.type} className="min-w-40 snap-start">
               <p className="text-sm text-muted">{b.label}</p>
@@ -73,7 +73,7 @@ export default function Leave() {
       <ul className="flex flex-col gap-3">
         {mine.data?.map((r) => (
           <li key={r.id}>
-            <Card>
+            <Card accent={STATUS_TONE[r.status]}>
               <div className="flex items-start justify-between gap-2">
                 <p className="font-semibold">{leaveLabel(typeList, r.leave_type)}</p>
                 <Chip tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Chip>

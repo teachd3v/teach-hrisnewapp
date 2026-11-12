@@ -42,7 +42,7 @@ function LeaveApprovals() {
       <ul className="flex flex-col gap-3">
         {list.data?.map((r) => (
           <li key={r.id}>
-            <Card>
+            <Card accent={STATUS_TONE[r.status]}>
               <div className="flex items-start justify-between gap-2">
                 <div><p className="font-semibold">{r.employeeName}</p><p className="text-sm text-muted">{leaveLabel(typeList, r.leave_type)}</p></div>
                 {tab === 'history' && <Chip tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Chip>}

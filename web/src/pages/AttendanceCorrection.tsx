@@ -78,7 +78,7 @@ export default function AttendanceCorrection() {
           <ul className="flex flex-col gap-2">
             {mine.data!.map((c) => (
               <li key={c.id}>
-                <Card className="!p-3">
+                <Card accent={CORR_STATUS[c.status].tone} className="!p-3 !pl-5">
                   <div className="flex items-start justify-between gap-2"><p className="font-semibold">{fmtShortDate(c.date)}</p><Chip tone={CORR_STATUS[c.status].tone}>{CORR_STATUS[c.status].label}</Chip></div>
                   <p className="text-sm text-muted">{corrTimes(c)}</p>
                   {c.decision_notes && <p className="mt-1 text-sm"><span className="text-muted">HC: </span>{c.decision_notes}</p>}

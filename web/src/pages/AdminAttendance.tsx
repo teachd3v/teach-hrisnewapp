@@ -38,7 +38,7 @@ export default function AdminAttendance() {
                 ...(['in', 'out'] as const).map((k) => (faceTries && faceTries[k].failed > 0 ? { tone: 'warn', text: `${k === 'in' ? 'Masuk' : 'Pulang'}: ${faceTries[k].failed} percobaan wajah gagal (dari ${faceTries[k].total})` } : null))].filter(Boolean) as { tone: 'ok' | 'warn' | 'bad' | 'info' | 'neutral'; text: string }[];
               return (
                 <li key={employeeId}>
-                  <Card className="!p-3">
+                  <Card accent={!r ? 'neutral' : !r.clock_out ? 'info' : 'ok'} className="!p-3 !pl-5">
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-semibold">{name}</p>
                       {!r ? <Chip>Belum presensi</Chip> : !r.clock_out ? <Chip tone="info">Belum pulang</Chip> : <Chip tone="ok">Selesai</Chip>}

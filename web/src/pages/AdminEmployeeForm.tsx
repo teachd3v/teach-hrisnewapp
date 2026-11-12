@@ -78,7 +78,7 @@ export default function AdminEmployeeForm() {
     <div className="flex flex-1 flex-col gap-6">
       {lockedAdmin && <p className="rounded-xl bg-warn-bg p-3 text-sm text-warn">Akun admin hanya dapat diubah super admin.</p>}
       {!isNew && target && (
-        <Link to={`/admin/karyawan/${target.id}/profil`} className="mb-4 flex min-h-12 items-center justify-center rounded-xl border border-field bg-surface px-4 font-medium active:bg-sub">Lihat profil lengkap</Link>
+        <Link to={`/admin/karyawan/${target.id}/profil`} className="mb-4 flex min-h-12 items-center justify-center rounded-xl bg-surface px-4 font-medium shadow-card active:bg-sub">Lihat profil lengkap</Link>
       )}
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         {text('name', 'Nama')}

@@ -8,7 +8,7 @@
   --color-surface: #ffffff;
   --color-sub: #e6ecf5;
   --color-fg: #1e293b;
-  --color-muted: #526077; /* 6,7:1 di atas putih, 5,5:1 di atas latar */
+  --color-muted: #526077; /* 6,4:1 di atas putih, 5,7:1 di atas latar, 5,4:1 di atas bg-sub */
   --color-line: #e2e8f0; /* pemisah dekoratif */
   --color-field: #7c8aa0; /* batas kolom isian, >= 3:1 */
   --color-primary: #0f766e;

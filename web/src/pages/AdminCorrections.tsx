@@ -27,7 +27,7 @@ export default function AdminCorrections() {
       <ul className="flex flex-col gap-3">
         {list.data?.map((c) => (
           <li key={c.id}>
-            <Card>
+            <Card accent={CORR_STATUS[c.status].tone}>
               <div className="flex items-start justify-between gap-2">
                 <div><p className="font-semibold">{c.employeeName}</p><p className="text-sm text-muted">{fmtLongDate(c.date)}</p></div>
                 {tab === 'all' && <Chip tone={CORR_STATUS[c.status].tone}>{CORR_STATUS[c.status].label}</Chip>}

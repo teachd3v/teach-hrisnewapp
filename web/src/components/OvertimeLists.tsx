@@ -12,6 +12,9 @@ const refreshAll = (qc: ReturnType<typeof useQueryClient>) => {
   for (const k of ['overtime-mine', 'overtime-approvals', 'overtime-admin', 'approvals', 'leave-meta', 'notifications']) void qc.invalidateQueries({ queryKey: [k] });
 };
 
+/** Warna penanda tepi kartu menurut status (dicabut HC = merah). */
+const statusTone = (r: OvertimeItem) => (r.status === 'cancelled' && r.revoked_at ? 'bad' as const : STATUS_TONE[r.status]);
+
 /** Ringkasan satu pengajuan: jenis, tanggal, jam, durasi, status. */
 function Summary({ r, showEmployee, showStatus = true }: { r: OvertimeItem; showEmployee?: boolean; showStatus?: boolean }) {
   const revoked = r.status === 'cancelled' && Boolean(r.revoked_at);
@@ -52,7 +55,7 @@ export function OvertimeHistory() {
       <ul className="flex flex-col gap-3">
         {q.data?.map((r) => (
           <li key={r.id}>
-            <Card>
+            <Card accent={statusTone(r)}>
               <Summary r={r} />
               {r.manager_notes && <p className="mt-2 text-sm"><span className="text-muted">Atasan: </span>{r.manager_notes}</p>}
               {r.hc_override && <p className="mt-2 text-sm text-muted">Diputuskan langsung oleh HC.</p>}
@@ -95,7 +98,7 @@ export function OvertimeApprovals() {
       <ul className="flex flex-col gap-3">
         {list.data?.map((r) => (
           <li key={r.id}>
-            <Card>
+            <Card accent={statusTone(r)}>
               <Summary r={r} showEmployee showStatus={tab === 'history'} />
               {r.reason && <p className="mt-2 text-sm text-muted" data-selectable>{r.reason}</p>}
               {r.kind === 'hari_libur' && <Attendance r={r} />}
@@ -151,7 +154,7 @@ export function OvertimeAdmin() {
       <ul className="flex flex-col gap-3">
         {list.data?.map((r) => (
           <li key={r.id}>
-            <Card>
+            <Card accent={statusTone(r)}>
               <Summary r={r} showEmployee />
               {r.reason && <p className="mt-2 text-sm text-muted" data-selectable>{r.reason}</p>}
               {r.kind === 'hari_libur' && <Attendance r={r} />}
