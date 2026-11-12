@@ -101,7 +101,7 @@ export default function AdminEmployeeForm() {
           <span>Pucuk pimpinan <span className="block text-sm text-muted">Cuti langsung ke HC, tanpa atasan.</span></span>
         </label>
 
-        <fieldset disabled={restricted || lockedAdmin} className="flex flex-col gap-4 rounded-2xl border border-line p-4">
+        <fieldset disabled={restricted || lockedAdmin} className="flex flex-col gap-4 rounded-2xl bg-surface shadow-card p-4">
           <legend className="px-1 text-sm font-semibold text-muted">Kepegawaian{restricted ? ' (hanya super admin)' : ''}</legend>
           {text('title', 'Jabatan', { disabled: restricted })}
           {pick('department_id', 'department')}

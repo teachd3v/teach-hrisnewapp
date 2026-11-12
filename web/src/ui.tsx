@@ -5,8 +5,8 @@ import { Eye, EyeOff, Loader2 } from 'lucide-react';
 export const cx = (...a: (string | false | null | undefined)[]) => a.filter(Boolean).join(' ');
 
 const BUTTON = {
-  primary: 'bg-primary text-primary-fg active:bg-black disabled:opacity-40',
-  secondary: 'border border-field bg-surface text-fg active:bg-sub disabled:opacity-40',
+  primary: 'bg-primary text-primary-fg shadow-primary active:bg-[#0b5f58] disabled:opacity-40 disabled:shadow-none',
+  secondary: 'border border-line bg-surface text-fg shadow-sm active:bg-sub disabled:opacity-40',
   danger: 'bg-bad text-white active:bg-red-900 disabled:opacity-40',
   ghost: 'text-fg active:bg-sub disabled:opacity-40',
 } as const;
@@ -57,8 +57,17 @@ export function PasswordInput({ className, ...p }: Omit<InputHTMLAttributes<HTML
 export const Select =({ className, ...p }: SelectHTMLAttributes<HTMLSelectElement>) => <select {...p} className={cx(FIELD, className)} />;
 export const Textarea = ({ className, ...p }: TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea {...p} className={cx(FIELD, 'py-2', className)} />;
 
-export function Card({ className, ...p }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div {...p} className={cx('rounded-2xl border border-line bg-surface p-4', className)} />;
+/** Warna penanda tepi kiri kartu (kode status/kategori). Selalu dipasangkan dengan teks/chip: warna bukan satu-satunya penanda. */
+const ACCENT = { ok: 'bg-green-600', warn: 'bg-amber-500', bad: 'bg-red-600', info: 'bg-blue-600', neutral: 'bg-slate-300' } as const;
+
+/** Kartu melayang: putih, bayangan lembut tanpa garis tepi. `accent` menambah penanda warna di tepi kiri. */
+export function Card({ className, accent, children, ...p }: React.HTMLAttributes<HTMLDivElement> & { accent?: keyof typeof ACCENT }) {
+  return (
+    <div {...p} className={cx('rounded-2xl bg-surface p-4 shadow-card', accent && 'relative overflow-hidden pl-5', className)}>
+      {accent && <span aria-hidden="true" className={cx('absolute inset-y-4 left-0 w-1 rounded-r-full', ACCENT[accent])} />}
+      {children}
+    </div>
+  );
 }
 
 const CHIP = {
@@ -96,7 +105,7 @@ export const ErrorNote = ({ error }: { error: unknown }) =>
 
 /** Bilah aksi menempel di bawah area gulir, di atas inset aman. */
 export function BottomBar({ children }: { children: ReactNode }) {
-  return <div className="sticky bottom-0 z-10 -mx-4 mt-auto border-t border-line bg-surface px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">{children}</div>;
+  return <div className="sticky bottom-0 z-10 -mx-4 mt-auto rounded-t-3xl bg-surface px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(30,41,59,0.08)] after:absolute after:inset-x-0 after:top-full after:h-8 after:bg-surface">{children}</div>;
 }
 
 /** Lembar dari bawah. Esc/ketuk latar menutup; fokus dipindah ke lembar dan dikembalikan saat ditutup. */

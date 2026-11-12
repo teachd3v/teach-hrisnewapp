@@ -1,15 +1,17 @@
+@import "@fontsource-variable/plus-jakarta-sans/wght.css";
 @import "tailwindcss";
 
-/* Token desain semantik. Tema terang (sesuai kesepakatan: latar putih, teks hitam, ringkas). */
+/* Token desain semantik. Tema terang, gaya "kartu melayang": latar abu kebiruan, kartu putih dengan bayangan lembut (bukan garis tepi),
+   sudut besar, aksi utama hijau tosca, biru untuk pilihan/tab aktif. Kontras teks dicek >= 4,5:1 di atas putih dan di atas latar. */
 @theme {
-  --color-bg: #ffffff;
+  --color-bg: #eef2f8;
   --color-surface: #ffffff;
-  --color-sub: #f3f4f6;
-  --color-fg: #111827;
-  --color-muted: #4b5563; /* 7.5:1 di atas putih */
-  --color-line: #e5e7eb; /* pemisah dekoratif */
-  --color-field: #8a8f98; /* batas kolom isian, >= 3:1 */
-  --color-primary: #111827;
+  --color-sub: #e6ecf5;
+  --color-fg: #1e293b;
+  --color-muted: #526077; /* 6,7:1 di atas putih, 5,5:1 di atas latar */
+  --color-line: #e2e8f0; /* pemisah dekoratif */
+  --color-field: #7c8aa0; /* batas kolom isian, >= 3:1 */
+  --color-primary: #0f766e;
   --color-primary-fg: #ffffff;
   --color-ok: #166534;
   --color-ok-bg: #dcfce7;
@@ -21,8 +23,18 @@
   --color-info-bg: #dbeafe;
   --color-punch-in: #0f766e; /* aksen khusus presensi masuk; 5,5:1 dengan teks putih */
   --color-punch-out: #b45309; /* presensi pulang; 5,0:1 dengan teks putih */
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Plus Jakarta Sans Variable", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Sudut lebih besar di seluruh aplikasi (rounded-lg/xl/2xl/3xl mengikuti nilai ini). */
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.375rem;
+  --radius-3xl: 1.75rem;
+  --shadow-card: 0 8px 24px rgba(30, 41, 59, 0.07), 0 1px 2px rgba(30, 41, 59, 0.04);
+  --shadow-primary: 0 8px 16px rgba(15, 118, 110, 0.28);
 }
+
+/* Latar layar: gradasi abu kebiruan lembut. */
+@utility bg-app { background: linear-gradient(180deg, #f5f8fc 0%, #e9eff7 100%); }
 
 /* Inset aman (poni, status bar, indikator gestur). */
 @utility pt-safe { padding-top: env(safe-area-inset-top); }

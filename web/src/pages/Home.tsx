@@ -1,11 +1,15 @@
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarPlus, ChevronRight, ClipboardCheck, History, Hourglass } from 'lucide-react';
+import { CalendarPlus, ChevronRight, ClipboardCheck, Hourglass } from 'lucide-react';
 import { isAdmin } from '@hris/shared';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useBadges } from '../layouts';
+import { useProfileCard } from '../lib/profile';
+import { dotFor, todayWib, useRecordsByDate, workWeek } from '../lib/week';
 import type { LeaveMeta } from '../lib/leave-types';
+import ProfilePhoto from '../components/ProfilePhoto';
+import WeekStrip from '../components/WeekStrip';
 import { Button, Card, Segmented, Spinner } from '../ui';
 import { TodayCard } from './Attendance';
 import { PushPrompt } from '../components/PushCard';
@@ -15,7 +19,7 @@ import { usePersisted } from '../components/dashboard/parts';
 
 function Row({ to, icon, title, sub }: { to: string; icon: React.ReactNode; title: string; sub: string }) {
   return (
-    <Link to={to} className="flex min-h-16 items-center gap-3 rounded-2xl border border-line bg-surface p-3 active:bg-sub">
+    <Link to={to} className="flex min-h-16 items-center gap-3 rounded-2xl bg-surface shadow-card p-3 active:bg-sub">
       <span className="grid size-10 place-items-center rounded-xl bg-sub" aria-hidden="true">{icon}</span>
       <span className="flex-1"><span className="block font-medium">{title}</span><span className="block text-sm text-muted">{sub}</span></span>
       <ChevronRight className="size-5 text-muted" aria-hidden="true" />
@@ -37,18 +41,34 @@ export default function Home() {
   const annual = meta.data?.balances.find((b) => b.type === 'Cuti Tahunan');
   const pct = annual?.quota ? Math.max(0, Math.min(100, ((annual.remaining ?? 0) / annual.quota) * 100)) : 0;
 
+  const card = useProfileCard('me').data;
+  const today = todayWib();
+  const week = workWeek(today);
+  const { byDate } = useRecordsByDate(week);
+  const hour = Number(new Date(Date.now() + 7 * 3600_000).toISOString().slice(11, 13));
+  const greeting = hour < 11 ? 'Selamat pagi' : hour < 15 ? 'Selamat siang' : hour < 18 ? 'Selamat sore' : 'Selamat malam';
+
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <p className="text-muted">Halo,</p>
-        <p className="text-2xl font-bold">{user?.name}</p>
+      <div className="flex items-center gap-3">
+        <ProfilePhoto fileKey={card?.photoKey} name={user?.name ?? ''} className="size-12" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm text-muted">{greeting},</p>
+          <p className="truncate text-xl font-extrabold">{user?.name}</p>
+        </div>
+        <p className="shrink-0 rounded-full bg-surface px-3 py-1.5 text-xs font-semibold shadow-card">{new Date(`${today}T00:00:00Z`).toLocaleDateString('id-ID', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' })}</p>
       </div>
 
       {admin && <Segmented value={tab} onChange={setTab} options={[{ value: 'me', label: 'Saya' }, { value: 'overview', label: 'Ringkasan' }]} />}
       {admin && tab === 'overview' ? <Overview /> : (
         <>
           <TodayCard />
-          <Link to="/presensi" className="-mt-2 flex min-h-12 items-center justify-center gap-2 rounded-xl border border-field px-4 font-medium active:bg-sub"><History className="size-5" aria-hidden="true" />Riwayat presensi dan koreksi</Link>
+
+          <div className="-mb-2 flex items-center justify-between">
+            <h2 className="text-base font-extrabold">Minggu ini</h2>
+            <Link to="/presensi" className="inline-flex min-h-11 items-center gap-0.5 rounded-lg px-1 text-sm font-semibold text-blue-700 active:bg-sub">Riwayat dan koreksi<ChevronRight className="size-4" aria-hidden="true" /></Link>
+          </div>
+          <WeekStrip days={week.map((date) => ({ date, dot: dotFor(byDate.get(date)) }))} today={today} />
 
           <InstallCard />
           <PushPrompt />

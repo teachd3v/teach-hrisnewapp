@@ -28,7 +28,7 @@ function RemindersSwitch() {
   return (
     <div className="flex flex-col gap-1">
       <button type="button" role="switch" aria-checked={on} aria-describedby="rem-desc" disabled={set.isPending} onClick={() => set.mutate(!on)}
-        className="flex min-h-14 items-center justify-between gap-3 rounded-xl border border-line px-3 text-left active:bg-sub disabled:opacity-60">
+        className="flex min-h-14 items-center justify-between gap-3 rounded-xl bg-surface shadow-card px-3 text-left active:bg-sub disabled:opacity-60">
         <span className="font-medium">Pengingat harian <span className="font-normal text-muted">(semua perangkat)</span></span>
         <span aria-hidden="true" className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${on ? 'bg-primary' : 'bg-field'}`}><span className={`absolute top-0.5 size-6 rounded-full bg-white transition-all ${on ? 'left-[1.375rem]' : 'left-0.5'}`} /></span>
       </button>

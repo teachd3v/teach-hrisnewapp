@@ -55,8 +55,8 @@ const router = createBrowserRouter(
 
       <Route element={<RequireAuth />}>
         <Route element={<TabLayout />}>
-          <Route path="/" element={<Home />} handle={{ title: 'Beranda' }} />
-          <Route path="/presensi" element={<Attendance />} handle={{ title: 'Presensi' }} />
+          <Route path="/" element={<Home />} handle={{ title: 'Beranda', bare: true }} />
+          <Route path="/presensi" element={<Attendance />} handle={{ title: 'Riwayat presensi' }} />
           <Route path="/cuti" element={<Leave />} handle={{ title: 'Izin' }} />
           <Route path="/notifikasi" element={<Notifications />} handle={{ title: 'Notifikasi' }} />
           <Route path="/akun" element={<Account />} handle={{ title: 'Akun' }} />

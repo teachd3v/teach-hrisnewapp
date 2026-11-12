@@ -31,7 +31,7 @@ export default function RangeCalendar({ value, onChange, min, max, today }: { va
   while (cells.length % 7) cells.push(null);
 
   return (
-    <div className="rounded-2xl border border-line bg-surface p-3" role="group" aria-label="Pilih tanggal">
+    <div className="rounded-2xl bg-surface shadow-card p-3" role="group" aria-label="Pilih tanggal">
       <div className="mb-2 flex items-center justify-between">
         <button type="button" onClick={() => step(-1)} disabled={!canPrev} aria-label="Bulan sebelumnya" className="grid size-11 place-items-center rounded-full active:bg-sub disabled:opacity-30"><ChevronLeft className="size-5" aria-hidden="true" /></button>
         <p className="font-semibold capitalize" aria-live="polite">{monthTitle(view.y, view.m)}</p>

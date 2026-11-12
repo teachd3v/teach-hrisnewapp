@@ -248,7 +248,7 @@ export default function FaceEnroll() {
           <div className="flex items-center gap-2"><ShieldCheck className="size-5" aria-hidden="true" /><h2 className="text-lg font-semibold">Persetujuan data wajah</h2></div>
           {s.consent.text.map((t, i) => <p key={i} className="text-sm">{t}</p>)}
         </Card>
-        <label className="flex min-h-12 items-start gap-3 rounded-xl border border-line p-3">
+        <label className="flex min-h-12 items-start gap-3 rounded-xl bg-surface shadow-card p-3">
           <input type="checkbox" className="mt-1 size-5" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
           <span className="text-sm">Saya telah membaca dan menyetujui penggunaan data wajah saya untuk verifikasi presensi.</span>
         </label>

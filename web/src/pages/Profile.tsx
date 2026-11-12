@@ -191,7 +191,7 @@ function Section({ def, p, id, onChanged }: { def: SectionDef; p: ProfileData; i
           const sub = def.subtitle.map((k) => show(fieldOf(k), it.data[k])).filter(Boolean).join(' · ');
           return (
             <li key={it.id}>
-              <button disabled={!canEdit} onClick={() => setEditing(it)} className="flex w-full flex-col items-start gap-0.5 rounded-2xl border border-line bg-surface p-3 text-left active:bg-sub disabled:active:bg-surface">
+              <button disabled={!canEdit} onClick={() => setEditing(it)} className="flex w-full flex-col items-start gap-0.5 rounded-2xl bg-surface shadow-card p-3 text-left active:bg-sub disabled:active:bg-surface">
                 <span className="font-semibold">{it.data[def.title] ?? '-'}</span>
                 {sub && <span className="text-sm text-muted">{sub}</span>}
               </button>

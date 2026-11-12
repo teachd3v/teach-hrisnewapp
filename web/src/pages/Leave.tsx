@@ -56,7 +56,7 @@ export default function Leave() {
       </div>
 
       {meta.data?.isManager && (
-        <Link to="/persetujuan" className="flex min-h-14 items-center gap-3 rounded-2xl border border-line bg-surface p-3 active:bg-sub">
+        <Link to="/persetujuan" className="flex min-h-14 items-center gap-3 rounded-2xl bg-surface shadow-card p-3 active:bg-sub">
           <ClipboardCheck className="size-5" aria-hidden="true" />
           <span className="flex-1 font-medium">Persetujuan bawahan</span>
           {approvals > 0 && <Chip tone="warn">{approvals} menunggu</Chip>}

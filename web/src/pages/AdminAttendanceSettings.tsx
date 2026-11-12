@@ -165,7 +165,7 @@ function LocationSection({ s, canEdit, onChanged }: { s: Settings; canEdit: bool
       <ul className="flex flex-col gap-2">
         {s.locations.map((o) => (
           <li key={o.id}>
-            <button onClick={() => canEdit && open(o)} disabled={!canEdit} className={`flex w-full items-center gap-3 rounded-2xl border border-line bg-surface p-3 text-left active:bg-sub ${o.active ? '' : 'opacity-60'}`}>
+            <button onClick={() => canEdit && open(o)} disabled={!canEdit} className={`flex w-full items-center gap-3 rounded-2xl bg-surface shadow-card p-3 text-left active:bg-sub ${o.active ? '' : 'opacity-60'}`}>
               <MapPin className="size-5 shrink-0 text-muted" aria-hidden="true" />
               <span className="flex-1">
                 <span className="block font-semibold">{o.name}</span>

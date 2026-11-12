@@ -113,7 +113,7 @@ export default function AdminAudit() {
       <ul className="flex flex-col gap-2">
         {items.map((it) => (
           <li key={it.id}>
-            <button onClick={() => setDetail(it)} className="w-full rounded-2xl border border-line bg-surface p-3 text-left active:bg-sub">
+            <button onClick={() => setDetail(it)} className="w-full rounded-2xl bg-surface shadow-card p-3 text-left active:bg-sub">
               <div className="flex items-start justify-between gap-2">
                 <p className="font-semibold">{auditLabel(it.action)}</p>
                 <time dateTime={it.at} className="shrink-0 text-xs text-muted">{fmtWhen(it.at)}</time>

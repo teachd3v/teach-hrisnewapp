@@ -34,7 +34,7 @@ export default function AdminEmployees() {
       <ul className="flex flex-col gap-2 pb-20">
         {shown.map((e) => (
           <li key={e.id}>
-            <Link to={`/admin/karyawan/${e.id}`} className={`flex min-h-16 items-center gap-3 rounded-2xl border border-line bg-surface p-3 active:bg-sub ${e.active ? '' : 'opacity-60'}`}>
+            <Link to={`/admin/karyawan/${e.id}`} className={`flex min-h-16 items-center gap-3 rounded-2xl bg-surface shadow-card p-3 active:bg-sub ${e.active ? '' : 'opacity-60'}`}>
               <span className="flex-1">
                 <span className="flex items-center gap-2"><b>{e.name}</b>{!e.active && <Chip>Nonaktif</Chip>}{e.role !== 'employee' && <Chip tone="info">{ROLE_LABEL[e.role]}</Chip>}</span>
                 <span className="block text-sm text-muted">{[nameOf(master.data, e.department_id), nameOf(master.data, e.level_id)].filter(Boolean).join(' · ') || e.email}</span>

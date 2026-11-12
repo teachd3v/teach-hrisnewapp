@@ -26,7 +26,7 @@ export default function Notifications() {
         {q.data?.items.map((n) => (
           <li key={n.id}>
             <button onClick={() => { if (!n.read_at) readOne.mutate(n.id); if (n.href) navigate(n.href); }}
-              className="flex min-h-16 w-full items-start gap-3 rounded-2xl border border-line bg-surface p-3 text-left active:bg-sub">
+              className="flex min-h-16 w-full items-start gap-3 rounded-2xl bg-surface shadow-card p-3 text-left active:bg-sub">
               <span className={`mt-2 size-2.5 shrink-0 rounded-full ${n.read_at ? 'bg-transparent' : 'bg-info'}`} aria-hidden="true" />
               <span className="flex-1">
                 <span className={`block ${n.read_at ? 'font-medium' : 'font-bold'}`}>{n.read_at ? '' : <span className="sr-only">Belum dibaca: </span>}{n.title}</span>

@@ -32,7 +32,8 @@ function UpdateBanner() {
   );
 }
 
-export interface RouteHandle { title?: string; back?: string }
+/** `bare`: layar akar tanpa bilah judul (isinya memuat sapaan/judul sendiri). */
+export interface RouteHandle { title?: string; back?: string; bare?: boolean }
 
 export function useTitle(): RouteHandle {
   const matches = useMatches();
@@ -94,7 +95,7 @@ function NavItem({ to, label, icon: Icon, end, count }: { to: string; label: str
         className={({ isActive }) => cx('relative flex min-h-16 flex-col items-center justify-center gap-0.5 text-xs transition-colors active:bg-sub', isActive ? 'font-bold text-info' : 'font-medium text-muted')}>
         {({ isActive }) => (
           <>
-            {isActive && <span className="absolute inset-x-0 top-0 h-[3px] bg-info" aria-hidden="true" />}
+            {isActive && <span className="absolute inset-x-[22%] top-0 h-[3px] rounded-b-full bg-info" aria-hidden="true" />}
             <span className="relative"><Icon className="size-6" strokeWidth={isActive ? 2.5 : 1.75} aria-hidden="true" /><Badge n={count} /></span>
             {label}
           </>
@@ -106,19 +107,21 @@ function NavItem({ to, label, icon: Icon, end, count }: { to: string; label: str
 
 /** Layar akar: judul, isi bergulir, tab bar bawah (maks. 5 tujuan). */
 export function TabLayout() {
-  const { title } = useTitle();
+  const { title, bare } = useTitle();
   const { unread, approvals } = useBadges();
   const location = useLocation();
   // Pengajuan (cuti dan overtime) menunggu persetujuan saya ditandai di tab Izin.
   const counts: Record<string, number> = { '/cuti': approvals, '/notifikasi': unread };
   return (
-    <div className="mx-auto flex h-dvh max-w-md flex-col bg-bg">
-      <header className="pt-safe pl-safe pr-safe border-b border-line bg-surface">
-        <h1 className="flex h-14 items-center px-4 text-xl font-bold">{title}</h1>
-      </header>
+    <div className="mx-auto flex h-dvh max-w-md flex-col bg-app">
+      {bare ? <div className="pt-safe" /> : (
+        <header className="pt-safe pl-safe pr-safe">
+          <h1 className="flex h-14 items-center px-4 text-2xl font-extrabold">{title}</h1>
+        </header>
+      )}
       <UpdateBanner />
       <Screen key={location.pathname}><Outlet /></Screen>
-      <nav aria-label="Menu utama" className="pb-safe pl-safe pr-safe border-t border-line bg-surface">
+      <nav aria-label="Menu utama" className="pb-safe pl-safe pr-safe rounded-t-3xl bg-surface shadow-[0_-8px_24px_rgba(30,41,59,0.08)]">
         <ul className="grid grid-cols-5">
           {TABS_LEFT.map((t) => <NavItem key={t.to} {...t} end={'end' in t} count={counts[t.to] ?? 0} />)}
           <PunchTab />
@@ -136,11 +139,11 @@ export function StackLayout() {
   const location = useLocation();
   const goBack = () => (location.key === 'default' ? navigate(back, { replace: true }) : navigate(-1));
   return (
-    <div className="mx-auto flex h-dvh max-w-md flex-col bg-bg">
-      <header className="pt-safe pl-safe pr-safe border-b border-line bg-surface">
-        <div className="flex h-14 items-center gap-1 pr-4">
-          <button onClick={goBack} aria-label="Kembali" className="grid size-12 place-items-center rounded-full text-fg active:bg-sub"><ChevronLeft className="size-7" aria-hidden="true" /></button>
-          <h1 className="truncate text-lg font-semibold">{title}</h1>
+    <div className="mx-auto flex h-dvh max-w-md flex-col bg-app">
+      <header className="pt-safe pl-safe pr-safe">
+        <div className="flex h-16 items-center gap-3 px-4">
+          <button onClick={goBack} aria-label="Kembali" className="grid size-11 shrink-0 place-items-center rounded-full bg-surface text-fg shadow-card active:bg-sub"><ChevronLeft className="size-6" aria-hidden="true" /></button>
+          <h1 className="truncate text-xl font-extrabold">{title}</h1>
         </div>
       </header>
       <UpdateBanner />
