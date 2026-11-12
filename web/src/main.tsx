@@ -69,7 +69,7 @@ const router = createBrowserRouter(
           <Route path="/admin/audit" element={<AdminAudit />} handle={{ title: 'Log audit', back: '/akun' }} />
           <Route path="/admin/rekap" element={<AdminReport />} handle={{ title: 'Rekap presensi & cuti', back: '/akun' }} />
           <Route path="/admin/presensi" element={<AdminAttendance />} handle={{ title: 'Presensi harian', back: '/akun' }} />
-          <Route path="/cuti/ajukan" element={<LeaveForm />} handle={{ title: 'Ajukan cuti', back: '/cuti' }} />
+          <Route path="/cuti/ajukan" element={<LeaveForm />} handle={{ title: 'Ajukan izin', back: '/cuti' }} />
           <Route path="/cuti/overtime" element={<OvertimeForm />} handle={{ title: 'Ajukan overtime', back: '/cuti' }} />
           <Route path="/admin/cuti" element={<AdminLeave />} handle={{ title: 'Izin & overtime', back: '/akun' }} />
           <Route path="/admin/karyawan" element={<AdminEmployees />} handle={{ title: 'Karyawan', back: '/akun' }} />

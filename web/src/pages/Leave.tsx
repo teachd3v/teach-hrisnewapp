@@ -10,6 +10,9 @@ import { OvertimeHistory } from '../components/OvertimeLists';
 import { Button, Card, Chip, Empty, ErrorNote, Segmented, Sheet, Spinner } from '../ui';
 import { useBadges } from '../layouts';
 
+/** Dua tombol aksi utama di atas: hijau seperti tombol Masuk di menu bawah. */
+const ACTION = 'flex min-h-12 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-punch-in px-2 text-sm font-medium text-white transition-opacity active:opacity-85';
+
 /** Tab Izin: saldo ringkas dan riwayat pengajuan cuti serta overtime saya. Formulir ada di layar sendiri (/cuti/ajukan dan /cuti/overtime). */
 export default function Leave() {
   const qc = useQueryClient();
@@ -48,8 +51,8 @@ export default function Leave() {
       )}
 
       <div className="grid grid-cols-2 gap-3">
-        <Link to="/cuti/ajukan"><Button className="w-full !gap-1.5 !px-2 !text-sm whitespace-nowrap"><CalendarPlus className="size-4 shrink-0" aria-hidden="true" />Ajukan cuti</Button></Link>
-        <Link to="/cuti/overtime"><Button className="w-full !gap-1.5 !px-2 !text-sm whitespace-nowrap" variant="secondary"><Clock className="size-4 shrink-0" aria-hidden="true" />Ajukan overtime</Button></Link>
+        <Link to="/cuti/ajukan" className={ACTION}><CalendarPlus className="size-4 shrink-0" aria-hidden="true" />Ajukan izin</Link>
+        <Link to="/cuti/overtime" className={ACTION}><Clock className="size-4 shrink-0" aria-hidden="true" />Ajukan overtime</Link>
       </div>
 
       {meta.data?.isManager && (

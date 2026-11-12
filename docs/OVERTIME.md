@@ -3,7 +3,7 @@
 Diputuskan dan dibangun 2026-11-06 (lihat `docs/DECISIONS.md`). Migrasi 0015.
 
 ## Tampilan
-- Tab bawah "Cuti" menjadi **Izin** (alamat `/cuti` tetap). Di bagian atas ada dua tombol sebaris: **Ajukan cuti** (kiri) dan **Ajukan overtime** (kanan, `/cuti/overtime`). Riwayat dipisah dengan tab Cuti | Overtime (`/cuti?riwayat=overtime`).
+- Tab bawah "Cuti" menjadi **Izin** (alamat `/cuti` tetap). Di bagian atas ada dua tombol sebaris: **Ajukan izin** (kiri, `/cuti/ajukan`) dan **Ajukan overtime** (kanan, `/cuti/overtime`), keduanya hijau seperti tombol Masuk. Riwayat dipisah dengan tab Cuti | Overtime (`/cuti?riwayat=overtime`).
 - Kartu saldo Ganti Hari menampilkan "termasuk N hari dari overtime" dan "N hari hangus".
 - Persetujuan atasan (`/persetujuan`) dan layar HC (`/admin/cuti`, menu "Izin & overtime") memiliki tab Cuti | Overtime (`?jenis=overtime`). Lencana tab Izin menghitung cuti dan overtime yang menunggu persetujuan saya.
 

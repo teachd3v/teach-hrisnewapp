@@ -34,7 +34,7 @@ export function TodayCard() {
       {chips.length > 0 && <div className="flex flex-wrap gap-1">{chips.map((c, i) => <Chip key={i} tone={c.tone}>{c.text}</Chip>)}</div>}
       {!r?.clock_in && (
         <div className="flex flex-col gap-1 text-sm">
-          <p className="text-muted">{today.data?.policy ? policyText(today.data.policy).replace(/^./, (c) => c.toUpperCase()) : 'Batas jam masuk'}.{day?.lateExcused ? ' Izin keterlambatan Anda hari ini sudah disetujui.' : ' Bila terlambat, ajukan Izin Keterlambatan di menu Cuti.'}</p>
+          <p className="text-muted">{today.data?.policy ? policyText(today.data.policy).replace(/^./, (c) => c.toUpperCase()) : 'Batas jam masuk'}.{day?.lateExcused ? ' Izin keterlambatan Anda hari ini sudah disetujui.' : ' Bila terlambat, ajukan Izin Keterlambatan di menu Izin.'}</p>
           {day?.leaveType && <p className="rounded-lg bg-info-bg p-2 text-info">Hari ini ada pengajuan disetujui: {day.leaveType}.</p>}
           {day?.dayOff && <p className="rounded-lg bg-sub p-2">{day.dayOff === 'Akhir pekan' ? 'Hari ini akhir pekan.' : `Hari ini libur: ${day.dayOff}.`}</p>}
         </div>

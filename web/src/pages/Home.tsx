@@ -64,7 +64,7 @@ export default function Home() {
             ) : <p className="text-muted">Data kuota belum tersedia.</p>}
           </Card>
 
-          <Link to="/cuti/ajukan"><Button className="w-full"><CalendarPlus className="size-5" aria-hidden="true" />Ajukan cuti</Button></Link>
+          <Link to="/cuti/ajukan"><Button className="w-full"><CalendarPlus className="size-5" aria-hidden="true" />Ajukan izin</Button></Link>
 
           {approvals > 0 && <Row to="/persetujuan" icon={<ClipboardCheck className="size-5" />} title="Perlu persetujuan Anda" sub={`${approvals} pengajuan bawahan`} />}
           {user && isAdmin(user.role) && (hcQueue.data?.length ?? 0) > 0 && <Row to="/admin/cuti" icon={<Hourglass className="size-5" />} title="Menunggu HC" sub={`${hcQueue.data!.length} pengajuan`} />}
