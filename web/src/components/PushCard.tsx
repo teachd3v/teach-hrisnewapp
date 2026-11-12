@@ -29,10 +29,10 @@ function RemindersSwitch() {
     <div className="flex flex-col gap-1">
       <button type="button" role="switch" aria-checked={on} aria-describedby="rem-desc" disabled={set.isPending} onClick={() => set.mutate(!on)}
         className="flex min-h-14 items-center justify-between gap-3 rounded-xl border border-line px-3 text-left active:bg-sub disabled:opacity-60">
-        <span className="font-medium">Pengingat harian</span>
+        <span className="font-medium">Pengingat harian <span className="font-normal text-muted">(semua perangkat)</span></span>
         <span aria-hidden="true" className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${on ? 'bg-primary' : 'bg-field'}`}><span className={`absolute top-0.5 size-6 rounded-full bg-white transition-all ${on ? 'left-[1.375rem]' : 'left-0.5'}`} /></span>
       </button>
-      <p id="rem-desc" className="px-1 text-sm text-muted">{on ? 'Aktif: pengingat belum presensi masuk (08:45) dan pulang, serta pengajuan yang menunggu lebih dari 24 jam.' : 'Mati: Anda tidak menerima pengingat harian. Notifikasi pengajuan dan keputusan tetap masuk.'}</p>
+      <p id="rem-desc" className="px-1 text-sm text-muted">{on ? 'Aktif untuk akun Anda di semua perangkat: pengingat belum presensi masuk (08:45), belum presensi pulang, dan pengajuan yang menunggu lebih dari 24 jam.' : 'Mati: pengingat harian berhenti di semua perangkat Anda. Notifikasi pengajuan dan keputusan tetap masuk selama notifikasi di perangkat tersebut menyala.'}</p>
       <ErrorNote error={set.error} />
     </div>
   );
@@ -49,8 +49,8 @@ function Switch({ checked, disabled, label, onChange }: { checked: boolean; disa
 }
 
 const STATE_TEXT: Record<PushState, string> = {
-  on: 'Aktif. Pengajuan, persetujuan, dan koreksi muncul di layar HP meski aplikasi tidak dibuka.',
-  off: 'Mati. Aktifkan agar tidak ketinggalan pengajuan dan persetujuan.',
+  on: 'Aktif di perangkat ini. Pengajuan, persetujuan, dan koreksi muncul di layar HP meski aplikasi tidak dibuka.',
+  off: 'Mati di perangkat ini. Aktifkan agar tidak ketinggalan pengajuan dan persetujuan.',
   denied: 'Diblokir di pengaturan browser. Buka pengaturan situs di browser, izinkan notifikasi, lalu muat ulang halaman ini.',
   'ios-needs-install': 'Di iPhone, notifikasi hanya bisa untuk aplikasi di Layar Utama: buka lewat Safari → Bagikan → Tambahkan ke Layar Utama, lalu buka dari ikon itu.',
   unsupported: 'Browser ini belum mendukung notifikasi push.',
