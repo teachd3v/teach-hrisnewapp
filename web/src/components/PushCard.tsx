@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { Bell, BellOff, BellRing } from 'lucide-react';
+import { Bell, BellOff, BellRing, ChevronDown } from 'lucide-react';
 import { disablePush, enablePush, getPushState, sendTestPush, type PushState } from '../lib/push';
 import { Button, Card, ErrorNote } from '../ui';
 
@@ -38,12 +38,35 @@ function RemindersSwitch() {
   );
 }
 
-/** Kartu pengaturan di tab Akun: aktifkan/matikan notifikasi di perangkat ini dan kirim notifikasi uji. */
+/** Saklar geser. Target sentuh 48 px lebar; status juga dibaca pembaca layar lewat role="switch". */
+function Switch({ checked, disabled, label, onChange }: { checked: boolean; disabled?: boolean; label: string; onChange: () => void }) {
+  return (
+    <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={onChange}
+      className="grid h-11 w-14 shrink-0 place-items-center rounded-full active:bg-sub disabled:opacity-50">
+      <span aria-hidden="true" className={`relative h-7 w-12 rounded-full transition-colors ${checked ? 'bg-primary' : 'bg-field'}`}><span className={`absolute top-0.5 size-6 rounded-full bg-white transition-all ${checked ? 'left-[1.375rem]' : 'left-0.5'}`} /></span>
+    </button>
+  );
+}
+
+const STATE_TEXT: Record<PushState, string> = {
+  on: 'Aktif. Pengajuan, persetujuan, dan koreksi muncul di layar HP meski aplikasi tidak dibuka.',
+  off: 'Mati. Aktifkan agar tidak ketinggalan pengajuan dan persetujuan.',
+  denied: 'Diblokir di pengaturan browser. Buka pengaturan situs di browser, izinkan notifikasi, lalu muat ulang halaman ini.',
+  'ios-needs-install': 'Di iPhone, notifikasi hanya bisa untuk aplikasi di Layar Utama: buka lewat Safari → Bagikan → Tambahkan ke Layar Utama, lalu buka dari ikon itu.',
+  unsupported: 'Browser ini belum mendukung notifikasi push.',
+  tauri: 'Notifikasi untuk aplikasi HP akan tersedia setelah integrasi Firebase (FCM).',
+};
+
+/**
+ * Kartu notifikasi di tab Akun, satu baris: ikon, judul, saklar aktif/mati di perangkat ini, dan panah untuk membuka keterangan
+ * (penjelasan status, pengingat harian, notifikasi uji). Bila saklar tidak bisa dipakai (diblokir/tidak didukung), keterangan terbuka otomatis.
+ */
 export function PushCard() {
   const [state, refresh] = usePushState();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [testResult, setTestResult] = useState<string | null>(null);
+  const [open, setOpen] = useState<boolean | null>(null); // null = ikuti keadaan (terbuka otomatis hanya bila saklar tidak bisa dipakai)
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true); setError(null); setTestResult(null);
@@ -51,30 +74,28 @@ export function PushCard() {
   }
 
   if (!state) return null;
+  const canToggle = state === 'on' || state === 'off';
+  const expanded = open ?? !canToggle;
   return (
-    <Card className="flex flex-col gap-3">
+    <Card className="flex flex-col gap-3 !py-2">
       <div className="flex items-center gap-3">
-        <span className="grid size-10 place-items-center rounded-xl bg-sub" aria-hidden="true">{state === 'on' ? <BellRing className="size-5" /> : state === 'off' ? <Bell className="size-5" /> : <BellOff className="size-5" />}</span>
-        <div className="flex-1">
-          <p className="font-semibold">Notifikasi di perangkat ini</p>
-          <p className="text-sm text-muted">
-            {state === 'on' && 'Aktif. Pengajuan, persetujuan, dan koreksi muncul di layar HP meski aplikasi tidak dibuka.'}
-            {state === 'off' && 'Mati. Aktifkan agar tidak ketinggalan pengajuan dan persetujuan.'}
-            {state === 'denied' && 'Diblokir di pengaturan browser. Buka pengaturan situs di browser, izinkan notifikasi, lalu muat ulang halaman ini.'}
-            {state === 'ios-needs-install' && 'Di iPhone, notifikasi hanya bisa untuk aplikasi di Layar Utama: buka lewat Safari → Bagikan → Tambahkan ke Layar Utama, lalu buka dari ikon itu.'}
-            {state === 'unsupported' && 'Browser ini belum mendukung notifikasi push.'}
-            {state === 'tauri' && 'Notifikasi untuk aplikasi HP akan tersedia setelah integrasi Firebase (FCM).'}
-          </p>
-        </div>
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-sub" aria-hidden="true">{state === 'on' ? <BellRing className="size-5" /> : state === 'off' ? <Bell className="size-5" /> : <BellOff className="size-5" />}</span>
+        <span className="min-w-0 flex-1 truncate font-semibold">Notifikasi</span>
+        <Switch checked={state === 'on'} disabled={!canToggle || busy} label="Notifikasi di perangkat ini" onChange={() => void run(state === 'on' ? disablePush : enablePush)} />
+        <button type="button" aria-expanded={expanded} aria-controls="push-details" aria-label={expanded ? 'Sembunyikan keterangan notifikasi' : 'Tampilkan keterangan notifikasi'} onClick={() => setOpen(!expanded)}
+          className="grid size-11 shrink-0 place-items-center rounded-full active:bg-sub">
+          <ChevronDown className={`size-5 text-muted transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden="true" />
+        </button>
       </div>
       <ErrorNote error={error} />
-      {testResult && <p role="status" className="rounded-xl bg-sub p-3 text-sm">{testResult}</p>}
-      {state === 'off' && <Button loading={busy} onClick={() => void run(enablePush)}>Aktifkan notifikasi</Button>}
-      {state === 'on' && <RemindersSwitch />}
-      {state === 'on' && (
-        <div className="grid grid-cols-2 gap-3">
-          <Button variant="secondary" loading={busy} onClick={() => void run(async () => { const r = await sendTestPush(); setTestResult(r.sent > 0 ? 'Notifikasi uji dikirim. Seharusnya muncul di layar sebentar lagi.' : 'Tidak ada perangkat yang menerima. Matikan lalu aktifkan lagi.'); })}>Kirim uji</Button>
-          <Button variant="secondary" loading={busy} onClick={() => void run(disablePush)}>Matikan</Button>
+      {expanded && (
+        <div id="push-details" className="flex flex-col gap-3 border-t border-line pb-2 pt-3">
+          <p className="text-sm text-muted">{STATE_TEXT[state]}</p>
+          {testResult && <p role="status" className="rounded-xl bg-sub p-3 text-sm">{testResult}</p>}
+          {state === 'on' && <RemindersSwitch />}
+          {state === 'on' && (
+            <Button variant="secondary" loading={busy} onClick={() => void run(async () => { const r = await sendTestPush(); setTestResult(r.sent > 0 ? 'Notifikasi uji dikirim. Seharusnya muncul di layar sebentar lagi.' : 'Tidak ada perangkat yang menerima. Matikan lalu aktifkan lagi.'); })}>Kirim uji</Button>
+          )}
         </div>
       )}
     </Card>
