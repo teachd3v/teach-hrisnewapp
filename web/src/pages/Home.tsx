@@ -1,6 +1,6 @@
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarPlus, ChevronRight, ClipboardCheck, Hourglass } from 'lucide-react';
+import { CalendarPlus, ChevronRight, ClipboardCheck, History, Hourglass } from 'lucide-react';
 import { isAdmin } from '@hris/shared';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -47,10 +47,11 @@ export default function Home() {
       {admin && <Segmented value={tab} onChange={setTab} options={[{ value: 'me', label: 'Saya' }, { value: 'overview', label: 'Ringkasan' }]} />}
       {admin && tab === 'overview' ? <Overview /> : (
         <>
+          <TodayCard />
+          <Link to="/presensi" className="-mt-2 flex min-h-12 items-center justify-center gap-2 rounded-xl border border-field px-4 font-medium active:bg-sub"><History className="size-5" aria-hidden="true" />Riwayat presensi dan koreksi</Link>
+
           <InstallCard />
           <PushPrompt />
-
-          <TodayCard />
 
           <Card>
             <p className="text-sm font-medium text-muted">Sisa cuti tahunan {new Date().getFullYear()}</p>

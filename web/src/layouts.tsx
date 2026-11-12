@@ -1,8 +1,9 @@
 import { useRef, type ReactNode } from 'react';
-import { Outlet, NavLink, useLocation, useMatches, useNavigate } from 'react-router';
+import { Link, Outlet, NavLink, useLocation, useMatches, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, CalendarDays, ChevronLeft, House, ScanFace, UserRound } from 'lucide-react';
+import { Bell, CalendarDays, ChevronLeft, CircleCheck, House, LogOut, ScanFace, UserRound } from 'lucide-react';
 import { api } from './lib/api';
+import { useToday } from './pages/Attendance';
 import { cx } from './ui';
 import { PullIndicator, usePullToRefresh } from './lib/pull-to-refresh';
 import { useUpdateAvailable } from './lib/version';
@@ -14,7 +15,7 @@ function Screen({ children }: { children: ReactNode }) {
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <PullIndicator pull={pull} refreshing={refreshing} />
-      <main ref={ref} className="screen-in flex flex-1 flex-col overflow-y-auto overscroll-contain px-[max(1rem,env(safe-area-inset-left),env(safe-area-inset-right))] py-4">{children}</main>
+      <main ref={ref} className="screen-in flex flex-1 flex-col overflow-y-auto overscroll-contain px-[max(1rem,env(safe-area-inset-left),env(safe-area-inset-right))] pb-6 pt-4">{children}</main>
     </div>
   );
 }
@@ -53,13 +54,54 @@ function Badge({ n }: { n: number }) {
   );
 }
 
-const TABS = [
+const TABS_LEFT = [
   { to: '/', label: 'Beranda', icon: House, end: true },
-  { to: '/presensi', label: 'Presensi', icon: ScanFace },
   { to: '/cuti', label: 'Izin', icon: CalendarDays },
+] as const;
+const TABS_RIGHT = [
   { to: '/notifikasi', label: 'Notifikasi', icon: Bell },
   { to: '/akun', label: 'Akun', icon: UserRound },
 ] as const;
+
+/** Tombol presensi di tengah menu bawah: satu ketukan langsung ke kamera sesuai keadaan hari ini (masuk, pulang, atau riwayat bila selesai). */
+function PunchTab() {
+  const today = useToday();
+  const r = today.data?.record;
+  const state = !today.data ? 'load' : !r?.clock_in ? 'in' : !r.clock_out ? 'out' : 'done';
+  const cfg = {
+    load: { to: '/presensi', label: 'Presensi', aria: 'Presensi', Icon: ScanFace, bg: 'bg-primary' },
+    in: { to: '/presensi/ambil/in', label: 'Masuk', aria: 'Presensi masuk', Icon: ScanFace, bg: 'bg-punch-in' },
+    out: { to: '/presensi/ambil/out', label: 'Pulang', aria: 'Presensi pulang', Icon: LogOut, bg: 'bg-punch-out' },
+    done: { to: '/presensi', label: 'Selesai', aria: 'Presensi hari ini selesai, buka riwayat', Icon: CircleCheck, bg: 'bg-muted' },
+  }[state];
+  const text = state === 'in' ? 'text-punch-in' : state === 'out' ? 'text-punch-out' : 'text-muted';
+  return (
+    <li>
+      <Link to={cfg.to} aria-label={cfg.aria} className="relative flex min-h-16 items-end justify-center pb-[11px]">
+        <span className={cx('absolute -top-5 left-1/2 grid size-14 -translate-x-1/2 place-items-center rounded-full border-4 border-surface text-white shadow-lg transition-transform active:scale-95', cfg.bg)}>
+          <cfg.Icon className="size-7" aria-hidden="true" />
+        </span>
+        <span className={cx('text-xs font-bold', text)}>{cfg.label}</span>
+      </Link>
+    </li>
+  );
+}
+
+function NavItem({ to, label, icon: Icon, end, count }: { to: string; label: string; icon: typeof House; end?: boolean; count: number }) {
+  return (
+    <li>
+      <NavLink to={to} end={end} aria-label={count ? `${label}, ${count} baru` : label}
+        className={({ isActive }) => cx('relative flex min-h-16 flex-col items-center justify-center gap-0.5 text-xs transition-colors active:bg-sub', isActive ? 'font-bold text-fg' : 'font-medium text-muted')}>
+        {({ isActive }) => (
+          <>
+            <span className="relative"><Icon className="size-6" strokeWidth={isActive ? 2.5 : 1.75} aria-hidden="true" /><Badge n={count} /></span>
+            {label}
+          </>
+        )}
+      </NavLink>
+    </li>
+  );
+}
 
 /** Layar akar: judul, isi bergulir, tab bar bawah (maks. 5 tujuan). */
 export function TabLayout() {
@@ -77,19 +119,9 @@ export function TabLayout() {
       <Screen key={location.pathname}><Outlet /></Screen>
       <nav aria-label="Menu utama" className="pb-safe pl-safe pr-safe border-t border-line bg-surface">
         <ul className="grid grid-cols-5">
-          {TABS.map(({ to, label, icon: Icon, ...rest }) => (
-            <li key={to}>
-              <NavLink to={to} end={'end' in rest} aria-label={counts[to] ? `${label}, ${counts[to]} baru` : label}
-                className={({ isActive }) => cx('relative flex min-h-16 flex-col items-center justify-center gap-0.5 text-xs transition-colors active:bg-sub', isActive ? 'font-bold text-fg' : 'font-medium text-muted')}>
-                {({ isActive }) => (
-                  <>
-                    <span className="relative"><Icon className="size-6" strokeWidth={isActive ? 2.5 : 1.75} aria-hidden="true" /><Badge n={counts[to] ?? 0} /></span>
-                    {label}
-                  </>
-                )}
-              </NavLink>
-            </li>
-          ))}
+          {TABS_LEFT.map((t) => <NavItem key={t.to} {...t} end={'end' in t} count={counts[t.to] ?? 0} />)}
+          <PunchTab />
+          {TABS_RIGHT.map((t) => <NavItem key={t.to} {...t} count={counts[t.to] ?? 0} />)}
         </ul>
       </nav>
     </div>

@@ -6,16 +6,17 @@ import { CheckCircle2, LogIn, LogOut, ScanFace } from 'lucide-react';
 import { policyText, workDuration, type AttendancePolicy, type OfficeLocation } from '@hris/shared';
 import { api } from '../lib/api';
 import { dayChips, faceChip, recordChips, fmtLongDate, fmtShortDate, fmtTime, locationFlag, type AttendanceRec, type DayFlags } from '../lib/attendance-types';
-import { Button, Card, Chip, Empty, ErrorNote, Field, Input, Spinner } from '../ui';
+import { Card, Chip, Empty, ErrorNote, Field, Input, Spinner, cx } from '../ui';
 
 export const useToday = () =>
   useQuery({ queryKey: ['att-today'], queryFn: () => api<{ date: string; serverTime: string; record: AttendanceRec | null; day: DayFlags | null; policy: Pick<AttendancePolicy, 'workStart' | 'graceMinutes' | 'locationMode'>; offices: OfficeLocation[] }>('/attendance/today') });
 
 /** Tombol presensi sesuai keadaan hari ini; dipakai di tab Presensi dan Beranda. */
 export function PunchButton({ record }: { record: AttendanceRec | null | undefined }) {
-  if (!record?.clock_in) return <Link to="/presensi/ambil/in"><Button className="w-full"><LogIn className="size-5" aria-hidden="true" />Presensi masuk</Button></Link>;
-  if (!record.clock_out) return <Link to="/presensi/ambil/out"><Button className="w-full"><LogOut className="size-5" aria-hidden="true" />Presensi pulang</Button></Link>;
-  return <Button className="w-full" disabled>Presensi hari ini selesai</Button>;
+  const big = 'flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl text-lg font-semibold text-white transition-opacity active:opacity-85';
+  if (!record?.clock_in) return <Link to="/presensi/ambil/in" className={cx(big, 'bg-punch-in')}><LogIn className="size-6" aria-hidden="true" />Presensi masuk</Link>;
+  if (!record.clock_out) return <Link to="/presensi/ambil/out" className={cx(big, 'bg-punch-out')}><LogOut className="size-6" aria-hidden="true" />Presensi pulang</Link>;
+  return <p className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-sub text-base font-medium text-muted"><CheckCircle2 className="size-5 text-ok" aria-hidden="true" />Presensi hari ini selesai</p>;
 }
 
 export function TodayCard() {

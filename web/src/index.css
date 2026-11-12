@@ -19,6 +19,8 @@
   --color-bad-bg: #fee2e2;
   --color-info: #1e40af;
   --color-info-bg: #dbeafe;
+  --color-punch-in: #0f766e; /* aksen khusus presensi masuk; 5,5:1 dengan teks putih */
+  --color-punch-out: #b45309; /* presensi pulang; 5,0:1 dengan teks putih */
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
