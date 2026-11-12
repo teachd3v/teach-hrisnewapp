@@ -91,11 +91,15 @@ function NavItem({ to, label, icon: Icon, end, count }: { to: string; label: str
   return (
     <li>
       <NavLink to={to} end={end} aria-label={count ? `${label}, ${count} baru` : label}
-        className={({ isActive }) => cx('relative flex min-h-16 flex-col items-center justify-center gap-0.5 text-xs transition-colors active:bg-sub', isActive ? 'font-bold text-fg' : 'font-medium text-muted')}>
+        className={({ isActive }) => cx('nav-tab relative flex min-h-16 items-center justify-center rounded-full text-xs transition-colors active:bg-sub', isActive ? 'font-bold text-fg' : 'font-medium text-muted')}>
         {({ isActive }) => (
           <>
-            <span className="relative"><Icon className="size-6" strokeWidth={isActive ? 2.5 : 1.75} aria-hidden="true" /><Badge n={count} /></span>
-            {label}
+            <span className="spot-line" aria-hidden="true" />
+            <span className="spot-beam" aria-hidden="true" />
+            <span className="relative z-10 flex flex-col items-center gap-0.5">
+              <span className="relative"><Icon className="size-6" strokeWidth={isActive ? 2.5 : 1.75} aria-hidden="true" /><Badge n={count} /></span>
+              {label}
+            </span>
           </>
         )}
       </NavLink>
@@ -117,8 +121,8 @@ export function TabLayout() {
       </header>
       <UpdateBanner />
       <Screen key={location.pathname}><Outlet /></Screen>
-      <nav aria-label="Menu utama" className="pb-safe pl-safe pr-safe border-t border-line bg-surface">
-        <ul className="grid grid-cols-5">
+      <nav aria-label="Menu utama" className="pb-safe pl-safe pr-safe bg-bg">
+        <ul className="mx-3 mb-2 mt-1 grid grid-cols-5 rounded-full border border-line bg-surface shadow-[0_2px_10px_rgba(17,24,39,0.08)]">
           {TABS_LEFT.map((t) => <NavItem key={t.to} {...t} end={'end' in t} count={counts[t.to] ?? 0} />)}
           <PunchTab />
           {TABS_RIGHT.map((t) => <NavItem key={t.to} {...t} count={counts[t.to] ?? 0} />)}
