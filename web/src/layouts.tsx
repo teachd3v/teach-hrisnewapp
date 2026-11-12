@@ -1,10 +1,11 @@
 import { useRef, type ReactNode } from 'react';
 import { Link, Outlet, NavLink, useLocation, useMatches, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, CalendarDays, ChevronLeft, CircleCheck, House, LogOut, ScanFace, UserRound } from 'lucide-react';
+import { Bell, CalendarDays, ChevronLeft, CircleCheck, House, ScanFace, UserRound } from 'lucide-react';
 import { api } from './lib/api';
 import { useToday } from './pages/Attendance';
 import { cx } from './ui';
+import WallpaperLayer from './components/WallpaperLayer';
 import { PullIndicator, usePullToRefresh } from './lib/pull-to-refresh';
 import { useUpdateAvailable } from './lib/version';
 
@@ -72,10 +73,10 @@ function PunchTab() {
   const cfg = {
     load: { to: '/presensi', label: 'Presensi', aria: 'Presensi', Icon: ScanFace, bg: 'bg-primary' },
     in: { to: '/presensi/ambil/in', label: 'Masuk', aria: 'Presensi masuk', Icon: ScanFace, bg: 'bg-punch-in' },
-    out: { to: '/presensi/ambil/out', label: 'Pulang', aria: 'Presensi pulang', Icon: LogOut, bg: 'bg-punch-out' },
-    done: { to: '/presensi/selesai', label: 'Selesai', aria: 'Presensi hari ini selesai, buka kartu hari ini', Icon: CircleCheck, bg: 'bg-muted' },
+    out: { to: '/presensi/ambil/out', label: 'Pulang', aria: 'Presensi pulang', Icon: ScanFace, bg: 'bg-punch-out' },
+    done: { to: '/presensi/selesai', label: 'Selesai', aria: 'Presensi hari ini selesai, buka kartu hari ini', Icon: CircleCheck, bg: 'bg-blue-600' },
   }[state];
-  const text = state === 'in' ? 'text-punch-in' : state === 'out' ? 'text-punch-out' : 'text-muted';
+  const text = state === 'in' ? 'text-punch-in' : state === 'out' ? 'text-punch-out' : state === 'done' ? 'text-blue-700' : 'text-muted';
   return (
     <li>
       <Link to={cfg.to} aria-label={cfg.aria} className="relative flex min-h-16 items-end justify-center pb-[11px]">
@@ -113,7 +114,8 @@ export function TabLayout() {
   // Pengajuan (cuti dan overtime) menunggu persetujuan saya ditandai di tab Izin.
   const counts: Record<string, number> = { '/cuti': approvals, '/notifikasi': unread };
   return (
-    <div className="mx-auto flex h-dvh max-w-md flex-col bg-app">
+    <div className="relative isolate mx-auto flex h-dvh max-w-md flex-col bg-app">
+      <WallpaperLayer />
       {bare ? <div className="pt-safe" /> : (
         <header className="pt-safe pl-safe pr-safe">
           <h1 className="flex h-14 items-center px-4 text-2xl font-extrabold">{title}</h1>
@@ -139,7 +141,8 @@ export function StackLayout() {
   const location = useLocation();
   const goBack = () => (location.key === 'default' ? navigate(back, { replace: true }) : navigate(-1));
   return (
-    <div className="mx-auto flex h-dvh max-w-md flex-col bg-app">
+    <div className="relative isolate mx-auto flex h-dvh max-w-md flex-col bg-app">
+      <WallpaperLayer />
       <header className="pt-safe pl-safe pr-safe">
         <div className="flex h-16 items-center gap-3 px-4">
           <button onClick={goBack} aria-label="Kembali" className="grid size-11 shrink-0 place-items-center rounded-full bg-surface text-fg shadow-card active:bg-sub"><ChevronLeft className="size-6" aria-hidden="true" /></button>

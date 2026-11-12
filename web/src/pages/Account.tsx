@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import {
-  CalendarCheck, CalendarCog, CalendarHeart, ChevronDown, ChevronRight, ClipboardList, KeyRound, FilePen, FileSpreadsheet, ListTree, LogOut, MapPinned, ScanFace, ScrollText, UserRound, Users,
+  CalendarCheck, CalendarCog, CalendarHeart, ChevronDown, ChevronRight, ClipboardList, ImagePlus, KeyRound, FilePen, FileSpreadsheet, ListTree, LogOut, MapPinned, ScanFace, ScrollText, UserRound, Users,
 } from 'lucide-react';
 import { isAdmin, type Role } from '@hris/shared';
 import { useAuth } from '../lib/auth';
@@ -130,6 +130,7 @@ export default function Account() {
         <InstallRow />
         <MenuRow to="/profil" icon={<UserRound className="size-5" />} label="Profil saya" />
         {showFace && <MenuRow to="/profil/wajah" icon={<ScanFace className="size-5" />} label="Wajah untuk presensi" />}
+        <MenuRow to="/akun/wallpaper" icon={<ImagePlus className="size-5" />} label="Wallpaper" />
         <MenuRow to="/ganti-password" icon={<KeyRound className="size-5" />} label="Ganti password" />
       </section>
 

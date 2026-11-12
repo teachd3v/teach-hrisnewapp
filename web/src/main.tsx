@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Navigate, Outlet, Route, RouterProvider, createBrowserRouter, createRoutesFromElements, useLocation } from 'react-router';
 import './index.css';
 import { AuthProvider, useAuth } from './lib/auth';
+import { WallpaperProvider } from './lib/wallpaper';
 import { StackLayout, TabLayout } from './layouts';
 import { Spinner } from './ui';
 import Login from './pages/Login';
@@ -26,6 +27,7 @@ import OvertimeForm from './pages/OvertimeForm';
 import Attendance from './pages/Attendance';
 import AttendanceCapture from './pages/AttendanceCapture';
 import DayCard from './pages/DayCard';
+import Wallpaper from './pages/Wallpaper';
 import AdminAttendance from './pages/AdminAttendance';
 import AttendanceCorrection from './pages/AttendanceCorrection';
 import AdminCorrections from './pages/AdminCorrections';
@@ -76,6 +78,7 @@ const router = createBrowserRouter(
           <Route path="/admin/cuti" element={<AdminLeave />} handle={{ title: 'Izin & overtime', back: '/akun' }} />
           <Route path="/admin/karyawan" element={<AdminEmployees />} handle={{ title: 'Karyawan', back: '/akun' }} />
           <Route path="/profil" element={<Profile />} handle={{ title: 'Profil saya', back: '/akun' }} />
+          <Route path="/akun/wallpaper" element={<Wallpaper />} handle={{ title: 'Wallpaper', back: '/akun' }} />
           <Route path="/profil/wajah" element={<FaceEnroll />} handle={{ title: 'Wajah untuk presensi', back: '/akun' }} />
           <Route path="/admin/wajah" element={<AdminFace />} handle={{ title: 'Pendaftaran wajah', back: '/akun' }} />
           <Route path="/admin/karyawan/:id/profil" element={<Profile />} handle={{ title: 'Profil karyawan', back: '/admin/karyawan' }} />
@@ -104,7 +107,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <RouterProvider router={router} />
+        <WallpaperProvider>
+          <RouterProvider router={router} />
+        </WallpaperProvider>
       </AuthProvider>
     </QueryClientProvider>
   </StrictMode>,
