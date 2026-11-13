@@ -11,7 +11,8 @@ import { km } from '../lib/attendance-types';
 import { isFaceReady, loadFaceDetector, mapBoxToView, snapshotVideo, type ViewBox } from '../lib/face';
 import { alignFace, embedFace, faceFeatures, headPose, liveFromInput, liveInput, loadFaceModels, type Keypoints, type PixelBox } from '../lib/face-ml';
 import { useFaceStatus } from '../lib/face-status';
-import { BottomBar, Button, ErrorNote, cx } from '../ui';
+import { markPrimed, pendingCapturePermissions, type PermissionNeed } from '../lib/permissions';
+import { BottomBar, Button, ErrorNote, Spinner, cx } from '../ui';
 
 const HOLD_MS = 3000; // wajah harus stabil selama ini sebelum foto diambil otomatis
 const OUT_W = 900;
@@ -29,7 +30,64 @@ type Verdict =
 const withTimeout = <T,>(p: Promise<T>, ms: number) => Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 type Geo = { state: 'loading' } | { state: 'ok'; fix: Fix } | { state: 'error'; message: string };
 
+/**
+ * Pengantar sebelum dialog izin sistem. Layar presensi meminta kamera dan lokasi begitu dibuka; tanpa pengantar, dua dialog muncul
+ * tiba-tiba dan mudah ditolak (izin yang ditolak hanya bisa dipulihkan lewat pengaturan HP). Hanya menyebut izin yang memang akan ditanyakan.
+ */
+function PermissionPrimer({ need, faceActive, locationRequired, onContinue }: { need: PermissionNeed; faceActive: boolean; locationRequired: boolean; onContinue: () => void }) {
+  const what = need.camera && need.location ? 'kamera dan lokasi' : need.camera ? 'kamera' : 'lokasi';
+  return (
+    <div className="flex flex-1 flex-col gap-4">
+      <div className="flex flex-1 flex-col justify-center gap-4">
+        <div className="text-center">
+          <h2 className="text-2xl font-extrabold">Izinkan {what}</h2>
+          <p className="mt-1 text-muted">Setelah ini HP akan meminta izin {what}. Pilih "Izinkan" agar presensi bisa dicatat. Hanya dipakai saat presensi.</p>
+        </div>
+        <ul className="divide-y divide-line rounded-2xl bg-surface px-4 shadow-card">
+          {need.camera && (
+            <li className="flex items-center gap-3 py-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-sub" aria-hidden="true"><Camera className="size-5" /></span>
+              <span><span className="block font-medium">Kamera</span><span className="block text-sm text-muted">{faceActive ? 'Untuk foto presensi dan verifikasi wajah.' : 'Untuk foto presensi.'}</span></span>
+            </li>
+          )}
+          {need.location && (
+            <li className="flex items-center gap-3 py-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-sub" aria-hidden="true"><MapPin className="size-5" /></span>
+              <span><span className="block font-medium">Lokasi</span><span className="block text-sm text-muted">{locationRequired ? 'Wajib, untuk memastikan presensi dilakukan di area kantor.' : 'Untuk mencatat lokasi saat presensi.'}</span></span>
+            </li>
+          )}
+        </ul>
+        <p className="text-center text-sm text-muted">Caranya: posisikan wajah di bingkai dan tahan {HOLD_MS / 1000} detik, foto diambil otomatis.</p>
+      </div>
+      <BottomBar><Button className="w-full" onClick={onContinue}>Lanjut</Button></BottomBar>
+    </div>
+  );
+}
+
+/** Layar presensi. Bila ada izin yang belum pernah ditanyakan, pengantar ditampilkan dulu; kamera dan lokasi baru diminta setelah "Lanjut". */
 export default function AttendanceCapture() {
+  const { type } = useParams();
+  const [need, setNeed] = useState<PermissionNeed | null>(null); // null = masih memeriksa
+  const policy = useToday().data?.policy;
+  const faceStatus = useFaceStatus().data;
+  useEffect(() => {
+    let cancelled = false;
+    void pendingCapturePermissions().then((n) => { if (!cancelled) setNeed(n); });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (type !== 'in' && type !== 'out') return <Navigate to="/presensi" replace />;
+  if (!need) return <Spinner />;
+  if (need.camera || need.location) {
+    return (
+      <PermissionPrimer need={need} faceActive={Boolean(faceStatus && faceStatus.settings.mode !== 'off' && faceStatus.active)} locationRequired={policy?.locationMode === 'block'}
+        onContinue={() => { markPrimed(); setNeed({ camera: false, location: false }); }} />
+    );
+  }
+  return <CaptureScreen />;
+}
+
+function CaptureScreen() {
   const { type } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
