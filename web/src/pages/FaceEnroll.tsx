@@ -6,25 +6,24 @@ import type { FaceDetector } from '@mediapipe/tasks-vision';
 import { api } from '../lib/api';
 import { fmtDate } from '../lib/leave-types';
 import { loadFaceDetector, snapshotVideo } from '../lib/face';
-import { alignFace, embedFace, faceFeatures, headPose, loadFaceModels, type FaceModels } from '../lib/face-ml';
+import { alignFace, embedFace, faceFeatures, headPose, liveFromInput, liveInput, loadFaceModels, type FaceModels } from '../lib/face-ml';
 import { useFaceStatus } from '../lib/face-status';
 import { BottomBar, Button, Card, Chip, ErrorNote, Sheet, Spinner } from '../ui';
 
-// Pendaftaran bertahap: hadap depan (2 sampel), lalu satu putaran kepala melingkar yang dibagi 8 arah (1 sampel per arah).
-const HOLD_MS = 500;
-const YAW_NEED = 0.2;
-const PITCH_NEED = 0.12;
-const GAP_MS = 250;
-const FRONT_SHOTS = 2;
-const CIRCLE_SHOTS = 8;
-const CIRCLE_MIN_DONE = 6;
+// Pendaftaran hadap depan: beberapa sampel diambil otomatis saat wajah lurus, diam, dan tajam. Kondisinya sengaja sama dengan saat
+// presensi (AttendanceCapture hanya memverifikasi wajah hadap depan), jadi tidak ada putaran kepala: sampel pose menoleh tidak pernah
+// jadi pembanding yang relevan dan, karena pencocokan memakai skor tertinggi, justru menambah peluang salah orang.
+const SHOTS = 5;
+const HOLD_MS = 400; // wajah harus lurus dan di tengah selama ini sebelum sampel diambil
+const GAP_MS = 300; // jeda antar sampel supaya tidak identik
+const YAW_MAX = 0.15; // sama dengan gerbang arah wajah saat presensi
 const SHARP_MIN = 150; // sampel lebih buram dari ini dilewati (tergantung kamera; dari uji di HP: bingkai bagus 250-900)
 const OUTLIER_MEAN_SIM = 0.2; // sampel yang rata-rata kemiripannya ke sampel lain di bawah ini dibuang
+const BLUR_MSG_MS = 1200; // pesan "kurang tajam" ditahan selama ini agar terbaca
 
-interface Enrolled { vectors: Float32Array[]; photo: Blob; stats: { lum: number; sharp: number; eyeRatio: number } }
+/** `live`: median skor wajah asli sampel (penanda untuk HC, bukan penolak); null bila model liveness tidak tersedia. */
+interface Enrolled { vectors: Float32Array[]; photo: Blob; stats: { lum: number; sharp: number; eyeRatio: number; live: number | null } }
 type View = 'status' | 'consent' | 'capture' | 'review';
-
-const sectorOf = (sx: number, sy: number) => ((Math.round(Math.atan2(sy, sx) / (Math.PI / 4)) % 8) + 8) % 8;
 
 /** Buang sampel pencilan (buram/salah): rata-rata kemiripannya ke sampel lain terlalu rendah. */
 function trimOutliers<T extends { emb: Float32Array }>(s: T[]): T[] {
@@ -34,11 +33,6 @@ function trimOutliers<T extends { emb: Float32Array }>(s: T[]): T[] {
   });
 }
 
-const arc = (k: number) => {
-  const R = 35, cx = 37.5, cy = 50, a0 = ((k * 45 - 17) * Math.PI) / 180, a1 = ((k * 45 + 17) * Math.PI) / 180;
-  return `M ${cx + R * Math.cos(a0)} ${cy + R * Math.sin(a0)} A ${R} ${R} 0 0 1 ${cx + R * Math.cos(a1)} ${cy + R * Math.sin(a1)}`;
-};
-
 /** Kamera + deteksi + pengambilan sampel. Memanggil onDone sekali setelah cukup sampel. */
 function Capturer({ onDone, onCancel }: { onDone: (r: Enrolled) => void; onCancel: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -46,23 +40,17 @@ function Capturer({ onDone, onCancel }: { onDone: (r: Enrolled) => void; onCance
   const finishNow = useRef(false);
   const [msg, setMsg] = useState('Menyiapkan kamera dan model…');
   const [err, setErr] = useState<string | null>(null);
-  const [front, setFront] = useState(0);
-  const [sectors, setSectors] = useState<boolean[]>(Array(8).fill(false));
-  const [dot, setDot] = useState({ x: 0, y: 0 });
-  const circleDone = sectors.filter(Boolean).length;
-  const inCircle = front >= FRONT_SHOTS;
+  const [done, setDone] = useState(0);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false, raf = 0;
     let det: FaceDetector | null = null;
     let stream: MediaStream | null = null;
     let models: FaceModels | null = null;
-    const samples: { emb: Float32Array; feat: { lum: number; sharp: number; eyeRatio: number } }[] = [];
+    const samples: { emb: Float32Array; feat: { lum: number; sharp: number; eyeRatio: number }; live: number | null }[] = [];
     let refPhoto: Blob | null = null;
-    const frontPoses: { yaw: number; pitch: number }[] = [];
-    let base = { yaw: 0, pitch: 0 };
-    const secs: boolean[] = Array(8).fill(false);
-    let frontDone = 0, lastVec: { x: number; y: number } | null = null, hold: number | null = null, lastShot = 0, busy = false, smooth: { yaw: number; pitch: number }[] = [];
+    let hold: number | null = null, lastShot = 0, blurAt = -Infinity, busy = false, smooth: { yaw: number; pitch: number }[] = [];
     let finished = false;
     const stop = () => { cancelAnimationFrame(raf); stream?.getTracks().forEach((t) => t.stop()); stream = null; det?.close(); det = null; };
 
@@ -71,9 +59,11 @@ function Capturer({ onDone, onCancel }: { onDone: (r: Enrolled) => void; onCance
       finished = true;
       stop();
       const kept = trimOutliers(samples);
-      if (kept.length < FACE_ENROLL_MIN || !refPhoto) { setErr('Hasil pendaftaran kurang konsisten (kemungkinan terlalu gelap, buram, atau wajah bergerak terlalu cepat). Ulangi di tempat yang lebih terang dan putar kepala lebih pelan.'); return; }
+      if (kept.length < FACE_ENROLL_MIN || !refPhoto) { setErr('Hasil pendaftaran kurang konsisten (kemungkinan terlalu gelap, buram, atau wajah bergerak). Ulangi di tempat yang lebih terang dan tahan HP lebih stabil.'); return; }
       const avg = (k: 'lum' | 'sharp' | 'eyeRatio') => kept.reduce((t, s) => t + s.feat[k], 0) / kept.length;
-      onDone({ vectors: kept.map((s) => s.emb), photo: refPhoto, stats: { lum: avg('lum'), sharp: avg('sharp'), eyeRatio: avg('eyeRatio') } });
+      const lives = kept.map((s) => s.live).filter((x): x is number => x !== null).sort((a, b) => a - b);
+      const live = lives.length ? lives[Math.floor((lives.length - 1) / 2)]! : null;
+      onDone({ vectors: kept.map((s) => s.emb), photo: refPhoto, stats: { lum: avg('lum'), sharp: avg('sharp'), eyeRatio: avg('eyeRatio'), live } });
     };
 
     (async () => {
@@ -104,67 +94,46 @@ function Capturer({ onDone, onCancel }: { onDone: (r: Enrolled) => void; onCance
         const v = videoRef.current;
         if (!v || !det || !models || busy || finished || v.readyState < 2 || now - last < 100) return;
         last = now;
+        if (finishNow.current && samples.length >= FACE_ENROLL_MIN) { finish(); return; }
         const dets = det.detectForVideo(v, now).detections;
         const d = dets.sort((a, b) => (b.boundingBox?.width ?? 0) - (a.boundingBox?.width ?? 0))[0];
         const w = v.videoWidth, h = v.videoHeight;
         const kps = d?.keypoints;
         const bb = d?.boundingBox;
-        if (!d || !kps || kps.length < 4 || !bb) { setMsg('Wajah tidak terlihat'); hold = null; smooth = []; return; }
+        const wait = (text: string) => { setMsg(text); setReady(false); hold = null; };
+        if (!d || !kps || kps.length < 4 || !bb) { wait('Wajah tidak terlihat'); smooth = []; return; }
         const cx = (bb.originX + bb.width / 2) / w, cy = (bb.originY + bb.height / 2) / h;
-        if (bb.width < w * 0.22 || cx < 0.25 || cx > 0.75 || cy < 0.2 || cy > 0.8) { setMsg(bb.width < w * 0.22 ? 'Dekatkan wajah ke kamera' : 'Posisikan wajah di tengah'); hold = null; return; }
+        if (bb.width < w * 0.22 || cx < 0.25 || cx > 0.75 || cy < 0.2 || cy > 0.8) { wait(bb.width < w * 0.22 ? 'Dekatkan wajah ke kamera' : 'Posisikan wajah di tengah'); return; }
         smooth.push(headPose(kps, w, h)); if (smooth.length > 3) smooth.shift();
-        const p = { yaw: smooth.reduce((t, q) => t + q.yaw, 0) / smooth.length, pitch: smooth.reduce((t, q) => t + q.pitch, 0) / smooth.length };
+        const yaw = smooth.reduce((t, q) => t + q.yaw, 0) / smooth.length;
+        // "Ambil sekarang" melewati gerbang arah dan jeda tahan (untuk wajah yang arah-nya salah terbaca), tetapi tidak gerbang ketajaman.
+        if (Math.abs(yaw) >= YAW_MAX && !force.current) { wait('Hadap lurus ke kamera'); return; }
 
-        const shoot = async (mark: () => void) => {
-          busy = true;
+        hold ??= now;
+        setReady(true);
+        setMsg(now - blurAt < BLUR_MSG_MS ? 'Kurang tajam: tahan HP stabil atau cari tempat lebih terang' : 'Tahan, tatap kamera');
+        if (now - lastShot < GAP_MS || (!force.current && now - hold < HOLD_MS)) return;
+        force.current = false;
+
+        busy = true;
+        void (async () => {
           try {
             const aligned = alignFace(v, kps, w, h);
             const feat = faceFeatures(aligned);
-            if (feat.sharp < SHARP_MIN) { setMsg('Kurang tajam, tahan sebentar'); return; }
-            if (!refPhoto && frontDone === 0) refPhoto = await snapshotVideo(v);
-            samples.push({ emb: await embedFace(models!, aligned), feat });
+            if (feat.sharp < SHARP_MIN) { blurAt = performance.now(); return; }
+            const liveIn = liveInput(v, bb, w, h); // dari bingkai yang sama dengan sampel, sebelum menunggu apa pun
+            refPhoto ??= await snapshotVideo(v);
+            const emb = await embedFace(models!, aligned);
+            const live = await liveFromInput(models!, liveIn).catch(() => null);
+            if (cancelled || finished) return;
+            samples.push({ emb, feat, live });
             lastShot = performance.now();
-            mark();
+            setDone(samples.length);
+            if (samples.length >= SHOTS) finish();
           } catch (e) {
             console.error('sampel wajah gagal', e);
           } finally { busy = false; }
-        };
-
-        if (frontDone < FRONT_SHOTS) {
-          const ok = Math.abs(p.yaw) < 0.12;
-          setMsg(ok ? 'Tahan, lurus ke kamera' : 'Hadap lurus ke kamera');
-          if (ok || force.current) {
-            hold ??= now;
-            if ((force.current || now - hold >= HOLD_MS) && now - lastShot >= 600) {
-              force.current = false; frontPoses.push(p);
-              void shoot(() => {
-                frontDone++; setFront(frontDone); hold = null;
-                if (frontDone >= FRONT_SHOTS) { base = { yaw: frontPoses.reduce((t, q) => t + q.yaw, 0) / frontPoses.length, pitch: frontPoses.reduce((t, q) => t + q.pitch, 0) / frontPoses.length }; lastVec = null; }
-              });
-            }
-          } else hold = null;
-          return;
-        }
-
-        // Putaran melingkar: vektor kepala relatif pose depan, dinormalkan per sumbu, ke arah layar (video dicerminkan).
-        const x = (p.yaw - base.yaw) / YAW_NEED, y = (p.pitch - base.pitch) / PITCH_NEED, r = Math.hypot(x, y);
-        const sx = -x, sy = y;
-        setDot({ x: sx, y: sy });
-        const sector = sectorOf(sx, sy);
-        const vel = lastVec ? Math.hypot(x - lastVec.x, y - lastVec.y) : 0;
-        lastVec = { x, y };
-        const count = secs.filter(Boolean).length;
-        setMsg(`Putar kepala pelan membentuk lingkaran (${count}/${CIRCLE_SHOTS})`);
-        if (finishNow.current && count >= CIRCLE_MIN_DONE) { finish(); return; }
-        const want = (r >= 1 && r < 6 && !secs[sector] && vel < 0.35) || (force.current && r >= 0.4);
-        if (want && now - lastShot >= GAP_MS) {
-          force.current = false;
-          void shoot(() => {
-            secs[sector] = true;
-            setSectors([...secs]);
-            if (secs.filter(Boolean).length >= CIRCLE_SHOTS) finish();
-          });
-        }
+        })();
       };
       raf = requestAnimationFrame(tick);
     })();
@@ -187,18 +156,18 @@ function Capturer({ onDone, onCancel }: { onDone: (r: Enrolled) => void; onCance
       <div className="relative mx-auto aspect-[3/4] w-full max-w-xs overflow-hidden rounded-2xl bg-black">
         <video ref={videoRef} playsInline muted className="size-full -scale-x-100 object-cover" />
         <svg viewBox="0 0 75 100" className="pointer-events-none absolute inset-0 size-full" aria-hidden="true">
-          {inCircle && sectors.map((on, k) => <path key={k} d={arc(k)} fill="none" strokeWidth="3" strokeLinecap="round" stroke={on ? '#22c55e' : '#ffffff66'} />)}
-          {inCircle && <circle r="2.2" fill="#facc15" cx={37.5 + Math.max(-38, Math.min(38, dot.x * 35))} cy={50 + Math.max(-38, Math.min(38, dot.y * 35))} />}
+          <ellipse cx="37.5" cy="47" rx="23" ry="30" fill="none" strokeWidth="0.8" strokeDasharray={ready ? undefined : '2.5 2'} stroke={ready ? '#22c55e' : '#ffffffaa'} />
         </svg>
         <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/60 to-transparent p-3 text-center font-semibold text-white drop-shadow" role="status" aria-live="polite">{msg}</div>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex gap-1.5 bg-gradient-to-t from-black/60 to-transparent p-3" aria-hidden="true">
+          {Array.from({ length: SHOTS }, (_, i) => <span key={i} className="h-1.5 flex-1 rounded-full" style={{ backgroundColor: i < done ? '#22c55e' : '#ffffff66' }} />)}
+        </div>
       </div>
-      <p className="text-center text-sm text-muted">
-        {!inCircle ? `Tahap 1 dari 2: hadap lurus (${front}/${FRONT_SHOTS}).` : `Tahap 2 dari 2: putar kepala pelan satu lingkaran sampai semua segmen hijau (${circleDone}/${CIRCLE_SHOTS}).`}
-      </p>
+      <p className="text-center text-sm text-muted">Tatap kamera dan tahan sebentar. Sampel diambil otomatis ({done}/{SHOTS}).</p>
       <BottomBar>
         <div className="grid grid-cols-2 gap-3">
           <Button variant="secondary" onClick={onCancel}>Batal</Button>
-          {inCircle && circleDone >= CIRCLE_MIN_DONE
+          {done >= FACE_ENROLL_MIN
             ? <Button onClick={() => { finishNow.current = true; }}>Selesai</Button>
             : <Button variant="secondary" onClick={() => { force.current = true; }}>Ambil sekarang</Button>}
         </div>
@@ -207,7 +176,7 @@ function Capturer({ onDone, onCancel }: { onDone: (r: Enrolled) => void; onCance
   );
 }
 
-/** Daftarkan wajah untuk verifikasi presensi: persetujuan biometrik, pendaftaran bertahap, kirim ke HC untuk dicocokkan dengan KTP. */
+/** Daftarkan wajah untuk verifikasi presensi: persetujuan biometrik, beberapa sampel hadap depan, kirim ke HC untuk dicocokkan dengan KTP. */
 export default function FaceEnroll() {
   const status = useFaceStatus();
   const qc = useQueryClient();
@@ -308,8 +277,8 @@ export default function FaceEnroll() {
         <p className="mb-1 font-semibold">Tips pendaftaran</p>
         <ul className="list-disc pl-5 text-muted">
           <li>Cahaya cukup dan merata, tanpa masker atau kacamata hitam.</li>
-          <li>Hadap lurus dulu, lalu putar kepala pelan satu lingkaran (atas, kanan, bawah, kiri).</li>
-          <li>Pegang HP stabil dan jangan bergerak terlalu cepat agar foto tidak buram.</li>
+          <li>Tatap kamera lurus dan tahan beberapa detik; sampel diambil otomatis.</li>
+          <li>Pegang HP stabil setinggi wajah agar foto tidak buram.</li>
         </ul>
       </Card>
 

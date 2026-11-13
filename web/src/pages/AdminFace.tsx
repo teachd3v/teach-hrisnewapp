@@ -8,7 +8,8 @@ import type { FaceTemplateInfo } from '../lib/face-status';
 import AttachmentLink from '../components/AttachmentLink';
 import { Button, Card, Chip, Empty, ErrorNote, Sheet, Spinner, Textarea } from '../ui';
 
-interface PendingRow extends FaceTemplateInfo { employeeId: string; name: string; photoKey: string; ktpKey: string | null; replacing: boolean }
+/** `live`: skor wajah asli saat pendaftaran (0-1); null bila tidak tersedia. */
+interface PendingRow extends FaceTemplateInfo { employeeId: string; name: string; photoKey: string; ktpKey: string | null; live: number | null; replacing: boolean }
 interface ApprovedRow extends FaceTemplateInfo { employeeId: string; name: string }
 interface AdminData { settings: FaceSettings; coverage: { enrolled: number; active: number }; pending: PendingRow[]; approved: ApprovedRow[] }
 
@@ -57,6 +58,7 @@ export default function AdminFace() {
                   <Chip tone="info">{r.sampleCount} sampel</Chip>
                   {r.replacing && <Chip tone="warn">Menggantikan pendaftaran lama</Chip>}
                   {!r.ktpKey && <Chip tone="bad">KTP belum diunggah</Chip>}
+                  {r.live !== null && r.live < d.settings.liveThreshold && <Chip tone="warn">Diduga foto/layar, periksa lebih teliti</Chip>}
                 </div>
                 <div className="flex flex-wrap gap-x-4">
                   <AttachmentLink fileKey={r.photoKey} label="Lihat foto wajah" />

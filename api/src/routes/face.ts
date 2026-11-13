@@ -38,6 +38,14 @@ const publicTemplate = (r: typeof face_templates.$inferSelect) => ({
   id: r.id, status: r.status, sampleCount: r.sample_count, createdAt: r.created_at, decidedAt: r.decided_at, note: r.status === 'rejected' ? r.decision_note : null,
 });
 
+/** Skor wajah asli saat pendaftaran (median sampel, dari perangkat) di kolom `stats`; null untuk pendaftaran lama atau bila model liveness tidak termuat. */
+function enrollLive(stats: string | null): number | null {
+  try {
+    const v = (JSON.parse(stats ?? 'null') as { live?: unknown } | null)?.live;
+    return typeof v === 'number' ? v : null;
+  } catch { return null; }
+}
+
 /** Status pendaftaran sendiri + pengaturan (ambang hanya untuk admin) + teks persetujuan. */
 face.get('/status', async (c) => {
   const db = drizzle(c.env.DB);
@@ -94,7 +102,7 @@ face.post('/verify', async (c) => {
   return c.json({ result });
 });
 
-/** Daftar wajah: multipart `photo` (referensi), `vectors` (JSON larik vektor), `stats` (JSON), `consent`='1', `consentVersion`. */
+/** Daftar wajah: multipart `photo` (referensi), `vectors` (JSON larik vektor), `stats` (JSON, termasuk `live` opsional), `consent`='1', `consentVersion`. */
 face.post('/enroll', async (c) => {
   const db = drizzle(c.env.DB);
   const me = await actor(c, db);
@@ -119,7 +127,10 @@ face.post('/enroll', async (c) => {
   let stats: string | null = null;
   try {
     const s = JSON.parse(typeof form.stats === 'string' ? form.stats : 'null') as Record<string, unknown> | null;
-    if (s && ['lum', 'sharp', 'eyeRatio'].every((k) => typeof s[k] === 'number' && Number.isFinite(s[k] as number))) stats = JSON.stringify({ lum: s.lum, sharp: s.sharp, eyeRatio: s.eyeRatio });
+    if (s && ['lum', 'sharp', 'eyeRatio'].every((k) => typeof s[k] === 'number' && Number.isFinite(s[k] as number))) {
+      const live = typeof s.live === 'number' && s.live >= 0 && s.live <= 1 ? s.live : null;
+      stats = JSON.stringify({ lum: s.lum, sharp: s.sharp, eyeRatio: s.eyeRatio, live });
+    }
   } catch { /* statistik opsional */ }
 
   const id = crypto.randomUUID();
@@ -190,7 +201,7 @@ face.get('/admin', async (c) => {
     settings: await loadFaceSettings(db),
     coverage: { enrolled: new Set(approved.map((r) => r.employee_id)).size, active },
     pending: rows.filter((r) => r.status === 'pending').map((r) => ({
-      ...publicTemplate(r), employeeId: r.employee_id, name: names.get(r.employee_id) ?? '-', photoKey: r.reference_photo_key, ktpKey: ktp.get(r.employee_id) ?? null, replacing: approved.some((a) => a.employee_id === r.employee_id),
+      ...publicTemplate(r), employeeId: r.employee_id, name: names.get(r.employee_id) ?? '-', photoKey: r.reference_photo_key, ktpKey: ktp.get(r.employee_id) ?? null, live: enrollLive(r.stats), replacing: approved.some((a) => a.employee_id === r.employee_id),
     })),
     approved: approved.map((r) => ({ ...publicTemplate(r), employeeId: r.employee_id, name: names.get(r.employee_id) ?? '-' })),
   });

@@ -7,8 +7,11 @@ import type { NotifyInput } from './leave-notifications';
 /** Model embedding yang dipakai. Embedding dari model berbeda tidak bisa dibandingkan; ganti model berarti daftar ulang. */
 export const FACE_MODEL_VERSION = 'sface-int8-2021dec';
 export const FACE_DIM = 128;
-/** Jumlah sampel (vektor) per pendaftaran. */
-export const FACE_ENROLL_MIN = 6;
+/**
+ * Jumlah sampel (vektor) per pendaftaran. Pendaftaran mengambil 5 sampel hadap depan; minimum 3 supaya satu-dua sampel
+ * yang dibuang (buram/pencilan) tidak memaksa mengulang. Template lama (sampai 10 sampel dari pendaftaran melingkar) tetap sah.
+ */
+export const FACE_ENROLL_MIN = 3;
 export const FACE_ENROLL_MAX = 12;
 
 /** 'off' = tidak ada verifikasi wajah; 'flag' = hasil hanya ditandai untuk HC, presensi tidak pernah ditolak karena wajah. */

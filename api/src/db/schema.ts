@@ -330,7 +330,7 @@ export const face_templates = sqliteTable('face_templates', {
   consent_at: text('consent_at').notNull(),
   consent_version: text('consent_version').notNull(),
   reference_photo_key: text('reference_photo_key').notNull(),
-  stats: text('stats'), // JSON {lum, sharp, eyeRatio} keadaan saat pendaftaran (untuk analisis)
+  stats: text('stats'), // JSON {lum, sharp, eyeRatio, live?} keadaan saat pendaftaran (untuk analisis; live = skor wajah asli, penanda bagi HC)
   created_at: text('created_at').notNull(),
   decided_by: text('decided_by'),
   decided_at: text('decided_at'),
