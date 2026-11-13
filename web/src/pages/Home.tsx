@@ -12,8 +12,7 @@ import ProfilePhoto from '../components/ProfilePhoto';
 import WeekStrip from '../components/WeekStrip';
 import { Button, Card, Segmented, Spinner } from '../ui';
 import { TodayCard } from './Attendance';
-import { PushPrompt } from '../components/PushCard';
-import { InstallCard } from '../components/Install';
+import SetupCard from '../components/SetupCard';
 import Overview from '../components/dashboard/Overview';
 import { usePersisted } from '../components/dashboard/parts';
 
@@ -70,8 +69,7 @@ export default function Home() {
           </div>
           <WeekStrip days={week.map((date) => ({ date, dot: dotFor(byDate.get(date)) }))} today={today} />
 
-          <InstallCard />
-          <PushPrompt />
+          <SetupCard />
 
           <Card>
             <p className="text-sm font-medium text-muted">Sisa cuti tahunan {new Date().getFullYear()}</p>

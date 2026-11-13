@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { ChevronRight, Download, Share, SquarePlus } from 'lucide-react';
-import { dismissInstall, installDismissed, promptInstall, useInstallState, type InstallState } from '../lib/install';
-import { Button, Card, Sheet } from '../ui';
+import { promptInstall, useInstallState, type InstallState } from '../lib/install';
+import { Button, Sheet } from '../ui';
 
 function Step({ n, children }: { n: number; children: ReactNode }) {
   return (
@@ -13,7 +13,7 @@ function Step({ n, children }: { n: number; children: ReactNode }) {
 }
 
 /** Langkah pasang sesuai platform. */
-function InstallGuide({ open, onClose, state }: { open: boolean; onClose: () => void; state: InstallState }) {
+export function InstallGuide({ open, onClose, state }: { open: boolean; onClose: () => void; state: InstallState }) {
   const isIos = state === 'ios';
   return (
     <Sheet open={open} onClose={onClose} title={isIos ? 'Pasang di iPhone' : 'Pasang di Android'}>
@@ -35,33 +35,7 @@ function InstallGuide({ open, onClose, state }: { open: boolean; onClose: () => 
   );
 }
 
-/** Ajakan di Beranda selama belum terpasang. Android: tombol pasang bawaan; iPhone: panduan. */
-export function InstallCard() {
-  const state = useInstallState();
-  const [guide, setGuide] = useState(false);
-  const [hidden, setHidden] = useState(installDismissed);
-  if (state === 'installed' || state === 'desktop' || hidden) return null;
-  return (
-    <Card className="flex flex-col gap-3">
-      <div className="flex items-start gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-sub" aria-hidden="true"><Download className="size-5" /></span>
-        <div>
-          <p className="font-semibold">Pasang aplikasi di HP</p>
-          <p className="text-sm text-muted">Buka lebih cepat dari layar utama, tampil layar penuh, dan notifikasi muncul sebagai popup.{state === 'ios' ? ' Di iPhone, ini juga syarat agar notifikasi bisa aktif.' : ''}</p>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <Button variant="ghost" onClick={() => { dismissInstall(); setHidden(true); }}>Nanti</Button>
-        {state === 'prompt'
-          ? <Button onClick={() => void promptInstall()}>Pasang</Button>
-          : <Button onClick={() => setGuide(true)}>Lihat caranya</Button>}
-      </div>
-      <InstallGuide open={guide} onClose={() => setGuide(false)} state={state} />
-    </Card>
-  );
-}
-
-/** Baris di tab Akun (tetap ada selama belum terpasang, walau ajakan di Beranda sudah ditutup). */
+/** Baris di tab Akun (tetap ada selama belum terpasang, walau kartu "Siapkan akun" di Beranda sudah ditutup). */
 export function InstallRow() {
   const state = useInstallState();
   const [guide, setGuide] = useState(false);

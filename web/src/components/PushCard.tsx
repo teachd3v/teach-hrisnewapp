@@ -5,9 +5,8 @@ import { Bell, BellOff, BellRing, ChevronDown } from 'lucide-react';
 import { disablePush, enablePush, getPushState, sendTestPush, type PushState } from '../lib/push';
 import { Button, Card, ErrorNote } from '../ui';
 
-const DISMISS_KEY = 'hris.push.dismissed';
-
-function usePushState() {
+/** Keadaan notifikasi di perangkat ini (null selama diperiksa) dan pemicu periksa ulang. */
+export function usePushState() {
   const [state, setState] = useState<PushState | null>(null);
   const refresh = useCallback(() => { void getPushState().then(setState); }, []);
   useEffect(refresh, [refresh]);
@@ -98,27 +97,6 @@ export function PushCard() {
           )}
         </div>
       )}
-    </Card>
-  );
-}
-
-/** Ajakan singkat di Beranda selama notifikasi belum aktif dan belum ditolak/ditutup. */
-export function PushPrompt() {
-  const [state, refresh] = usePushState();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<unknown>(null);
-  const [dismissed, setDismissed] = useState(() => { try { return localStorage.getItem(DISMISS_KEY) === '1'; } catch { return false; } });
-
-  if (state !== 'off' || dismissed) return null;
-  return (
-    <Card className="flex flex-col gap-2">
-      <p className="font-semibold">Aktifkan notifikasi</p>
-      <p className="text-sm text-muted">Dapatkan pemberitahuan pengajuan dan persetujuan langsung di layar HP, meski aplikasi tidak dibuka.</p>
-      <ErrorNote error={error} />
-      <div className="grid grid-cols-2 gap-3">
-        <Button variant="ghost" onClick={() => { try { localStorage.setItem(DISMISS_KEY, '1'); } catch { /* abaikan */ } setDismissed(true); }}>Nanti</Button>
-        <Button loading={busy} onClick={() => { setBusy(true); setError(null); enablePush().catch(setError).finally(() => { setBusy(false); refresh(); }); }}>Aktifkan</Button>
-      </div>
     </Card>
   );
 }

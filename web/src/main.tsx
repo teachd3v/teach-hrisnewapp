@@ -9,6 +9,7 @@ import { StackLayout, TabLayout } from './layouts';
 import { Spinner } from './ui';
 import Login from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
+import Setup from './pages/Setup';
 import Home from './pages/Home';
 import Leave from './pages/Leave';
 import LeaveForm from './pages/LeaveForm';
@@ -57,6 +58,7 @@ const router = createBrowserRouter(
       <Route path="/ganti-password" element={<ChangePassword />} />
 
       <Route element={<RequireAuth />}>
+        <Route path="/siapkan-akun" element={<Setup />} />
         <Route element={<TabLayout />}>
           <Route path="/" element={<Home />} handle={{ title: 'Beranda', bare: true }} />
           <Route path="/presensi" element={<Attendance />} handle={{ title: 'Riwayat presensi' }} />

@@ -13,7 +13,13 @@ interface AuthState {
   mustChangePassword: boolean;
   login(email: string, password: string): Promise<void>;
   logout(): Promise<void>;
-  changePassword(currentPassword: string, newPassword: string): Promise<void>;
+  /**
+   * true bila password awal yang baru saja dipakai masuk masih diingat (di memori saja), sehingga layar ganti password pertama
+   * tidak perlu memintanya lagi. Hilang saat aplikasi dimuat ulang.
+   */
+  hasInitialPassword: boolean;
+  /** `currentPassword` null = pakai password awal yang diingat. Perangkat ini tetap masuk; perangkat lain keluar. */
+  changePassword(currentPassword: string | null, newPassword: string): Promise<void>;
 }
 
 const Ctx = createContext<AuthState | null>(null);
@@ -22,11 +28,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [mustChangePassword, setMustChange] = useState(false);
+  // Password awal hanya disimpan di memori, dan hanya selama akun masih wajib menggantinya.
+  const [initialPassword, setInitialPassword] = useState<string | null>(null);
 
   const reset = useCallback(() => {
     clearTokens();
     setUser(null);
     setMustChange(false);
+    setInitialPassword(null);
   }, []);
 
   useEffect(() => {
@@ -36,8 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Pulihkan sesi dari refresh token tersimpan.
       if (refreshStore.get() && (await refreshSession())) {
         try {
-          const me = await api<User>('/auth/me');
-          if (!cancelled) { setUser(me); void syncPushSubscription(); }
+          const { mustChangePassword: must, ...me } = await api<User & { mustChangePassword?: boolean }>('/auth/me');
+          if (!cancelled) { setUser(me); setMustChange(Boolean(must)); void syncPushSubscription(); }
         } catch { /* sesi tidak valid: tampil login */ }
       }
       if (!cancelled) setLoading(false);
@@ -56,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       storeTokens(res);
       setMustChange(res.mustChangePassword);
+      setInitialPassword(res.mustChangePassword ? password : null);
       setUser(res.user);
       void syncPushSubscription();
     },
@@ -65,11 +75,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       reset();
       if (refreshToken) await apiPublic('/auth/logout', { method: 'POST', json: { refreshToken } }).catch(() => {});
     },
+    hasInitialPassword: initialPassword !== null,
     async changePassword(currentPassword, newPassword) {
-      await api('/auth/change-password', { method: 'POST', json: { currentPassword, newPassword } });
-      reset(); // server mencabut semua sesi: masuk lagi dengan password baru
+      const res = await api<TokenPair>('/auth/change-password', {
+        method: 'POST',
+        json: { currentPassword: currentPassword ?? initialPassword ?? '', newPassword, device: navigator.userAgent.slice(0, 80) },
+      });
+      // Server mencabut semua sesi lama lalu memberi sesi baru untuk perangkat ini: tidak perlu masuk lagi.
+      storeTokens(res);
+      setMustChange(false);
+      setInitialPassword(null);
     },
-  }), [user, loading, mustChangePassword, reset]);
+  }), [user, loading, mustChangePassword, initialPassword, reset]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

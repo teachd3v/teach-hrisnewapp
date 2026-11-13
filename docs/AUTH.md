@@ -7,8 +7,8 @@ Tanpa cookie, karena aplikasi Tauri memuat SPA dari origin lain.
 | `POST /api/auth/login` | – | `{email, password, device?}` → `{accessToken, refreshToken, expiresIn, mustChangePassword, user}` |
 | `POST /api/auth/refresh` | – | `{refreshToken}` → pasangan token baru (rotasi) |
 | `POST /api/auth/logout` | – | `{refreshToken}` → mencabut seluruh family token itu |
-| `GET /api/auth/me` | Bearer | profil singkat |
-| `POST /api/auth/change-password` | Bearer | `{currentPassword, newPassword}`; mencabut semua sesi, klien login ulang |
+| `GET /api/auth/me` | Bearer | profil singkat + `mustChangePassword` (supaya memuat ulang aplikasi tidak melewati kewajiban mengganti password awal) |
+| `POST /api/auth/change-password` | Bearer | `{currentPassword, newPassword, device?}` → `{ok, accessToken, refreshToken, expiresIn}`; mencabut semua sesi lama lalu menerbitkan sesi baru untuk perangkat ini (perangkat lain keluar, perangkat ini tetap masuk) |
 
 ## Aturan
 - Access token: JWT HS256, 15 menit (`JWT_SECRET`). Klaim: `sub`, `role`, `iat`, `exp`.

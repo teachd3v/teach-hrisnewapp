@@ -177,10 +177,15 @@ function Capturer({ onDone, onCancel }: { onDone: (r: Enrolled) => void; onCance
 }
 
 /** Daftarkan wajah untuk verifikasi presensi: persetujuan biometrik, beberapa sampel hadap depan, kirim ke HC untuk dicocokkan dengan KTP. */
-export default function FaceEnroll() {
+/**
+ * `flow`: dipakai di dalam penyiapan akun (pages/Setup). Layar status dilewati (langsung persetujuan); batal memanggil `onCancel`
+ * dan pendaftaran yang terkirim memanggil `onDone`, alih-alih kembali ke layar status.
+ */
+export default function FaceEnroll({ flow }: { flow?: { onDone: () => void; onCancel: () => void } } = {}) {
   const status = useFaceStatus();
   const qc = useQueryClient();
-  const [view, setView] = useState<View>('status');
+  const [view, setView] = useState<View>(flow ? 'consent' : 'status');
+  const exit = () => (flow ? flow.onCancel() : setView('status'));
   const [agree, setAgree] = useState(false);
   const [data, setData] = useState<(Enrolled & { url: string }) | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -200,7 +205,11 @@ export default function FaceEnroll() {
       fd.append('consentVersion', s!.consent.version);
       return api('/face/enroll', { method: 'POST', body: fd });
     },
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['face-status'] }); setSent(true); setView('status'); setData(null); setAgree(false); },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['face-status'] });
+      if (flow) { flow.onDone(); return; }
+      setSent(true); setView('status'); setData(null); setAgree(false);
+    },
   });
   const withdraw = useMutation({
     mutationFn: () => api('/face/me', { method: 'DELETE' }),
@@ -223,7 +232,7 @@ export default function FaceEnroll() {
         </label>
         <BottomBar>
           <div className="grid grid-cols-2 gap-3">
-            <Button variant="secondary" onClick={() => setView('status')}>Batal</Button>
+            <Button variant="secondary" onClick={exit}>Batal</Button>
             <Button disabled={!agree} onClick={() => { setAttempt((n) => n + 1); setView('capture'); }}>Lanjut</Button>
           </div>
         </BottomBar>
@@ -232,7 +241,7 @@ export default function FaceEnroll() {
   }
 
   if (view === 'capture') {
-    return <Capturer key={attempt} onCancel={() => setView('status')} onDone={(r) => { setData({ ...r, url: URL.createObjectURL(r.photo) }); setView('review'); }} />;
+    return <Capturer key={attempt} onCancel={exit} onDone={(r) => { setData({ ...r, url: URL.createObjectURL(r.photo) }); setView('review'); }} />;
   }
 
   if (view === 'review' && data) {

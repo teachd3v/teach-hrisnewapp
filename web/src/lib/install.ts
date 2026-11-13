@@ -58,12 +58,3 @@ export async function promptInstall(): Promise<'accepted' | 'dismissed' | 'unava
   emit();
   return outcome;
 }
-
-const DISMISS_KEY = 'hris.install.dismissed';
-const SNOOZE_MS = 14 * 24 * 3600_000;
-export const installDismissed = (): boolean => {
-  try { const t = Number(localStorage.getItem(DISMISS_KEY)); return t > 0 && Date.now() - t < SNOOZE_MS; } catch { return false; }
-};
-export const dismissInstall = (): void => {
-  try { localStorage.setItem(DISMISS_KEY, String(Date.now())); } catch { /* abaikan */ }
-};

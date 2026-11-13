@@ -160,14 +160,22 @@ auth.post('/logout', async (c) => {
 
 auth.get('/me', requireAuth, async (c) => {
   const db = drizzle(c.env.DB);
-  const [emp] = await db.select().from(employees).where(eq(employees.id, c.get('user').id)).limit(1);
+  const id = c.get('user').id;
+  const [[emp], [cred]] = await Promise.all([
+    db.select().from(employees).where(eq(employees.id, id)).limit(1),
+    db.select({ must: credentials.must_change_password }).from(credentials).where(eq(credentials.employee_id, id)).limit(1),
+  ]);
   if (!emp || !emp.active) return c.json({ error: 'Sesi berakhir' }, 401);
-  return c.json({ id: emp.id, name: emp.name, email: emp.email, role: emp.role, title: emp.title });
+  // `mustChangePassword` ikut dikirim supaya memuat ulang aplikasi tidak melewati kewajiban mengganti password awal.
+  return c.json({ id: emp.id, name: emp.name, email: emp.email, role: emp.role, title: emp.title, mustChangePassword: Boolean(cred?.must) });
 });
 
-/** Ganti password: mencabut semua sesi; klien harus login ulang. */
+/**
+ * Ganti password: mencabut semua sesi lama (perangkat lain keluar), lalu menerbitkan pasangan token baru untuk perangkat ini
+ * sehingga pengguna tidak perlu masuk lagi (penting untuk alur akun baru: ganti password awal langsung lanjut ke penyiapan akun).
+ */
 auth.post('/change-password', requireAuth, async (c) => {
-  const body = await c.req.json<{ currentPassword?: string; newPassword?: string }>().catch(() => ({}) as never);
+  const body = await c.req.json<{ currentPassword?: string; newPassword?: string; device?: string }>().catch(() => ({}) as never);
   const { currentPassword, newPassword } = body;
   if (typeof currentPassword !== 'string' || typeof newPassword !== 'string') return c.json({ error: 'Data tidak lengkap' }, 400);
   const invalid = validateNewPassword(newPassword);
@@ -178,12 +186,16 @@ auth.post('/change-password', requireAuth, async (c) => {
   const id = c.get('user').id;
   const [cred] = await db.select().from(credentials).where(eq(credentials.employee_id, id)).limit(1);
   if (!cred || !(await verifyPassword(currentPassword, cred.password_hash))) return c.json({ error: 'Password saat ini salah' }, 400);
+  const [emp] = await db.select({ id: employees.id, role: employees.role, active: employees.active }).from(employees).where(eq(employees.id, id)).limit(1);
+  if (!emp || !emp.active) return c.json({ error: 'Sesi berakhir' }, 401);
 
   const now = new Date().toISOString();
   await db.batch([
     db.update(credentials).set({ password_hash: await hashPassword(newPassword), must_change_password: false, password_changed_at: now, failed_attempts: 0, locked_until: null }).where(eq(credentials.employee_id, id)),
     db.update(refresh_tokens).set({ revoked_at: now }).where(and(eq(refresh_tokens.employee_id, id), isNull(refresh_tokens.revoked_at))),
   ]);
+  // Diterbitkan SETELAH pencabutan di atas, jadi hanya sesi baru ini yang tetap berlaku.
+  const tokens = await issueTokens(db, c.env, emp, { deviceLabel: typeof body.device === 'string' ? body.device.slice(0, 80) : null });
   await writeAudit(db, { actorId: id, action: 'auth.password_changed', ip: clientIp(c.req) });
-  return c.json({ ok: true });
+  return c.json({ ok: true, ...tokens });
 });
