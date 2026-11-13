@@ -2,6 +2,12 @@
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
+    <!-- Alamat lama dialihkan ke domain resmi sebelum aplikasi dimuat (docs/DECISIONS.md, "Sumber daya Cloudflare"). Hanya alamat produksi
+         lama persis: alamat pratinjau (<hash>.teach-hris-spa.pages.dev) dan localhost tidak ikut. Yang dialihkan hanya halaman; API di
+         alamat lama tetap melayani karena Worker cron masih memanggilnya. -->
+    <script>
+      if (location.hostname === 'teach-hris-spa.pages.dev') location.replace('https://app.hrteach.site' + location.pathname + location.search + location.hash);
+    </script>
     <!-- viewport-fit=cover: konten boleh sampai tepi layar; inset aman diatur lewat env(safe-area-inset-*). Zoom tidak dimatikan (aksesibilitas). -->
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#ffffff" />
