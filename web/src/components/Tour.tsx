@@ -15,6 +15,9 @@ const PAD = 4;
 const GAP = 14;
 const DIM = 'rgba(15, 23, 42, 0.62)';
 
+/** Sasaran yang sedang terlihat: menu bawah dan menu samping memakai penanda yang sama, dan salah satunya tersembunyi menurut lebar layar. */
+const findTarget = (name: string) => [...document.querySelectorAll(`[data-tour="${name}"]`)].find((e) => e.getClientRects().length > 0) ?? null;
+
 interface Box { x: number; y: number; w: number; h: number; W: number; H: number }
 
 /**
@@ -34,7 +37,7 @@ function CoachMarks({ steps, finalAction, onClose }: { steps: CoachStep[]; final
     let timer = 0;
     const measure = () => {
       const host = root.current;
-      const el = document.querySelector(`[data-tour="${s.target}"]`);
+      const el = findTarget(s.target);
       if (!host) return;
       if (!el) {
         // Sasaran belum ada di layar: coba lagi sebentar; bila tetap tidak ada, lewati titik ini.
@@ -47,7 +50,7 @@ function CoachMarks({ steps, finalAction, onClose }: { steps: CoachStep[]; final
       setBox({ x: b.left - a.left, y: b.top - a.top, w: b.width, h: b.height, W: a.width, H: a.height });
     };
     setBox(null);
-    document.querySelector(`[data-tour="${s.target}"]`)?.scrollIntoView({ block: 'center', behavior: 'instant' });
+    findTarget(s.target)?.scrollIntoView({ block: 'center', behavior: 'instant' });
     measure();
     window.addEventListener('resize', measure);
     return () => { window.clearTimeout(timer); window.removeEventListener('resize', measure); };
@@ -68,7 +71,8 @@ function CoachMarks({ steps, finalAction, onClose }: { steps: CoachStep[]; final
   const bw = box ? Math.min(288, box.W - 24) : 0;
   const cx = box ? box.x + box.w / 2 : 0;
   const left = box ? Math.max(12, Math.min(cx - bw / 2, box.W - bw - 12)) : 0;
-  // Gelembung ditaruh di sisi sorotan yang ruangnya lebih lapang.
+  // Sasaran di menu samping (desktop): gelembung di sisi kanannya. Selain itu di atas atau di bawah sorotan, mana yang lebih lapang.
+  const side = Boolean(box) && box!.W >= 1024 && box!.x + box!.w < 360;
   const above = Boolean(hole && box) && hole!.top >= box!.H - (hole!.top + hole!.height);
 
   return (
@@ -78,7 +82,7 @@ function CoachMarks({ steps, finalAction, onClose }: { steps: CoachStep[]; final
           <div aria-hidden="true" className="absolute rounded-2xl ring-2 ring-white/80" style={{ ...hole, boxShadow: `0 0 0 9999px ${DIM}` }} />
           <div ref={bubble} role="dialog" aria-modal="true" aria-label="Panduan singkat" tabIndex={-1}
             className="screen-in absolute rounded-2xl bg-surface p-4 shadow-card outline-none"
-            style={{ left, width: bw, ...(above ? { bottom: box.H - hole.top + GAP } : { top: hole.top + hole.height + GAP }) }}>
+            style={side ? { left: hole.left + hole.width + GAP, width: bw, top: Math.max(12, Math.min(hole.top, box.H - 260)) } : { left, width: bw, ...(above ? { bottom: box.H - hole.top + GAP } : { top: hole.top + hole.height + GAP }) }}>
             <p className="text-xs font-semibold text-muted">{step + 1} dari {steps.length}</p>
             <p className="mt-1 font-medium" aria-live="polite">{s.text}</p>
             {last ? (
@@ -93,7 +97,9 @@ function CoachMarks({ steps, finalAction, onClose }: { steps: CoachStep[]; final
                 <Button onClick={() => setStep(step + 1)}>Lanjut</Button>
               </div>
             )}
-            <span aria-hidden="true" className={`absolute size-3 rotate-45 bg-surface ${above ? '-bottom-1.5' : '-top-1.5'}`} style={{ left: Math.max(18, Math.min(cx - left, bw - 18)) - 6 }} />
+            {side
+              ? <span aria-hidden="true" className="absolute -left-1.5 size-3 rotate-45 bg-surface" style={{ top: Math.max(18, Math.min(hole.top + hole.height / 2 - Math.max(12, Math.min(hole.top, box.H - 260)), 200)) - 6 }} />
+              : <span aria-hidden="true" className={`absolute size-3 rotate-45 bg-surface ${above ? '-bottom-1.5' : '-top-1.5'}`} style={{ left: Math.max(18, Math.min(cx - left, bw - 18)) - 6 }} />}
           </div>
         </>
       )}
@@ -140,7 +146,7 @@ export function HomeTour() {
   if (!active) return null;
   const admin = Boolean(user && isAdmin(user.role));
   const steps: CoachStep[] = [
-    { target: 'punch', text: 'Satu ketukan untuk presensi masuk dan pulang.', lift: 22 },
+    { target: 'punch', text: 'Satu ketukan untuk presensi masuk dan pulang.', lift: window.matchMedia('(min-width: 1024px)').matches ? 0 : 22 },
     { target: 'izin', text: 'Ajukan izin, cuti, dan overtime di sini.' },
     { target: 'akun', text: admin ? 'Notifikasi, wajah, wallpaper, menu Admin, dan panduan ini ada di Akun.' : 'Notifikasi, wajah, wallpaper, dan panduan ini ada di Akun.' },
   ];

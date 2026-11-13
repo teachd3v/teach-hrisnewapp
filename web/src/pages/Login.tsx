@@ -55,7 +55,8 @@ export default function Login() {
   }
 
   return (
-    <main className="pt-safe pb-safe mx-auto flex min-h-dvh max-w-md flex-col gap-8 px-6 py-8">
+    <div className="lg:grid lg:min-h-dvh lg:place-items-center lg:p-8">
+    <main className="pt-safe pb-safe mx-auto flex min-h-dvh max-w-md flex-col gap-8 px-6 py-8 lg:min-h-0 lg:w-full lg:rounded-3xl lg:bg-surface lg:p-10 lg:shadow-card">
       <div className="my-auto flex flex-col gap-8">
       <div>
         <img src="/icons/logo-mark-256.png" alt="" height={64} className="mb-4 h-16 w-auto" />
@@ -81,5 +82,6 @@ export default function Login() {
       </div>
       <footer className="text-center text-xs text-muted">IT TEACH GREAT Edunesia . 2026 v2.0</footer>
     </main>
+    </div>
   );
 }

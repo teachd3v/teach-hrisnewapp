@@ -105,7 +105,8 @@ export const ErrorNote = ({ error }: { error: unknown }) =>
 
 /** Bilah aksi menempel di bawah area gulir, di atas inset aman. */
 export function BottomBar({ children }: { children: ReactNode }) {
-  return <div className="sticky bottom-0 z-10 -mx-4 mt-auto rounded-t-3xl bg-surface px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(30,41,59,0.08)] after:absolute after:inset-x-0 after:top-full after:h-8 after:bg-surface">{children}</div>;
+  // Desktop: kartu biasa di bawah isi (bukan bilah selebar layar yang menempel).
+  return <div className="sticky bottom-0 z-10 -mx-4 mt-auto rounded-t-3xl bg-surface px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(30,41,59,0.08)] after:absolute after:inset-x-0 after:top-full after:h-8 after:bg-surface lg:static lg:mx-0 lg:mt-4 lg:rounded-2xl lg:pb-3 lg:shadow-card lg:after:hidden">{children}</div>;
 }
 
 /** Lembar dari bawah. Esc/ketuk latar menutup; fokus dipindah ke lembar dan dikembalikan saat ditutup. */
@@ -134,11 +135,11 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
   }, [open]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-50 flex items-end justify-center lg:items-center lg:p-6">
       <div className="scrim-in absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
       <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={titleId}
-        className="sheet-in relative max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-surface px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] outline-none">
-        <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-line" aria-hidden="true" />
+        className="sheet-in relative max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-surface px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] outline-none lg:rounded-3xl lg:px-6 lg:pb-6">
+        <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-line lg:hidden" aria-hidden="true" />
         <h2 id={titleId} className="mb-3 text-lg font-semibold">{title}</h2>
         {children}
       </div>

@@ -46,7 +46,8 @@ export default function ChangePassword() {
 
   if (done) {
     return (
-      <main className="pt-safe pb-safe mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 px-6 py-8">
+      <div className="lg:grid lg:min-h-dvh lg:place-items-center lg:p-8">
+    <main className="pt-safe pb-safe mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 px-6 py-8 lg:min-h-0 lg:w-full lg:rounded-3xl lg:bg-surface lg:p-10 lg:shadow-card">
         <div role="status" className="flex flex-col items-center gap-3 text-center">
           <CircleCheck className="size-12 text-ok" aria-hidden="true" />
           <h1 className="text-2xl font-bold">Password diganti</h1>
@@ -54,11 +55,13 @@ export default function ChangePassword() {
         </div>
         <Button onClick={leave}>Kembali</Button>
       </main>
+    </div>
     );
   }
 
   return (
-    <main className="pt-safe pb-safe mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 px-6 py-8">
+    <div className="lg:grid lg:min-h-dvh lg:place-items-center lg:p-8">
+    <main className="pt-safe pb-safe mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 px-6 py-8 lg:min-h-0 lg:w-full lg:rounded-3xl lg:bg-surface lg:p-10 lg:shadow-card">
       <div>
         <h1 className="text-2xl font-bold">{first ? `Selamat datang, ${user.name.split(' ')[0]}` : 'Ganti password'}</h1>
         <p className="mt-1 text-muted">{first ? 'Buat password baru untuk mulai memakai aplikasi.' : 'Perangkat ini tetap masuk; perangkat lain akan diminta masuk lagi.'}</p>
@@ -73,5 +76,6 @@ export default function ChangePassword() {
         {!first && <Button variant="ghost" onClick={leave}>Batal</Button>}
       </form>
     </main>
+    </div>
   );
 }

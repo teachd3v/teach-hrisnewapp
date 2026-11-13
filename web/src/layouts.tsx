@@ -10,14 +10,19 @@ import { AdminTour, HomeTour } from './components/Tour';
 import { PullIndicator, usePullToRefresh } from './lib/pull-to-refresh';
 import { useUpdateAvailable } from './lib/version';
 
-/** Area isi bergulir + tarik-untuk-segarkan. Dipasang ulang per rute (animasi masuk + pendengar sentuh baru). */
-function Screen({ children }: { children: ReactNode }) {
+// Tampilan desktop (>= 1024 px, kelas `lg:`): menu bawah menjadi menu samping, isi dibatasi lebarnya dan diletakkan di tengah,
+// latar (wallpaper) memenuhi jendela. Di bawah 1024 px (HP dan tablet) tampilan tetap satu kolom seperti semula.
+
+/** Area isi bergulir + tarik-untuk-segarkan. Dipasang ulang per rute (animasi masuk + pendengar sentuh baru). `max` = batas lebar isi di desktop. */
+function Screen({ children, max }: { children: ReactNode; max: string }) {
   const ref = useRef<HTMLElement>(null);
   const { pull, refreshing } = usePullToRefresh(ref);
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <PullIndicator pull={pull} refreshing={refreshing} />
-      <main ref={ref} className="screen-in flex flex-1 flex-col overflow-y-auto overscroll-contain px-[max(1rem,env(safe-area-inset-left),env(safe-area-inset-right))] pb-6 pt-4">{children}</main>
+      <main ref={ref} className="screen-in flex flex-1 flex-col overflow-y-auto overscroll-contain px-[max(1rem,env(safe-area-inset-left),env(safe-area-inset-right))] pb-6 pt-4 lg:px-8 lg:pb-8">
+        <div className={cx('mx-auto flex w-full flex-1 flex-col', max)}>{children}</div>
+      </main>
     </div>
   );
 }
@@ -58,7 +63,7 @@ function Badge({ n }: { n: number }) {
   );
 }
 
-// `tour`: penanda sasaran tur (components/Tour.tsx mencarinya lewat atribut data-tour).
+// `tour`: penanda sasaran tur (components/Tour.tsx mencarinya lewat atribut data-tour; yang dipilih elemen yang sedang terlihat).
 const TABS_LEFT = [
   { to: '/', label: 'Beranda', icon: House, end: true, tour: 'beranda' },
   { to: '/cuti', label: 'Izin', icon: CalendarDays, tour: 'izin' },
@@ -68,8 +73,8 @@ const TABS_RIGHT = [
   { to: '/akun', label: 'Akun', icon: UserRound, tour: 'akun' },
 ] as const;
 
-/** Tombol presensi di tengah menu bawah: satu ketukan langsung ke kamera sesuai keadaan hari ini (masuk, pulang, atau riwayat bila selesai). */
-function PunchTab() {
+/** Keadaan tombol presensi hari ini: satu ketukan langsung ke kamera sesuai keadaan (masuk, pulang, atau kartu bila sudah selesai). */
+function usePunch() {
   const today = useToday();
   const r = today.data?.record;
   const state = !today.data ? 'load' : !r?.clock_in ? 'in' : !r.clock_out ? 'out' : 'done';
@@ -80,13 +85,19 @@ function PunchTab() {
     done: { to: '/presensi/selesai', label: 'Selesai', aria: 'Presensi hari ini selesai, buka kartu hari ini', Icon: CircleCheck, bg: 'bg-blue-600' },
   }[state];
   const text = state === 'in' ? 'text-punch-in' : state === 'out' ? 'text-punch-out' : state === 'done' ? 'text-blue-700' : 'text-muted';
+  return { ...cfg, text };
+}
+
+/** Tombol presensi di tengah menu bawah (HP). */
+function PunchTab() {
+  const cfg = usePunch();
   return (
     <li>
       <Link to={cfg.to} aria-label={cfg.aria} data-tour="punch" className="relative flex min-h-16 items-end justify-center pb-[11px]">
         <span className={cx('absolute -top-5 left-1/2 grid size-14 -translate-x-1/2 place-items-center rounded-full border-4 border-surface text-white shadow-lg transition-transform active:scale-95', cfg.bg)}>
           <cfg.Icon className="size-7" aria-hidden="true" />
         </span>
-        <span className={cx('text-xs font-bold', text)}>{cfg.label}</span>
+        <span className={cx('text-xs font-bold', cfg.text)}>{cfg.label}</span>
       </Link>
     </li>
   );
@@ -109,7 +120,47 @@ function NavItem({ to, label, icon: Icon, end, count, tour }: { to: string; labe
   );
 }
 
-/** Layar akar: judul, isi bergulir, tab bar bawah (maks. 5 tujuan). */
+/** Menu samping (desktop): tujuan yang sama dengan menu bawah, tombol presensi di atas. Tersembunyi di bawah 1024 px. */
+function Sidebar() {
+  const { unread, approvals } = useBadges();
+  const counts: Record<string, number> = { '/cuti': approvals, '/notifikasi': unread };
+  const punch = usePunch();
+  const items = [...TABS_LEFT, ...TABS_RIGHT];
+  return (
+    <aside className="hidden w-64 shrink-0 flex-col gap-3 bg-surface p-4 shadow-[8px_0_24px_rgba(30,41,59,0.06)] lg:flex">
+      <div className="flex items-center gap-3 px-2 pb-1 pt-2">
+        <img src="/icons/logo-mark-256.png" alt="" className="h-9 w-auto" />
+        <span className="text-lg font-extrabold">HRIS TEACH</span>
+      </div>
+      <Link to={punch.to} aria-label={punch.aria} data-tour="punch" className={cx('flex min-h-14 items-center gap-3 rounded-2xl px-4 text-base font-bold text-white shadow-lg transition-opacity active:opacity-90', punch.bg)}>
+        <punch.Icon className="size-6" aria-hidden="true" />{punch.label}
+      </Link>
+      <nav aria-label="Menu utama">
+        <ul className="flex flex-col gap-1">
+          {items.map((t) => {
+            const n = counts[t.to] ?? 0;
+            return (
+              <li key={t.to}>
+                <NavLink to={t.to} end={'end' in t} data-tour={'tour' in t ? t.tour : undefined} aria-label={n ? `${t.label}, ${n} baru` : t.label}
+                  className={({ isActive }) => cx('flex min-h-12 items-center gap-3 rounded-xl px-3 font-medium transition-colors hover:bg-sub active:bg-sub', isActive ? 'bg-sub font-bold text-info' : 'text-fg')}>
+                  {({ isActive }) => (
+                    <>
+                      <t.icon className="size-5" strokeWidth={isActive ? 2.5 : 1.75} aria-hidden="true" />
+                      <span className="flex-1">{t.label}</span>
+                      {n > 0 && <span aria-hidden="true" className="grid min-w-6 place-items-center rounded-full bg-bad px-1.5 text-xs font-bold leading-6 text-white">{n > 99 ? '99+' : n}</span>}
+                    </>
+                  )}
+                </NavLink>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+    </aside>
+  );
+}
+
+/** Layar akar: judul, isi bergulir, tab bar bawah (maks. 5 tujuan) di HP; menu samping di desktop. */
 export function TabLayout() {
   const { title, bare } = useTitle();
   const { unread, approvals } = useBadges();
@@ -117,45 +168,51 @@ export function TabLayout() {
   // Pengajuan (cuti dan overtime) menunggu persetujuan saya ditandai di tab Izin.
   const counts: Record<string, number> = { '/cuti': approvals, '/notifikasi': unread };
   return (
-    <div className="relative isolate mx-auto flex h-dvh max-w-md flex-col bg-app">
+    <div className="relative isolate mx-auto flex h-dvh max-w-md flex-col bg-app lg:max-w-none lg:flex-row">
       <WallpaperLayer />
-      {bare ? <div className="pt-safe" /> : (
-        <header className="pt-safe pl-safe pr-safe">
-          <h1 className="flex h-14 items-center px-4 text-2xl font-extrabold">{title}</h1>
-        </header>
-      )}
-      <UpdateBanner />
-      <Screen key={location.pathname}><Outlet /></Screen>
-      <nav aria-label="Menu utama" className="pb-safe pl-safe pr-safe rounded-t-3xl bg-surface shadow-[0_-8px_24px_rgba(30,41,59,0.08)]">
-        <ul className="grid grid-cols-5">
-          {TABS_LEFT.map((t) => <NavItem key={t.to} {...t} end={'end' in t} count={counts[t.to] ?? 0} />)}
-          <PunchTab />
-          {TABS_RIGHT.map((t) => <NavItem key={t.to} {...t} count={counts[t.to] ?? 0} />)}
-        </ul>
-      </nav>
+      <Sidebar />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {bare ? <div className="pt-safe" /> : (
+          <header className="pt-safe pl-safe pr-safe">
+            <div className="mx-auto w-full lg:max-w-[1024px]"><h1 className="flex h-14 items-center px-4 text-2xl font-extrabold lg:px-8">{title}</h1></div>
+          </header>
+        )}
+        <UpdateBanner />
+        <Screen key={location.pathname} max="lg:max-w-[960px]"><Outlet /></Screen>
+        <nav aria-label="Menu utama" className="pb-safe pl-safe pr-safe rounded-t-3xl bg-surface shadow-[0_-8px_24px_rgba(30,41,59,0.08)] lg:hidden">
+          <ul className="grid grid-cols-5">
+            {TABS_LEFT.map((t) => <NavItem key={t.to} {...t} end={'end' in t} count={counts[t.to] ?? 0} />)}
+            <PunchTab />
+            {TABS_RIGHT.map((t) => <NavItem key={t.to} {...t} count={counts[t.to] ?? 0} />)}
+          </ul>
+        </nav>
+      </div>
       <HomeTour />
       <AdminTour />
     </div>
   );
 }
 
-/** Layar dalam: tombol kembali, tanpa tab bar. Kembali ke riwayat; bila dibuka langsung (tautan dalam) ke layar induk. */
+/** Layar dalam: tombol kembali, tanpa tab bar (HP). Kembali ke riwayat; bila dibuka langsung (tautan dalam) ke layar induk. Di desktop menu samping tetap ada. */
 export function StackLayout() {
   const { title, back = '/', plain } = useTitle();
   const navigate = useNavigate();
   const location = useLocation();
   const goBack = () => (location.key === 'default' ? navigate(back, { replace: true }) : navigate(-1));
   return (
-    <div className="relative isolate mx-auto flex h-dvh max-w-md flex-col bg-app">
+    <div className="relative isolate mx-auto flex h-dvh max-w-md flex-col bg-app lg:max-w-none lg:flex-row">
       {!plain && <WallpaperLayer />}
-      <header className="pt-safe pl-safe pr-safe">
-        <div className="flex h-16 items-center gap-3 px-4">
-          <button onClick={goBack} aria-label="Kembali" className="grid size-11 shrink-0 place-items-center rounded-full bg-surface text-fg shadow-card active:bg-sub"><ChevronLeft className="size-6" aria-hidden="true" /></button>
-          <h1 className="truncate text-xl font-extrabold">{title}</h1>
-        </div>
-      </header>
-      <UpdateBanner />
-      <Screen key={location.pathname}><Outlet /></Screen>
+      <Sidebar />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="pt-safe pl-safe pr-safe">
+          <div className="mx-auto flex h-16 w-full items-center gap-3 px-4 lg:max-w-[824px] lg:px-8">
+            <button onClick={goBack} aria-label="Kembali" className="grid size-11 shrink-0 place-items-center rounded-full bg-surface text-fg shadow-card active:bg-sub"><ChevronLeft className="size-6" aria-hidden="true" /></button>
+            <h1 className="truncate text-xl font-extrabold">{title}</h1>
+          </div>
+        </header>
+        <UpdateBanner />
+        <Screen key={location.pathname} max="lg:max-w-[760px]"><Outlet /></Screen>
+      </div>
     </div>
   );
 }

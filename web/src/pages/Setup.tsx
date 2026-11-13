@@ -117,11 +117,11 @@ export default function Setup() {
   const next = () => { setEnrolling(false); if (steps && i + 1 < steps.length) setI(i + 1); else navigate('/', { replace: true }); };
 
   return (
-    <div className="relative isolate mx-auto flex h-dvh max-w-md flex-col bg-app">
+    <div className="relative isolate mx-auto flex h-dvh max-w-md flex-col bg-app lg:max-w-none">
       <WallpaperLayer />
       {steps && (
         <header className="pt-safe pl-safe pr-safe">
-          <div className="px-4 pt-5">
+          <div className="mx-auto w-full px-4 pt-5 lg:max-w-md lg:px-0 lg:pt-10">
             <div className="flex gap-1.5" role="progressbar" aria-label="Siapkan akun" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={i + 1} aria-valuetext={`Langkah ${i + 1} dari ${steps.length}`}>
               {steps.map((k, n) => <span key={k} className={cx('h-1.5 flex-1 rounded-full', n <= i ? 'bg-primary' : 'bg-line')} />)}
             </div>
@@ -129,7 +129,7 @@ export default function Setup() {
           </div>
         </header>
       )}
-      <main key={`${step ?? 'load'}-${enrolling}`} className="screen-in flex flex-1 flex-col overflow-y-auto overscroll-contain px-4 pb-6 pt-4">
+      <main key={`${step ?? 'load'}-${enrolling}`} className="screen-in mx-auto flex w-full flex-1 flex-col overflow-y-auto overscroll-contain px-4 pb-6 pt-4 lg:max-w-md lg:px-0 lg:pb-10">
         {!step && <Spinner />}
         {step === 'push' && <PushStep onNext={next} />}
         {step === 'face' && (enrolling
