@@ -1,7 +1,28 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../lib/auth';
+import { Download } from 'lucide-react';
+import { promptInstall, useInstallState } from '../lib/install';
+import { InstallGuide } from '../components/Install';
 import { Button, Field, Input, PasswordInput, Spinner } from '../ui';
+
+/**
+ * Ajakan memasang aplikasi sebelum masuk (hanya di HP yang belum memasangnya). Memasang lebih dulu lebih nyaman: di iPhone, aplikasi
+ * di Layar Utama punya penyimpanan sendiri, jadi yang masuk lewat Safari lalu memasang harus masuk sekali lagi. Android dengan dialog
+ * pasang bawaan langsung memunculkannya; selain itu ditampilkan panduan langkah.
+ */
+function InstallOffer() {
+  const state = useInstallState();
+  const [guide, setGuide] = useState(false);
+  if (state === 'installed' || state === 'desktop') return null;
+  return (
+    <div className="flex flex-col gap-2 border-t border-line pt-6">
+      <Button variant="secondary" onClick={() => (state === 'prompt' ? void promptInstall() : setGuide(true))}><Download className="size-5" aria-hidden="true" />Pasang aplikasi di HP</Button>
+      <p className="text-center text-sm text-muted">{state === 'ios' ? 'Pasang dulu sebelum masuk: di iPhone ini juga syarat agar notifikasi bisa aktif.' : 'Pasang dulu sebelum masuk agar bisa dibuka dari layar utama.'}</p>
+      <InstallGuide open={guide} onClose={() => setGuide(false)} state={state} />
+    </div>
+  );
+}
 
 export default function Login() {
   const { user, loading, mustChangePassword, login } = useAuth();
@@ -47,6 +68,7 @@ export default function Login() {
         </Field>
         <Button type="submit" loading={busy} className="mt-2">Masuk</Button>
       </form>
+      <InstallOffer />
       </div>
       <footer className="text-center text-xs text-muted">IT TEACH GREAT Edunesia . 2026 v2.0</footer>
     </main>
