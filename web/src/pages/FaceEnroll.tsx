@@ -13,7 +13,7 @@ import { BottomBar, Button, Card, Chip, ErrorNote, Sheet, Spinner } from '../ui'
 // Pendaftaran hadap depan: beberapa sampel diambil otomatis saat wajah lurus, diam, dan tajam. Kondisinya sengaja sama dengan saat
 // presensi (AttendanceCapture hanya memverifikasi wajah hadap depan), jadi tidak ada putaran kepala: sampel pose menoleh tidak pernah
 // jadi pembanding yang relevan dan, karena pencocokan memakai skor tertinggi, justru menambah peluang salah orang.
-const SHOTS = 5;
+const SHOTS = FACE_ENROLL_MIN; // 3 sampel: semuanya hadap depan dan nyaris serupa, jadi lebih banyak tidak menambah ketahanan yang berarti
 const HOLD_MS = 400; // wajah harus lurus dan di tengah selama ini sebelum sampel diambil
 const GAP_MS = 300; // jeda antar sampel supaya tidak identik
 const YAW_MAX = 0.15; // sama dengan gerbang arah wajah saat presensi
@@ -37,7 +37,6 @@ function trimOutliers<T extends { emb: Float32Array }>(s: T[]): T[] {
 function Capturer({ onDone, onCancel }: { onDone: (r: Enrolled) => void; onCancel: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const force = useRef(false);
-  const finishNow = useRef(false);
   const [msg, setMsg] = useState('Menyiapkan kamera dan model…');
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState(0);
@@ -94,7 +93,6 @@ function Capturer({ onDone, onCancel }: { onDone: (r: Enrolled) => void; onCance
         const v = videoRef.current;
         if (!v || !det || !models || busy || finished || v.readyState < 2 || now - last < 100) return;
         last = now;
-        if (finishNow.current && samples.length >= FACE_ENROLL_MIN) { finish(); return; }
         const dets = det.detectForVideo(v, now).detections;
         const d = dets.sort((a, b) => (b.boundingBox?.width ?? 0) - (a.boundingBox?.width ?? 0))[0];
         const w = v.videoWidth, h = v.videoHeight;
@@ -167,9 +165,7 @@ function Capturer({ onDone, onCancel }: { onDone: (r: Enrolled) => void; onCance
       <BottomBar>
         <div className="grid grid-cols-2 gap-3">
           <Button variant="secondary" onClick={onCancel}>Batal</Button>
-          {done >= FACE_ENROLL_MIN
-            ? <Button onClick={() => { finishNow.current = true; }}>Selesai</Button>
-            : <Button variant="secondary" onClick={() => { force.current = true; }}>Ambil sekarang</Button>}
+          <Button variant="secondary" onClick={() => { force.current = true; }}>Ambil sekarang</Button>
         </div>
       </BottomBar>
     </div>
@@ -248,7 +244,7 @@ export default function FaceEnroll({ flow }: { flow?: { onDone: () => void; onCa
     return (
       <div className="flex flex-1 flex-col gap-4">
         <div className="mx-auto aspect-[3/4] w-full max-w-xs overflow-hidden rounded-2xl bg-black"><img src={data.url} alt="Foto referensi wajah Anda" className="size-full object-cover" /></div>
-        <p className="rounded-xl bg-sub p-3 text-sm" role="status"><CheckCircle2 className="mr-1 inline size-4 text-ok" aria-hidden="true" />{data.vectors.length} sampel wajah siap dikirim. Foto di atas dipakai HC untuk mencocokkan dengan KTP Anda.</p>
+        <p className="rounded-xl bg-sub p-3 text-sm" role="status"><CheckCircle2 className="mr-1 inline size-4 text-ok" aria-hidden="true" />{data.vectors.length} sampel wajah siap dikirim</p>
         <ErrorNote error={submit.error} />
         <BottomBar>
           <div className="grid grid-cols-2 gap-3">

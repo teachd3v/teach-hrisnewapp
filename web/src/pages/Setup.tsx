@@ -135,7 +135,7 @@ export default function Setup() {
         {step === 'face' && (enrolling
           ? <FaceEnroll flow={{ onDone: next, onCancel: () => setEnrolling(false) }} />
           : (
-            <Intro icon={<ScanFace className="size-9" />} title="Daftarkan wajah untuk presensi" body="Tatap kamera sekitar 5 detik. HC lalu mencocokkannya dengan KTP Anda; sementara itu presensi tetap bisa dilakukan."
+            <Intro icon={<ScanFace className="size-9" />} title="Daftarkan wajah untuk presensi" body="Tatap kamera beberapa detik. HC lalu mencocokkannya dengan KTP Anda; sementara itu presensi tetap bisa dilakukan."
               actions={(
                 <>
                   <Button onClick={() => setEnrolling(true)}>Daftarkan sekarang</Button>

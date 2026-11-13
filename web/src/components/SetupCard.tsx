@@ -66,7 +66,7 @@ export default function SetupCard() {
     const done = f.active || Boolean(f.pending);
     items.push({
       key: 'face', icon: <ScanFace className="size-5" />, label: 'Wajah untuk presensi', done,
-      sub: f.active ? 'Terdaftar' : f.pending ? 'Terkirim, menunggu HC' : f.rejected ? 'Ditolak HC, perlu daftar ulang' : 'Tatap kamera sekitar 5 detik',
+      sub: f.active ? 'Terdaftar' : f.pending ? 'Terkirim, menunggu HC' : f.rejected ? 'Ditolak HC, perlu daftar ulang' : 'Tatap kamera beberapa detik',
       action: <Link to="/profil/wajah" className={ACTION}>{f.rejected ? 'Daftar ulang' : 'Daftarkan'}</Link>,
     });
   }

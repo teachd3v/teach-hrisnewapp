@@ -8,8 +8,9 @@ import type { NotifyInput } from './leave-notifications';
 export const FACE_MODEL_VERSION = 'sface-int8-2021dec';
 export const FACE_DIM = 128;
 /**
- * Jumlah sampel (vektor) per pendaftaran. Pendaftaran mengambil 5 sampel hadap depan; minimum 3 supaya satu-dua sampel
- * yang dibuang (buram/pencilan) tidak memaksa mengulang. Template lama (sampai 10 sampel dari pendaftaran melingkar) tetap sah.
+ * Jumlah sampel (vektor) per pendaftaran. Pendaftaran mengambil tepat 3 sampel hadap depan (= minimum): sampelnya nyaris serupa,
+ * jadi lebih banyak hanya menambah waktu. Sampel buram dilewati saat pengambilan, jadi yang terkumpul selalu 3 kecuali ada pencilan
+ * (lalu diminta mengulang). Batas atas tetap longgar agar template lama (sampai 10 sampel) dan perubahan kelak tetap sah.
  */
 export const FACE_ENROLL_MIN = 3;
 export const FACE_ENROLL_MAX = 12;
