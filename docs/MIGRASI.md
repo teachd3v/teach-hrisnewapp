@@ -3,6 +3,14 @@
 Cakupan (diputuskan 2026-11-12): karyawan departemen **REMO** dan **Haryo Mojopahit** (pucuk pimpinan), hanya profil dan dokumen. Tidak ikut: presensi, cuti, penilaian, notifikasi.
 Skrip: `api/scripts/migrate-from-old.ts`. Semua langkah membaca sistem lama saja. Berkas keluaran berisi data pribadi: simpan di luar repo (bawaan: `LOCALHOST/migrasi-data/`), jangan di-commit.
 
+## Gelombang 2 (dijalankan di produksi 2026-11-13)
+Semua karyawan lama yang belum termigrasi (21 orang: BI, SGLT, IDEAS, Budaya, dan yang departemennya kosong). Hasil: karyawan 11 menjadi 31, isian profil 223 menjadi 528, dokumen 23 menjadi 126 (103 berkas), foto 5 menjadi 12; 305 dari 306 isian profil masuk. Perbedaan dari gelombang 1:
+- Yang sudah termigrasi (dept lama REMO dan Haryo) dilewati. Password dan sesi akun yang sudah punya kredensial **tidak disentuh**; hanya akun baru mendapat password sementara.
+- Departemen yang kosong di sistem lama (deptOverride), kepala tiap departemen (deptHead), dan akun yang emailnya diganti (emailFix) berisi nama dan email karyawan, jadi dibaca dari berkas JSON di luar repo lewat MIG_CONFIG (contoh bentuknya ada di komentar awal skrip). Berkas yang dipakai gelombang 2: LOCALHOST/migrasi-data/config-gelombang2.json.
+- Atasan: kepala departemen (DEPT_HEAD) di bawah Haryo; yang lain mengikuti atasan di data lama bila orangnya ada, selain itu kepala departemennya. Rantai atasan diperiksa agar tidak melingkar.
+- Konversi tambahan: Orang Tua menjadi Lainnya (sistem baru memisahkan Ayah dan Ibu), bulan berbahasa Indonesia menjadi tanggal 1 bulan itu, Tahun 2025 menjadi tahun, padanan istilah menurut pilihan kolom, dan teks yang melebihi batas kolom dipotong (dilaporkan), bukan dibuang.
+- Berkas keluaran gelombang ini ada di folder out2 di LOCALHOST/migrasi-data (data pribadi dan hash password; hapus bila tidak perlu). Cadangan database sebelum migrasi ada di LOCALHOST/backup-hris/2026-11-13-sebelum-migrasi-2.
+
 ## Aturan pemetaan
 | Hal | Aturan |
 |---|---|

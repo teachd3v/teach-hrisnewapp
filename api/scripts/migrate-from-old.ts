@@ -12,10 +12,20 @@ import { webcrypto as crypto } from 'node:crypto';
 import { PERSONAL_FIELDS, PROFILE_SECTIONS, documentCategory, validateFields, type FieldDef } from '../../shared/src/profile';
 
 // ---- konfigurasi cakupan
-const DEPARTMENT = 'REMO';
+// Gelombang 1 (2026-11-12): departemen REMO dan Haryo. Gelombang 2 (2026-11-13): semua karyawan lama yang BELUM termigrasi.
+// Yang sudah termigrasi (dept lama REMO dan Haryo) dilewati: profil, atasan, dan password mereka tidak disentuh lagi.
 const TOP_LEADER = 'Haryo Mojopahit';
-const CHIEF = 'Nurhadi Widodo'; // atasan langsung semua karyawan departemen
-const EXTRA_NAMES = [TOP_LEADER];
+const CHIEF = 'Nurhadi Widodo'; // kepala REMO (sudah termigrasi)
+const ALREADY_DEPT = 'REMO';
+// Data pribadi (nama dan email) TIDAK disimpan di repo: dibaca dari berkas JSON di luar repo lewat MIG_CONFIG. Isi:
+//   deptOverride: nama karyawan -> departemen (untuk yang departemennya kosong di sistem lama)
+//   deptHead:     departemen -> nama kepala departemen (menjadi bawahan langsung pucuk pimpinan; atasan lain mengikuti data lama bila ada)
+//   emailFix:     [{ fromEmail, toEmail }] akun di sistem baru yang emailnya diganti agar cocok dengan sistem lama
+interface MigConfig { deptOverride: Record<string, string>; deptHead: Record<string, string>; emailFix: { fromEmail: string; toEmail: string }[] }
+const CFG: MigConfig = process.env.MIG_CONFIG ? JSON.parse(readFileSync(process.env.MIG_CONFIG, 'utf8')) : { deptOverride: {}, deptHead: {}, emailFix: [] };
+const DEPT_OVERRIDE = CFG.deptOverride;
+const DEPT_HEAD = CFG.deptHead;
+const EMAIL_FIX = CFG.emailFix;
 const OLD_BUCKET = 'hris-teachapp-storage';
 const NEW_BUCKET = 'hris-spa-storage';
 const NEW_DB = 'hris-spa-db';
@@ -38,10 +48,11 @@ function loadOld(file: string) {
   const db = new DatabaseSync(':memory:');
   db.exec(readFileSync(file, 'utf8'));
   const all = (s: string, ...p: (string | number)[]) => db.prepare(s).all(...p) as Row[];
-  const emps = all('SELECT * FROM employees').filter((e) => e.dept === DEPARTMENT || EXTRA_NAMES.includes(String(e.name)));
-  if (!emps.some((e) => e.name === TOP_LEADER)) throw new Error(`${TOP_LEADER} tidak ada di ekspor`);
-  if (!emps.some((e) => e.name === CHIEF)) throw new Error(`${CHIEF} tidak ada di ekspor`);
-  return { all, emps };
+  const every = all('SELECT * FROM employees');
+  const emps = every.filter((e) => e.dept !== ALREADY_DEPT && e.name !== TOP_LEADER);
+  if (!every.some((e) => e.name === TOP_LEADER)) throw new Error(`${TOP_LEADER} tidak ada di ekspor`);
+  if (!every.some((e) => e.name === CHIEF)) throw new Error(`${CHIEF} tidak ada di ekspor`);
+  return { all, emps, every };
 }
 
 /** Kunci R2 lama dari URL berkas lama: "/storage/documents/{id}/x.pdf" atau URL Supabase ".../documents/{id}/x.pdf" -> "documents/{id}/x.pdf". */
@@ -126,12 +137,16 @@ function copy(out: string) {
 const normSelect = (def: FieldDef, v: string) => def.options?.find((o) => o.toLowerCase() === v.trim().toLowerCase()) ?? v;
 
 // Istilah lama -> pilihan baru (pilihan tingkat dan hubungan di sistem lama berbahasa Inggris/lain).
-const SYNONYMS: Record<string, string> = {
-  beginner: 'Pemula', intermediate: 'Menengah', advanced: 'Mahir', expert: 'Ahli',
-  basic: 'Dasar', fluent: 'Lanjut', native: 'Fasih',
-  istri: 'Pasangan', suami: 'Pasangan',
+// Satu istilah lama bisa punya beberapa padanan menurut kolomnya; dipakai yang pertama yang ada di pilihan kolom itu.
+const SYNONYMS: Record<string, string[]> = {
+  beginner: ['Pemula'], intermediate: ['Menengah'], advanced: ['Mahir', 'Lanjut'], expert: ['Ahli'],
+  basic: ['Dasar', 'Pemula'], fluent: ['Lanjut'], native: ['Fasih'],
+  istri: ['Pasangan'], suami: ['Pasangan'],
+  'orang tua': ['Lainnya'], // sistem baru membedakan Ayah dan Ibu; sistem lama tidak, jadi tidak bisa ditebak
 };
+const MONTHS: Record<string, string> = { januari: '01', februari: '02', maret: '03', april: '04', mei: '05', juni: '06', juli: '07', agustus: '08', september: '09', oktober: '10', november: '11', desember: '12' };
 const converted: Record<string, number> = {};
+const truncated: Record<string, number> = {};
 
 /** Validasi satu nilai dengan aturan server; nilai tak valid dibuang dan dihitung di laporan (nama kolom saja). */
 function normalize(defs: readonly FieldDef[], input: Record<string, unknown>, where: string, report: Record<string, number>) {
@@ -139,7 +154,22 @@ function normalize(defs: readonly FieldDef[], input: Record<string, unknown>, wh
   for (const def of defs) {
     let v = clean(input[def.key]);
     if (v === null) continue;
-    if (def.type === 'select') v = normSelect(def, SYNONYMS[v.toLowerCase()] ?? v);
+    if (def.type === 'select') {
+      const cand = SYNONYMS[v.toLowerCase()]?.find((c) => def.options?.some((o) => o.toLowerCase() === c.toLowerCase()));
+      v = normSelect(def, cand ?? v);
+    }
+    // Teks yang melebihi batas kolom baru dipotong (dilaporkan), bukan dibuang seluruhnya.
+    if (def.type === 'text' || def.type === 'textarea') {
+      const flat = v.replace(def.type === 'textarea' ? /[ \t]+/g : /\s+/g, ' ').trim();
+      const lim = def.max ?? 100;
+      if (flat.length > lim) { v = flat.slice(0, lim).trimEnd(); truncated[`${where}.${def.key}`] = (truncated[`${where}.${def.key}`] ?? 0) + 1; }
+    }
+    // Bulan berbahasa Indonesia ("Februari 2026") menjadi tanggal 1 bulan itu.
+    if (def.type === 'date') {
+      const mm = /^([A-Za-z]+)\s+(\d{4})$/.exec(v);
+      if (mm && mm[1].toLowerCase() === 'tahun') { v = mm[2]; }
+      else if (mm && MONTHS[mm[1].toLowerCase()]) { v = `${mm[2]}-${MONTHS[mm[1].toLowerCase()]}-01`; converted[`${where}.${def.key}`] = (converted[`${where}.${def.key}`] ?? 0) + 1; }
+    }
     // Sistem lama menyimpan tahun saja untuk kolom tanggal: dijadikan 1 Januari tahun itu (dilaporkan, bisa dikoreksi di aplikasi).
     if (def.type === 'date' && /^\d{4}$/.test(v)) { v = `${v}-01-01`; converted[`${where}.${def.key}`] = (converted[`${where}.${def.key}`] ?? 0) + 1; }
     // Rentang tahun ("2018-2019", "2018/2019") dipersingkat ke tahun awal.
@@ -164,7 +194,7 @@ async function sql(file: string, out: string) {
   const copiedPath = join(out, 'copied.json');
   if (!existsSync(copiedPath)) throw new Error('copied.json belum ada: jalankan langkah "copy" dulu');
   const copied: Record<string, { ok: boolean; size: number }> = JSON.parse(readFileSync(copiedPath, 'utf8'));
-  const { all, emps } = loadOld(file);
+  const { all, emps, every } = loadOld(file);
   const { docs, photos } = planFiles(emps, all);
   const now = new Date().toISOString();
   const dropped: Record<string, number> = {};
@@ -174,8 +204,11 @@ async function sql(file: string, out: string) {
   const eidOf = (e: Row) => `(SELECT id FROM employees WHERE lower(email) IN (${emailsOf(e).map(q).join(',')}) ORDER BY created_at LIMIT 1)`;
   const master = (kind: string, name: unknown) => { const n = clean(name); return n && n !== '-' ? `(SELECT id FROM master_options WHERE kind='${kind}' AND lower(name)=lower(${q(n)}) LIMIT 1)` : 'NULL'; };
   const photoOf = new Map(photos.map((p) => [p.empOldId, p.job]));
-  const top = emps.find((e) => e.name === TOP_LEADER)!, chief = emps.find((e) => e.name === CHIEF)!;
+  const byName = new Map(every.map((e) => [String(e.name), e]));
+  const top = byName.get(TOP_LEADER)!;
+  const deptOf = (e: Row) => DEPT_OVERRIDE[String(e.name)] ?? clean(e.dept);
 
+  for (const fx of EMAIL_FIX) stmts.push(`UPDATE employees SET email = ${q(fx.toEmail)}, updated_at = ${q(now)} WHERE lower(email) = ${q(fx.fromEmail)} AND NOT EXISTS (SELECT 1 FROM employees WHERE lower(email) = ${q(fx.toEmail)});`);
   for (const e of emps) {
     const eid = String(e.id);
     const emails = emailsOf(e);
@@ -189,10 +222,10 @@ async function sql(file: string, out: string) {
     const photo = photoOf.get(eid);
     const photoKey = photo && copied[photo.newKey]?.ok ? photo.newKey : null;
     const role = String(e.role).toLowerCase() === 'admin' ? 'admin' : 'employee';
-    const isTop = e.name === TOP_LEADER;
+    const isTop = false; // pucuk pimpinan (Haryo) sudah termigrasi
     const cols: [string, string][] = [
       ['employee_code', q(clean(e.employee_code))], ['phone', q(personal.phone)], ['gender', q(clean(e.gender))], ['title', q(clean(e.title))],
-      ['department_id', master('department', e.dept)], ['level_id', master('level', e.level)], ['employment_status_id', master('employment_status', e.status)],
+      ['department_id', master('department', deptOf(e))], ['level_id', master('level', e.level)], ['employment_status_id', master('employment_status', e.status)],
       ['join_date', q(clean(e.join_date))], ['photo_key', q(photoKey)],
       ...Object.keys(personal).filter((k) => k !== 'phone').map((k): [string, string] => [k, q(personal[k])]),
     ];
@@ -206,16 +239,32 @@ async function sql(file: string, out: string) {
     stmts.push(`UPDATE employees SET ${sets.join(', ')} WHERE id = ${eidOf(e)};`);
   }
   // atasan setelah semua karyawan ada
+  const managerNotes: string[] = [];
+  const bossOf = (e: Row): Row => {
+    const dept = deptOf(e) ?? '';
+    const headName = DEPT_HEAD[dept];
+    if (headName === e.name) return top; // kepala departemen -> pucuk pimpinan
+    const oldBoss = (e.manager_id ? every.find((x) => x.id === e.manager_id) : undefined) ?? byName.get(String(e.manager ?? ''));
+    if (oldBoss && oldBoss.name !== e.name) return oldBoss; // mengikuti data lama bila orangnya ada
+    managerNotes.push(`${e.name}: atasan lama tidak ditemukan, dipakai kepala departemen`);
+    return headName ? byName.get(headName)! : top;
+  };
+  const bossName = new Map<string, string>();
   for (const e of emps) {
-    const boss = e === top ? null : e === chief ? top : chief;
-    stmts.push(`UPDATE employees SET manager_id = ${boss ? eidOf(boss) : 'NULL'} WHERE id = ${eidOf(e)};`);
+    const boss = bossOf(e);
+    bossName.set(String(e.name), String(boss.name));
+    stmts.push(`UPDATE employees SET manager_id = ${eidOf(boss)} WHERE id = ${eidOf(e)};`);
   }
-  // password sementara yang sama untuk semua, wajib diganti saat masuk pertama; sesi lama dicabut
+  // pastikan tidak ada rantai atasan yang melingkar (di antara yang dimigrasi; yang sudah ada berujung ke pucuk pimpinan)
+  for (const e of emps) {
+    const seen = new Set<string>();
+    let cur: string | undefined = String(e.name);
+    while (cur && bossName.has(cur)) { if (seen.has(cur)) throw new Error(`rantai atasan melingkar di ${cur}`); seen.add(cur); cur = bossName.get(cur); }
+  }
+  // password sementara yang sama untuk akun BARU, wajib diganti saat masuk pertama. Akun yang sudah punya kredensial
+  // (mis. Suparmi) tidak disentuh: password dan sesinya tetap.
   const pw = await hash(password);
-  for (const e of emps) {
-    stmts.push(`INSERT INTO credentials (employee_id, password_hash, must_change_password, password_changed_at, failed_attempts, locked_until) VALUES (${eidOf(e)}, ${q(pw)}, 1, NULL, 0, NULL) ON CONFLICT(employee_id) DO UPDATE SET password_hash = excluded.password_hash, must_change_password = 1, password_changed_at = NULL, failed_attempts = 0, locked_until = NULL;`);
-    stmts.push(`DELETE FROM refresh_tokens WHERE employee_id = ${eidOf(e)};`);
-  }
+  for (const e of emps) stmts.push(`INSERT INTO credentials (employee_id, password_hash, must_change_password, password_changed_at, failed_attempts, locked_until) VALUES (${eidOf(e)}, ${q(pw)}, 1, NULL, 0, NULL) ON CONFLICT(employee_id) DO NOTHING;`);
   // riwayat profil: hapus hasil migrasi sebelumnya (id 'mig-...'), isi ulang. Isian yang dibuat manual di sistem baru tidak disentuh.
   const counts: Record<string, number> = {};
   for (const e of emps) {
@@ -251,8 +300,9 @@ async function sql(file: string, out: string) {
     `SELECT e.name, e.email, e.role, (SELECT count(*) FROM profile_entries p WHERE p.employee_id = e.id) entri, (SELECT count(*) FROM employee_documents d WHERE d.employee_id = e.id) dokumen, (e.photo_key IS NOT NULL) foto FROM employees e WHERE lower(e.email) IN (${allEmails.map(q).join(',')}) ORDER BY e.name;\n`);
   const rep = [
     `karyawan: ${emps.length}`, `baris migrate.sql: ${stmts.length}`, `entri profil: ${JSON.stringify(counts)}`, `dokumen dimasukkan: ${docRows}, dilewati (berkas tidak tersalin): ${docSkipped}`,
-    `nilai diubah formatnya (tahun saja -> 1 Januari tahun itu; rentang tahun -> tahun awal): ${JSON.stringify(converted)}`,
-    `nilai dibuang karena tidak lolos validasi (bagian.kolom: jumlah): ${JSON.stringify(dropped)}`, `database tujuan: ${NEW_DB} (perintah ada di docs/MIGRASI.md)`,
+    `nilai diubah formatnya (tahun saja -> 1 Januari tahun itu; bulan+tahun -> tanggal 1 bulan itu; rentang tahun -> tahun awal): ${JSON.stringify(converted)}`,
+    `teks dipotong sesuai batas kolom baru (bagian.kolom: jumlah): ${JSON.stringify(truncated)}`,
+    `nilai dibuang karena tidak lolos validasi (bagian.kolom: jumlah): ${JSON.stringify(dropped)}`, `atasan: ${emps.length - managerNotes.length} mengikuti data lama; ${managerNotes.length} memakai kepala departemen${managerNotes.length ? ' (' + managerNotes.join('; ') + ')' : ''}`, `database tujuan: ${NEW_DB} (perintah ada di docs/MIGRASI.md)`,
   ];
   writeFileSync(join(out, 'sql-report.txt'), rep.join('\n') + '\n');
   console.log(rep.join('\n'));
