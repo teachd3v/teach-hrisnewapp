@@ -35,9 +35,10 @@ const android = () => /Android/i.test(navigator.userAgent);
 // useSyncExternalStore membandingkan hasil snapshot dengan ===; string primitif aman.
 function getInstallState(): InstallState {
   if ('__TAURI_INTERNALS__' in window || standalone()) return 'installed';
-  if (deferred) return 'prompt';
   if (ios()) return 'ios';
-  if (android()) return 'android';
+  // Chrome/Edge di komputer juga mengirim `beforeinstallprompt`. Pemasangan hanya ditawarkan (dan di halaman masuk: diwajibkan) di HP,
+  // jadi dialog bawaan hanya dihitung di Android; di komputer keadaannya tetap 'desktop' walau peristiwa itu ada.
+  if (android()) return deferred ? 'prompt' : 'android';
   return 'desktop';
 }
 
