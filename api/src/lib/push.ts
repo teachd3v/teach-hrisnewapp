@@ -14,7 +14,7 @@ export function vapidConfig(env: Bindings): VapidConfig | null {
   const publicKey = env.VAPID_PUBLIC_KEY?.trim();
   const privateKey = env.VAPID_PRIVATE_KEY?.trim();
   if (!publicKey || !privateKey) return null;
-  return { publicKey, privateKey, subject: env.VAPID_SUBJECT?.trim() || 'https://teach-hris-spa.pages.dev' };
+  return { publicKey, privateKey, subject: env.VAPID_SUBJECT?.trim() || 'https://app.hrteach.site' };
 }
 
 // Endpoint hanya boleh milik layanan push resmi browser (mencegah server dipakai menembak alamat sembarang).
