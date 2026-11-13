@@ -6,6 +6,7 @@ import { api } from './lib/api';
 import { useToday } from './pages/Attendance';
 import { cx } from './ui';
 import WallpaperLayer from './components/WallpaperLayer';
+import Tour from './components/Tour';
 import { PullIndicator, usePullToRefresh } from './lib/pull-to-refresh';
 import { useUpdateAvailable } from './lib/version';
 
@@ -57,13 +58,14 @@ function Badge({ n }: { n: number }) {
   );
 }
 
+// `tour`: penanda sasaran tur Beranda (components/Tour.tsx mencarinya lewat atribut data-tour).
 const TABS_LEFT = [
   { to: '/', label: 'Beranda', icon: House, end: true },
-  { to: '/cuti', label: 'Izin', icon: CalendarDays },
+  { to: '/cuti', label: 'Izin', icon: CalendarDays, tour: 'izin' },
 ] as const;
 const TABS_RIGHT = [
   { to: '/notifikasi', label: 'Notifikasi', icon: Bell },
-  { to: '/akun', label: 'Akun', icon: UserRound },
+  { to: '/akun', label: 'Akun', icon: UserRound, tour: 'akun' },
 ] as const;
 
 /** Tombol presensi di tengah menu bawah: satu ketukan langsung ke kamera sesuai keadaan hari ini (masuk, pulang, atau riwayat bila selesai). */
@@ -80,7 +82,7 @@ function PunchTab() {
   const text = state === 'in' ? 'text-punch-in' : state === 'out' ? 'text-punch-out' : state === 'done' ? 'text-blue-700' : 'text-muted';
   return (
     <li>
-      <Link to={cfg.to} aria-label={cfg.aria} className="relative flex min-h-16 items-end justify-center pb-[11px]">
+      <Link to={cfg.to} aria-label={cfg.aria} data-tour="punch" className="relative flex min-h-16 items-end justify-center pb-[11px]">
         <span className={cx('absolute -top-5 left-1/2 grid size-14 -translate-x-1/2 place-items-center rounded-full border-4 border-surface text-white shadow-lg transition-transform active:scale-95', cfg.bg)}>
           <cfg.Icon className="size-7" aria-hidden="true" />
         </span>
@@ -90,10 +92,10 @@ function PunchTab() {
   );
 }
 
-function NavItem({ to, label, icon: Icon, end, count }: { to: string; label: string; icon: typeof House; end?: boolean; count: number }) {
+function NavItem({ to, label, icon: Icon, end, count, tour }: { to: string; label: string; icon: typeof House; end?: boolean; count: number; tour?: string }) {
   return (
     <li>
-      <NavLink to={to} end={end} aria-label={count ? `${label}, ${count} baru` : label}
+      <NavLink to={to} end={end} aria-label={count ? `${label}, ${count} baru` : label} data-tour={tour}
         className={({ isActive }) => cx('relative flex min-h-16 flex-col items-center justify-center gap-0.5 text-xs transition-colors active:bg-sub', isActive ? 'font-bold text-info' : 'font-medium text-muted')}>
         {({ isActive }) => (
           <>
@@ -131,6 +133,7 @@ export function TabLayout() {
           {TABS_RIGHT.map((t) => <NavItem key={t.to} {...t} count={counts[t.to] ?? 0} />)}
         </ul>
       </nav>
+      <Tour />
     </div>
   );
 }

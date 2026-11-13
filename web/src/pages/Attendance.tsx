@@ -7,6 +7,7 @@ import { api } from '../lib/api';
 import { faceChip, recordChips, fmtLongDate, fmtShortDate, fmtTime, locationFlag, type AttendanceRec, type DayFlags, type Tone } from '../lib/attendance-types';
 import { addDays, dotFor, todayWib, useRecordsByDate, workWeek } from '../lib/week';
 import WeekStrip from '../components/WeekStrip';
+import FirstHint from '../components/FirstHint';
 import { Card, Chip, Empty, ErrorNote, Field, Input, Spinner } from '../ui';
 
 export const useToday = () =>
@@ -121,6 +122,7 @@ export default function Attendance() {
     <div className="flex flex-col gap-4">
       {flash && <p role="status" className="flex items-center gap-2 rounded-2xl bg-ok-bg p-3 text-sm font-medium text-ok"><CheckCircle2 className="size-5" aria-hidden="true" />{flash}</p>}
       {faceWarn && <p role="status" className="rounded-2xl bg-warn-bg p-3 text-sm font-medium text-warn">{faceWarn}</p>}
+      <FirstHint id="presensi">Ketuk tanggal untuk melihat presensi hari itu. Lupa presensi? Ajukan koreksi dari layar ini.</FirstHint>
 
       <Card className="flex flex-col gap-3 !p-3">
         <div className="flex items-center justify-between">

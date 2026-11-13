@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BellOff } from 'lucide-react';
 import { api } from '../lib/api';
 import { Button, Empty, ErrorNote, Spinner } from '../ui';
+import FirstHint from '../components/FirstHint';
 
 interface Notif { id: string; title: string; body: string | null; href: string | null; created_at: string; read_at: string | null }
 
@@ -18,6 +19,7 @@ export default function Notifications() {
 
   return (
     <div className="flex flex-col gap-3">
+      <FirstHint id="notifikasi">Kabar pengajuan, persetujuan, dan pengingat presensi terkumpul di sini. Ketuk salah satu untuk membukanya.</FirstHint>
       {q.isPending && <Spinner />}
       <ErrorNote error={q.error} />
       {q.data && q.data.unread > 0 && <Button variant="secondary" loading={readAll.isPending} onClick={() => readAll.mutate()}>Tandai semua dibaca ({q.data.unread})</Button>}

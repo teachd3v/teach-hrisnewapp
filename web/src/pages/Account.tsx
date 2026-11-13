@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import {
-  CalendarCheck, CalendarCog, CalendarHeart, ChevronDown, ChevronRight, ClipboardList, ImagePlus, KeyRound, FilePen, FileSpreadsheet, ListTree, LogOut, MapPinned, ScanFace, ScrollText, UserRound, Users,
+  CalendarCheck, CalendarCog, CalendarHeart, ChevronDown, ChevronRight, ClipboardList, Compass, ImagePlus, KeyRound, FilePen, FileSpreadsheet, ListTree, LogOut, MapPinned, ScanFace, ScrollText, UserRound, Users,
 } from 'lucide-react';
 import { isAdmin, type Role } from '@hris/shared';
 import { useAuth } from '../lib/auth';
@@ -12,6 +12,8 @@ import ProfilePhoto from '../components/ProfilePhoto';
 import { useProfileCard } from '../lib/profile';
 import { useFaceStatus } from '../lib/face-status';
 import { useAdminQueues } from '../lib/admin-queues';
+import { requestTour } from '../lib/guide';
+import FirstHint from '../components/FirstHint';
 
 const ROLE_LABEL: Record<Role, string> = { employee: 'Karyawan', admin: 'Admin (HC)', super_admin: 'Super Admin' };
 
@@ -107,6 +109,7 @@ function AdminMenu({ superAdmin }: { superAdmin: boolean }) {
 
 export default function Account() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const card = useProfileCard('me').data;
@@ -115,6 +118,7 @@ export default function Account() {
   const showFace = Boolean(user && (isAdmin(user.role) || (face && (face.settings.mode !== 'off' || face.active || face.pending))));
   return (
     <div className="flex flex-col gap-5">
+      <FirstHint id="akun">Atur notifikasi, wajah untuk presensi, wallpaper, dan password di sini. Tur singkat bisa diulang lewat "Lihat panduan lagi".</FirstHint>
       <Card className="flex items-center gap-4">
         <ProfilePhoto fileKey={card?.photoKey} name={user?.name ?? ''} className="size-16" />
         <div className="min-w-0 flex-1">
@@ -132,6 +136,9 @@ export default function Account() {
         {showFace && <MenuRow to="/profil/wajah" icon={<ScanFace className="size-5" />} label="Wajah untuk presensi" />}
         <MenuRow to="/akun/wallpaper" icon={<ImagePlus className="size-5" />} label="Wallpaper" />
         <MenuRow to="/ganti-password" icon={<KeyRound className="size-5" />} label="Ganti password" />
+        <button type="button" onClick={() => { if (user) requestTour(user.id); navigate('/'); }} className="flex min-h-14 w-full items-center gap-3 px-4 text-left active:bg-sub">
+          <Compass className="size-5" aria-hidden="true" /><span className="flex-1 font-medium">Lihat panduan lagi</span><ChevronRight className="size-5 text-muted" aria-hidden="true" />
+        </button>
       </section>
 
       {user && isAdmin(user.role) && <AdminMenu superAdmin={user.role === 'super_admin'} />}

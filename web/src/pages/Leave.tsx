@@ -7,6 +7,7 @@ import { api } from '../lib/api';
 import { STATUS_LABEL, STATUS_TONE, fmtRange, leaveLabel, useLeaveTypes, type LeaveItem, type LeaveMeta } from '../lib/leave-types';
 import AttachmentLink from '../components/AttachmentLink';
 import { OvertimeHistory } from '../components/OvertimeLists';
+import FirstHint from '../components/FirstHint';
 import { Button, Card, Chip, Empty, ErrorNote, Segmented, Sheet, Spinner } from '../ui';
 import { useBadges } from '../layouts';
 
@@ -35,6 +36,7 @@ export default function Leave() {
   return (
     <div className="flex flex-1 flex-col gap-4">
       {flash && <p role="status" className="flex items-center gap-2 rounded-xl bg-ok-bg p-3 text-sm font-medium text-ok"><CheckCircle2 className="size-5" aria-hidden="true" />{flash}</p>}
+      <FirstHint id="izin">Ajukan lewat tombol "Ajukan izin" atau "Ajukan overtime". Status tiap pengajuan terlihat di Riwayat di bawah.</FirstHint>
 
       {balances.length > 0 && (
         <div className="-mx-4 -mb-4 flex snap-x gap-3 overflow-x-auto px-4 pb-6">
