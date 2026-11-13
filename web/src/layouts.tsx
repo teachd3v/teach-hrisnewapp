@@ -6,7 +6,7 @@ import { api } from './lib/api';
 import { useToday } from './pages/Attendance';
 import { cx } from './ui';
 import WallpaperLayer from './components/WallpaperLayer';
-import Tour from './components/Tour';
+import { AdminTour, HomeTour } from './components/Tour';
 import { PullIndicator, usePullToRefresh } from './lib/pull-to-refresh';
 import { useUpdateAvailable } from './lib/version';
 
@@ -58,9 +58,9 @@ function Badge({ n }: { n: number }) {
   );
 }
 
-// `tour`: penanda sasaran tur Beranda (components/Tour.tsx mencarinya lewat atribut data-tour).
+// `tour`: penanda sasaran tur (components/Tour.tsx mencarinya lewat atribut data-tour).
 const TABS_LEFT = [
-  { to: '/', label: 'Beranda', icon: House, end: true },
+  { to: '/', label: 'Beranda', icon: House, end: true, tour: 'beranda' },
   { to: '/cuti', label: 'Izin', icon: CalendarDays, tour: 'izin' },
 ] as const;
 const TABS_RIGHT = [
@@ -133,7 +133,8 @@ export function TabLayout() {
           {TABS_RIGHT.map((t) => <NavItem key={t.to} {...t} count={counts[t.to] ?? 0} />)}
         </ul>
       </nav>
-      <Tour />
+      <HomeTour />
+      <AdminTour />
     </div>
   );
 }

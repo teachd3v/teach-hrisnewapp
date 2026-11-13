@@ -45,6 +45,7 @@ function saveOpen(v: Record<string, boolean>) {
 /**
  * Menu admin berkelompok. "Persetujuan" (pekerjaan harian) terbuka secara bawaan; kelompok lain tertutup. Pilihan buka/tutup diingat di perangkat.
  * Kelompok yang tertutup menampilkan jumlah total pekerjaan menunggu di dalamnya, jadi tidak ada yang terlewat.
+ * Tiap kartu kelompok ditandai `data-tour="admin-<key>"` sebagai sasaran tur admin (components/Tour.tsx).
  */
 function AdminMenu({ superAdmin }: { superAdmin: boolean }) {
   const q = useAdminQueues().data;
@@ -89,7 +90,7 @@ function AdminMenu({ superAdmin }: { superAdmin: boolean }) {
         const total = g.items.reduce((t, i) => t + (i.badge ?? 0), 0);
         const panel = `admin-menu-${g.key}`;
         return (
-          <div key={g.key} className="overflow-hidden rounded-2xl bg-surface shadow-card">
+          <div key={g.key} data-tour={`admin-${g.key}`} className="overflow-hidden rounded-2xl bg-surface shadow-card">
             <button type="button" aria-expanded={isOpen} aria-controls={panel} onClick={() => toggle(g)} className="flex min-h-12 w-full items-center gap-3 px-4 text-left font-semibold active:bg-sub">
               <span className="flex-1">{g.title}</span>
               {!isOpen && <CountBadge n={total} />}
