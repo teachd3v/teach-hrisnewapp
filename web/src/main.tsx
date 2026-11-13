@@ -72,7 +72,7 @@ const router = createBrowserRouter(
           <Route path="/presensi/ambil/:type" element={<AttendanceCapture />} handle={{ title: 'Presensi', back: '/' }} />
           <Route path="/presensi/selesai" element={<DayCard />} handle={{ title: 'Kartu hari ini', back: '/', plain: true }} />
           <Route path="/persetujuan" element={<Approvals />} handle={{ title: 'Persetujuan izin & overtime', back: '/cuti' }} />
-          <Route path="/admin/audit" element={<AdminAudit />} handle={{ title: 'Log audit', back: '/akun' }} />
+          <Route path="/admin/audit" element={<AdminAudit />} handle={{ title: 'Log audit', back: '/akun', wide: true }} />
           <Route path="/admin/rekap" element={<AdminReport />} handle={{ title: 'Rekap presensi & cuti', back: '/akun' }} />
           <Route path="/admin/presensi" element={<AdminAttendance />} handle={{ title: 'Presensi harian', back: '/akun', wide: true }} />
           <Route path="/cuti/ajukan" element={<LeaveForm />} handle={{ title: 'Ajukan izin', back: '/cuti' }} />

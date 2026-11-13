@@ -110,7 +110,33 @@ export default function AdminAudit() {
       <ErrorNote error={list.error} />
       {list.data && items.length === 0 && <Empty icon={<ScrollText className="size-10" />}>Tidak ada catatan pada filter ini.</Empty>}
 
-      <ul className="flex flex-col gap-2">
+      {items.length > 0 && (
+        <div className="hidden overflow-hidden rounded-2xl bg-surface shadow-card lg:block">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-sub text-xs font-semibold text-muted">
+              <tr><th scope="col" className="px-4 py-3">Waktu (WIB)</th><th scope="col" className="px-4 py-3">Aksi</th><th scope="col" className="px-4 py-3">Pelaku</th><th scope="col" className="px-4 py-3">Target</th><th scope="col" className="px-4 py-3">Ringkasan</th></tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {items.map((it) => (
+                <tr key={it.id} className="align-top">
+                  <td className="whitespace-nowrap px-4 py-3 tabular-nums"><time dateTime={it.at}>{fmtWhen(it.at)}</time></td>
+                  <td className="px-4 py-3">
+                    <button type="button" onClick={() => setDetail(it)} className="text-left font-semibold underline-offset-2 hover:underline">{auditLabel(it.action)}</button>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {AUDIT_ACTIONS[it.action]?.attention && <Chip tone="warn">Perlu perhatian</Chip>}
+                      {auditGroupOf(it.action) && <Chip>{AUDIT_GROUPS.find((g) => g.key === auditGroupOf(it.action))?.label}</Chip>}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">{who(it)}</td>
+                  <td className="px-4 py-3">{it.target_label ?? <span className="text-muted">-</span>}</td>
+                  <td className="px-4 py-3 text-muted">{summarize(it) || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <ul className="flex flex-col gap-2 lg:hidden">
         {items.map((it) => (
           <li key={it.id}>
             <button onClick={() => setDetail(it)} className="w-full rounded-2xl bg-surface shadow-card p-3 text-left active:bg-sub">
