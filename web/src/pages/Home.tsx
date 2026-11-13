@@ -60,7 +60,8 @@ export default function Home() {
 
       {admin && <Segmented value={tab} onChange={setTab} options={[{ value: 'me', label: 'Saya' }, { value: 'overview', label: 'Ringkasan' }]} />}
       {admin && tab === 'overview' ? <Overview /> : (
-        <>
+        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-start lg:gap-6">
+          <div className="flex flex-col gap-4">
           <TodayCard />
 
           <div className="-mb-2 flex items-center justify-between">
@@ -69,6 +70,8 @@ export default function Home() {
           </div>
           <WeekStrip days={week.map((date) => ({ date, dot: dotFor(byDate.get(date)) }))} today={today} />
 
+          </div>
+          <div className="flex flex-col gap-4">
           <SetupCard />
 
           <Card>
@@ -86,7 +89,8 @@ export default function Home() {
 
           {approvals > 0 && <Row to="/persetujuan" icon={<ClipboardCheck className="size-5" />} title="Perlu persetujuan Anda" sub={`${approvals} pengajuan bawahan`} />}
           {user && isAdmin(user.role) && (hcQueue.data?.length ?? 0) > 0 && <Row to="/admin/cuti" icon={<Hourglass className="size-5" />} title="Menunggu HC" sub={`${hcQueue.data!.length} pengajuan`} />}
-        </>
+          </div>
+        </div>
       )}
     </div>
   );

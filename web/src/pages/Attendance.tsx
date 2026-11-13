@@ -119,11 +119,12 @@ export default function Attendance() {
   const pick = (d: string) => { setSelected(d); document.querySelector('main')?.scrollTo({ top: 0, behavior: 'smooth' }); };
 
   return (
-    <div className="flex flex-col gap-4">
-      {flash && <p role="status" className="flex items-center gap-2 rounded-2xl bg-ok-bg p-3 text-sm font-medium text-ok"><CheckCircle2 className="size-5" aria-hidden="true" />{flash}</p>}
-      {faceWarn && <p role="status" className="rounded-2xl bg-warn-bg p-3 text-sm font-medium text-warn">{faceWarn}</p>}
-      <FirstHint id="presensi">Ketuk tanggal untuk melihat presensi hari itu. Lupa presensi? Ajukan koreksi dari layar ini.</FirstHint>
+    <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-6">
+      {flash && <p role="status" className="flex items-center gap-2 rounded-2xl bg-ok-bg lg:col-span-2 p-3 text-sm font-medium text-ok"><CheckCircle2 className="size-5" aria-hidden="true" />{flash}</p>}
+      {faceWarn && <p role="status" className="rounded-2xl bg-warn-bg p-3 text-sm font-medium text-warn lg:col-span-2">{faceWarn}</p>}
+      <div className="lg:col-span-2"><FirstHint id="presensi">Ketuk tanggal untuk melihat presensi hari itu. Lupa presensi? Ajukan koreksi dari layar ini.</FirstHint></div>
 
+      <div className="flex flex-col gap-4">
       <Card className="flex flex-col gap-3 !p-3">
         <div className="flex items-center justify-between">
           <button type="button" aria-label="Pekan sebelumnya" onClick={() => setSelected(addDays(week[0]!, -3))} className="grid size-11 place-items-center rounded-full active:bg-sub"><ChevronLeft className="size-5" aria-hidden="true" /></button>
@@ -142,7 +143,10 @@ export default function Attendance() {
         <Link to={`/presensi/koreksi?date=${selected}`} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-surface px-4 font-semibold shadow-card active:bg-sub"><FilePen className="size-5" aria-hidden="true" />Lupa presensi? Ajukan koreksi</Link>
       )}
 
-      <div className="mt-2 flex items-end justify-between gap-3">
+      </div>
+
+      <div className="flex flex-col gap-4">
+      <div className="mt-2 flex items-end justify-between gap-3 lg:mt-0">
         <h2 className="pb-2 text-lg font-extrabold">Riwayat bulanan</h2>
         <div className="w-44"><Field label="Bulan">{(id) => <Input id={id} type="month" value={month} max={thisMonth()} onChange={(e) => e.target.value && setMonth(e.target.value)} />}</Field></div>
       </div>
@@ -166,6 +170,7 @@ export default function Attendance() {
           );
         })}
       </ul>
+      </div>
     </div>
   );
 }

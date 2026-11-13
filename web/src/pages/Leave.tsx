@@ -39,7 +39,7 @@ export default function Leave() {
       <FirstHint id="izin">Ajukan lewat tombol "Ajukan izin" atau "Ajukan overtime". Status tiap pengajuan terlihat di Riwayat di bawah.</FirstHint>
 
       {balances.length > 0 && (
-        <div className="-mx-4 -mb-4 flex snap-x gap-3 overflow-x-auto px-4 pb-6">
+        <div className="-mx-4 -mb-4 flex snap-x gap-3 overflow-x-auto px-4 pb-6 lg:mx-0 lg:mb-0 lg:flex-wrap lg:overflow-visible lg:px-0 lg:pb-0">
           {balances.map((b) => (
             <Card key={b.type} className="min-w-40 snap-start">
               <p className="text-sm text-muted">{b.label}</p>
@@ -52,6 +52,8 @@ export default function Leave() {
         </div>
       )}
 
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] lg:items-start lg:gap-6">
+      <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3">
         <Link to="/cuti/ajukan" className={ACTION}><CalendarPlus className="size-4 shrink-0" aria-hidden="true" />Ajukan izin</Link>
         <Link to="/cuti/overtime" className={ACTION}><Clock className="size-4 shrink-0" aria-hidden="true" />Ajukan overtime</Link>
@@ -66,6 +68,9 @@ export default function Leave() {
         </Link>
       )}
 
+      </div>
+
+      <div className="flex flex-col gap-4">
       <h2 className="text-lg font-semibold">Riwayat</h2>
       <Segmented value={riwayat} onChange={(v) => setParams(v === 'overtime' ? { riwayat: 'overtime' } : {}, { replace: true })} options={[{ value: 'cuti', label: 'Cuti' }, { value: 'overtime', label: 'Overtime' }]} />
       {riwayat === 'overtime' ? <OvertimeHistory /> : <>
@@ -100,6 +105,8 @@ export default function Leave() {
         </div>
       </Sheet>
       </>}
+      </div>
+      </div>
     </div>
   );
 }
