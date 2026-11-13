@@ -74,11 +74,11 @@ const router = createBrowserRouter(
           <Route path="/persetujuan" element={<Approvals />} handle={{ title: 'Persetujuan izin & overtime', back: '/cuti' }} />
           <Route path="/admin/audit" element={<AdminAudit />} handle={{ title: 'Log audit', back: '/akun' }} />
           <Route path="/admin/rekap" element={<AdminReport />} handle={{ title: 'Rekap presensi & cuti', back: '/akun' }} />
-          <Route path="/admin/presensi" element={<AdminAttendance />} handle={{ title: 'Presensi harian', back: '/akun' }} />
+          <Route path="/admin/presensi" element={<AdminAttendance />} handle={{ title: 'Presensi harian', back: '/akun', wide: true }} />
           <Route path="/cuti/ajukan" element={<LeaveForm />} handle={{ title: 'Ajukan izin', back: '/cuti' }} />
           <Route path="/cuti/overtime" element={<OvertimeForm />} handle={{ title: 'Ajukan overtime', back: '/cuti' }} />
           <Route path="/admin/cuti" element={<AdminLeave />} handle={{ title: 'Izin & overtime', back: '/akun' }} />
-          <Route path="/admin/karyawan" element={<AdminEmployees />} handle={{ title: 'Karyawan', back: '/akun' }} />
+          <Route path="/admin/karyawan" element={<AdminEmployees />} handle={{ title: 'Karyawan', back: '/akun', wide: true }} />
           <Route path="/profil" element={<Profile />} handle={{ title: 'Profil saya', back: '/akun' }} />
           <Route path="/akun/wallpaper" element={<Wallpaper />} handle={{ title: 'Wallpaper', back: '/akun' }} />
           <Route path="/profil/wajah" element={<FaceEnroll />} handle={{ title: 'Wajah untuk presensi', back: '/akun' }} />

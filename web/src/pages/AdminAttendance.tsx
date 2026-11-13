@@ -10,6 +10,13 @@ import { Card, Chip, Empty, ErrorNote, Field, Input, Spinner } from '../ui';
 
 const today = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
 
+type FlagChip = { tone: 'ok' | 'warn' | 'bad' | 'info' | 'neutral'; text: string };
+type FaceTries = Record<'in' | 'out', { total: number; failed: number }> | null;
+/** Penanda satu baris presensi (dipakai daftar HP dan tabel desktop). */
+const flagsFor = (r: AttendanceRec | null, faceTries: FaceTries): FlagChip[] => [...(r ? recordChips(r) : []), ...[locationFlag(r?.in ?? null), locationFlag(r?.out ?? null)].filter((x) => x && x.tone === 'warn'), faceChip(r?.in ?? null, 'Masuk'), faceChip(r?.out ?? null, 'Pulang'),
+                // Percobaan verifikasi wajah yang gagal sebelum presensi dikirim (hanya terlihat oleh HC).
+                ...(['in', 'out'] as const).map((k) => (faceTries && faceTries[k].failed > 0 ? { tone: 'warn', text: `${k === 'in' ? 'Masuk' : 'Pulang'}: ${faceTries[k].failed} percobaan wajah gagal (dari ${faceTries[k].total})` } : null))].filter(Boolean) as { tone: 'ok' | 'warn' | 'bad' | 'info' | 'neutral'; text: string }[];
+
 /** HC: presensi semua karyawan aktif pada satu tanggal. */
 export default function AdminAttendance() {
   const [params] = useSearchParams();
@@ -31,11 +38,31 @@ export default function AdminAttendance() {
         <>
           <p className="text-sm text-muted">{fmtLongDate(q.data.date)} · hadir {present} dari {q.data.rows.length} karyawan aktif{late > 0 ? ` · terlambat ${late}` : ''}</p>
           {q.data.rows.length === 0 && <Empty icon={<Users className="size-10" />}>Belum ada karyawan.</Empty>}
-          <ul className="flex flex-col gap-2">
+          {q.data.rows.length > 0 && (
+            <div className="hidden overflow-hidden rounded-2xl bg-surface shadow-card lg:block">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-sub text-xs font-semibold text-muted">
+                  <tr><th scope="col" className="px-4 py-3">Karyawan</th><th scope="col" className="px-4 py-3">Status</th><th scope="col" className="px-4 py-3">Masuk</th><th scope="col" className="px-4 py-3">Pulang</th><th scope="col" className="px-4 py-3">Durasi</th><th scope="col" className="px-4 py-3">Catatan</th><th scope="col" className="px-4 py-3">Foto</th></tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {q.data.rows.map(({ employeeId, name, record: r, faceTries }) => (
+                    <tr key={employeeId} className="align-top">
+                      <th scope="row" className="px-4 py-3 font-semibold">{name}</th>
+                      <td className="px-4 py-3">{!r ? <Chip>Belum presensi</Chip> : !r.clock_out ? <Chip tone="info">Belum pulang</Chip> : <Chip tone="ok">Selesai</Chip>}</td>
+                      <td className="px-4 py-3 tabular-nums">{r ? fmtTime(r.clock_in) : '-'}</td>
+                      <td className="px-4 py-3 tabular-nums">{r ? fmtTime(r.clock_out) : '-'}</td>
+                      <td className="px-4 py-3 tabular-nums">{r?.clock_out ? workDuration(r.clock_in, r.clock_out) : '-'}</td>
+                      <td className="px-4 py-3"><div className="flex flex-wrap gap-1">{flagsFor(r, faceTries).map((f, i) => <Chip key={i} tone={f.tone}>{f.text}</Chip>)}{r && (r.in?.face === false || r.out?.face === false) && <span className="text-muted">Wajah tidak terdeteksi otomatis pada salah satu foto.</span>}</div></td>
+                      <td className="px-4 py-3"><div className="flex flex-col gap-1">{r?.in?.photo && <span className="flex items-center gap-1">Masuk <AttachmentLink fileKey={r.in.photo} /></span>}{r?.out?.photo && <span className="flex items-center gap-1">Pulang <AttachmentLink fileKey={r.out.photo} /></span>}</div></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <ul className="flex flex-col gap-2 lg:hidden">
             {q.data.rows.map(({ employeeId, name, record: r, faceTries }) => {
-              const flags = [...(r ? recordChips(r) : []), ...[locationFlag(r?.in ?? null), locationFlag(r?.out ?? null)].filter((x) => x && x.tone === 'warn'), faceChip(r?.in ?? null, 'Masuk'), faceChip(r?.out ?? null, 'Pulang'),
-                // Percobaan verifikasi wajah yang gagal sebelum presensi dikirim (hanya terlihat oleh HC).
-                ...(['in', 'out'] as const).map((k) => (faceTries && faceTries[k].failed > 0 ? { tone: 'warn', text: `${k === 'in' ? 'Masuk' : 'Pulang'}: ${faceTries[k].failed} percobaan wajah gagal (dari ${faceTries[k].total})` } : null))].filter(Boolean) as { tone: 'ok' | 'warn' | 'bad' | 'info' | 'neutral'; text: string }[];
+              const flags = flagsFor(r, faceTries);
               return (
                 <li key={employeeId}>
                   <Card accent={!r ? 'neutral' : !r.clock_out ? 'info' : 'ok'} className="!p-3 !pl-5">

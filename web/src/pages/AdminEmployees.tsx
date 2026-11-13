@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronRight, Plus, SearchX } from 'lucide-react';
 import type { Role } from '@hris/shared';
@@ -17,6 +17,7 @@ export const useEmployees = () => useQuery({ queryKey: ['admin-employees'], quer
 
 export default function AdminEmployees() {
   const list = useEmployees();
+  const navigate = useNavigate();
   const master = useMaster();
   const [search, setSearch] = useState('');
   const shown = useMemo(() => {
@@ -27,11 +28,34 @@ export default function AdminEmployees() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Input type="search" aria-label="Cari karyawan" placeholder="Cari nama atau email" value={search} onChange={(e) => setSearch(e.target.value)} />
+      <div className="flex items-center gap-3">
+        <Input type="search" aria-label="Cari karyawan" placeholder="Cari nama atau email" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <Link to="/admin/karyawan/baru" className="hidden min-h-12 shrink-0 items-center gap-2 rounded-xl bg-primary px-4 font-medium text-primary-fg shadow-primary active:bg-[#0b5f58] lg:inline-flex"><Plus className="size-5" aria-hidden="true" />Tambah karyawan</Link>
+      </div>
       {list.isPending && <Spinner />}
       <ErrorNote error={list.error} />
       {list.data && shown.length === 0 && <Empty icon={<SearchX className="size-10" />}>Tidak ada karyawan yang cocok.</Empty>}
-      <ul className="flex flex-col gap-2 pb-20">
+      {shown.length > 0 && (
+        <div className="hidden overflow-hidden rounded-2xl bg-surface shadow-card lg:block">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-sub text-xs font-semibold text-muted">
+              <tr><th scope="col" className="px-4 py-3">Nama</th><th scope="col" className="px-4 py-3">Departemen dan level</th><th scope="col" className="px-4 py-3">Atasan</th><th scope="col" className="px-4 py-3">Peran</th><th scope="col" className="px-4 py-3">Status</th></tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {shown.map((e) => (
+                <tr key={e.id} onClick={() => navigate(`/admin/karyawan/${e.id}`)} className={`cursor-pointer hover:bg-sub ${e.active ? '' : 'opacity-60'}`}>
+                  <td className="px-4 py-3"><Link to={`/admin/karyawan/${e.id}`} className="font-semibold">{e.name}</Link><span className="block text-muted">{e.email}</span></td>
+                  <td className="px-4 py-3">{[nameOf(master.data, e.department_id), nameOf(master.data, e.level_id)].filter(Boolean).join(' · ') || '-'}</td>
+                  <td className="px-4 py-3">{e.is_top_leader ? 'Pucuk pimpinan' : e.manager_id ? (byId.get(e.manager_id)?.name ?? '-') : <span className="text-muted">Belum ditetapkan</span>}</td>
+                  <td className="px-4 py-3">{ROLE_LABEL[e.role]}</td>
+                  <td className="px-4 py-3">{e.active ? <Chip tone="ok">Aktif</Chip> : <Chip>Nonaktif</Chip>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <ul className="flex flex-col gap-2 pb-20 lg:hidden">
         {shown.map((e) => (
           <li key={e.id}>
             <Link to={`/admin/karyawan/${e.id}`} className={`flex min-h-16 items-center gap-3 rounded-2xl bg-surface shadow-card p-3 active:bg-sub ${e.active ? '' : 'opacity-60'}`}>
@@ -46,7 +70,7 @@ export default function AdminEmployees() {
         ))}
       </ul>
       <Link to="/admin/karyawan/baru" aria-label="Tambah karyawan"
-        className="pb-safe fixed right-4 bottom-6 z-10 grid size-14 place-items-center rounded-full bg-primary text-primary-fg shadow-lg active:bg-black"><Plus className="size-7" aria-hidden="true" /></Link>
+        className="pb-safe fixed right-4 bottom-6 z-10 grid size-14 lg:hidden place-items-center rounded-full bg-primary text-primary-fg shadow-lg active:bg-black"><Plus className="size-7" aria-hidden="true" /></Link>
     </div>
   );
 }

@@ -41,7 +41,8 @@ function UpdateBanner() {
 
 /** `bare`: layar akar tanpa bilah judul (isinya memuat sapaan/judul sendiri). */
 /** `plain`: layar dalam tanpa wallpaper (mis. kartu hari ini, agar kartu yang dibagikan terlihat jelas tanpa latar yang sama). */
-export interface RouteHandle { title?: string; back?: string; bare?: boolean; plain?: boolean }
+/** `wide`: layar dalam yang berisi tabel; di desktop isinya boleh lebih lebar (1120 px, bukan 760 px). */
+export interface RouteHandle { title?: string; back?: string; bare?: boolean; plain?: boolean; wide?: boolean }
 
 export function useTitle(): RouteHandle {
   const matches = useMatches();
@@ -195,7 +196,7 @@ export function TabLayout() {
 
 /** Layar dalam: tombol kembali, tanpa tab bar (HP). Kembali ke riwayat; bila dibuka langsung (tautan dalam) ke layar induk. Di desktop menu samping tetap ada. */
 export function StackLayout() {
-  const { title, back = '/', plain } = useTitle();
+  const { title, back = '/', plain, wide } = useTitle();
   const navigate = useNavigate();
   const location = useLocation();
   const goBack = () => (location.key === 'default' ? navigate(back, { replace: true }) : navigate(-1));
@@ -205,13 +206,13 @@ export function StackLayout() {
       <Sidebar />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="pt-safe pl-safe pr-safe">
-          <div className="mx-auto flex h-16 w-full items-center gap-3 px-4 lg:max-w-[824px] lg:px-8">
+          <div className={`mx-auto flex h-16 w-full items-center gap-3 px-4 ${wide ? 'lg:max-w-[1184px]' : 'lg:max-w-[824px]'} lg:px-8`}>
             <button onClick={goBack} aria-label="Kembali" className="grid size-11 shrink-0 place-items-center rounded-full bg-surface text-fg shadow-card active:bg-sub"><ChevronLeft className="size-6" aria-hidden="true" /></button>
             <h1 className="truncate text-xl font-extrabold">{title}</h1>
           </div>
         </header>
         <UpdateBanner />
-        <Screen key={location.pathname} max="lg:max-w-[760px]"><Outlet /></Screen>
+        <Screen key={location.pathname} max={wide ? 'lg:max-w-[1120px]' : 'lg:max-w-[760px]'}><Outlet /></Screen>
       </div>
     </div>
   );

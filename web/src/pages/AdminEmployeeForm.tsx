@@ -81,6 +81,7 @@ export default function AdminEmployeeForm() {
         <Link to={`/admin/karyawan/${target.id}/profil`} className="mb-4 flex min-h-12 items-center justify-center rounded-xl bg-surface px-4 font-medium shadow-card active:bg-sub">Lihat profil lengkap</Link>
       )}
       <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
+        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2">
         {text('name', 'Nama')}
         {text('email', 'Email', { type: 'email', mode: 'email' })}
         {isNew && text('password', 'Password awal', { type: 'password', hint: 'Minimal 8 karakter, huruf dan angka. Karyawan wajib menggantinya saat masuk pertama kali.' })}
@@ -96,12 +97,13 @@ export default function AdminEmployeeForm() {
             </Select>
           )}
         </Field>
-        <label className="flex min-h-12 items-center gap-3">
+        <label className="flex min-h-12 items-center gap-3 lg:col-span-2">
           <input type="checkbox" className="size-6 accent-primary" disabled={lockedAdmin} checked={Boolean(f.is_top_leader)} onChange={(e) => setForm({ ...f, is_top_leader: e.target.checked, manager_id: e.target.checked ? '' : f.manager_id! })} />
           <span>Pucuk pimpinan <span className="block text-sm text-muted">Cuti langsung ke HC, tanpa atasan.</span></span>
         </label>
+        </div>
 
-        <fieldset disabled={restricted || lockedAdmin} className="flex flex-col gap-4 rounded-2xl bg-surface shadow-card p-4">
+        <fieldset disabled={restricted || lockedAdmin} className="flex flex-col gap-4 rounded-2xl bg-surface shadow-card p-4 lg:grid lg:grid-cols-2">
           <legend className="px-1 text-sm font-semibold text-muted">Kepegawaian{restricted ? ' (hanya super admin)' : ''}</legend>
           {text('title', 'Jabatan', { disabled: restricted })}
           {pick('department_id', 'department')}
@@ -110,7 +112,7 @@ export default function AdminEmployeeForm() {
           {text('join_date', 'Tanggal masuk', { type: 'date', disabled: restricted })}
           <Field label="Peran">{(fid) => <Select id={fid} value={String(f.role)} onChange={(e) => set('role', e.target.value as Role)}>{(Object.keys(ROLE_LABEL) as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</Select>}</Field>
           {!isNew && (
-            <label className="flex min-h-12 items-center gap-3"><input type="checkbox" className="size-6 accent-primary" checked={Boolean(f.active)} onChange={(e) => set('active', e.target.checked)} />Akun aktif</label>
+            <label className="flex min-h-12 items-center gap-3 lg:col-span-2"><input type="checkbox" className="size-6 accent-primary" checked={Boolean(f.active)} onChange={(e) => set('active', e.target.checked)} />Akun aktif</label>
           )}
         </fieldset>
 
