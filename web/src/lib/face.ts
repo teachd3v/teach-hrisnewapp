@@ -35,8 +35,8 @@ export function isFaceReady(b: VideoBox, videoW: number, videoH: number): boolea
   return cx > 0.2 && cx < 0.8 && cy > 0.15 && cy < 0.85;
 }
 
-/** Foto dari bingkai video: potong tengah 3:4, maks. `outW` px lebar, JPEG, tidak dicerminkan (hasil nyata, bukan tampilan cermin). */
-export function snapshotVideo(video: HTMLVideoElement, outW = 900): Promise<Blob | null> {
+/** Foto dari bingkai video: potong tengah 3:4, maks. `outW` px lebar, JPEG `quality`, tidak dicerminkan (hasil nyata, bukan tampilan cermin). */
+export function snapshotVideo(video: HTMLVideoElement, outW = 900, quality = 0.85): Promise<Blob | null> {
   const vw = video.videoWidth, vh = video.videoHeight;
   const targetRatio = 3 / 4;
   let sw = vw, sh = vh, sx = 0, sy = 0;
@@ -46,5 +46,5 @@ export function snapshotVideo(video: HTMLVideoElement, outW = 900): Promise<Blob
   canvas.width = Math.round(sw * scale);
   canvas.height = Math.round(sh * scale);
   canvas.getContext('2d')!.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-  return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+  return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
 }

@@ -15,7 +15,9 @@ import { markPrimed, pendingCapturePermissions, type PermissionNeed } from '../l
 import { BottomBar, Button, ErrorNote, Spinner, cx } from '../ui';
 
 const HOLD_MS = 3000; // wajah harus stabil selama ini sebelum foto diambil otomatis
-const OUT_W = 900;
+// Foto presensi yang disimpan untuk HC: 640 px, JPEG 0.75 (hemat ruang R2). Verifikasi wajah memakai bingkai video langsung, jadi tidak terpengaruh.
+const OUT_W = 640;
+const OUT_QUALITY = 0.75;
 const SHARP_MIN = 120; // foto lebih buram dari ini tidak diverifikasi (hasilnya "kurang jelas", bukan merah); dari uji: bingkai bagus 250-900
 const YAW_MAX = 0.15; // wajah harus menghadap lurus agar hitung mundur berjalan saat verifikasi aktif
 const MODEL_WAIT_MS = 12000;
@@ -235,7 +237,7 @@ function CaptureScreen() {
     const aligned = useFace ? alignFace(v, det.kps, det.w, det.h) : null;
     const liveIn = useFace ? liveInput(v, det.bb, det.w, det.h) : null;
     const yaw = useFace ? headPose(det.kps, det.w, det.h).yaw : 0;
-    const blob = await snapshotVideo(v, OUT_W);
+    const blob = await snapshotVideo(v, OUT_W, OUT_QUALITY);
     if (!blob) { capturing.current = false; return; }
     stopCamera();
     const token = ++verifyToken.current;
