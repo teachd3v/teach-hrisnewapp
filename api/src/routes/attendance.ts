@@ -181,11 +181,11 @@ async function punch(c: Ctx, type: 'in' | 'out') {
 
   // Mode mati: tidak ada penilaian (kolom null). Mode 'flag': hasil hanya ditandai; presensi tidak pernah ditolak karena wajah.
   const faceSettings = await loadFaceSettings(db);
-  // Mode verifikasi aktif: presensi butuh wajah yang sudah didaftarkan (menunggu HC atau disetujui). Tanpa pendaftaran, presensi ditolak.
+  // Mode verifikasi aktif: presensi hanya bisa setelah pendaftaran wajah disetujui HC. Menunggu persetujuan atau ditolak = belum bisa presensi.
   if (faceSettings.mode !== 'off') {
     const registered = await one(db.select({ id: face_templates.id }).from(face_templates)
-      .where(and(eq(face_templates.employee_id, me.id), inArray(face_templates.status, ['pending', 'approved']))).limit(1));
-    if (!registered) return c.json({ error: 'Daftarkan wajah Anda dulu sebelum presensi (Akun > Wajah untuk presensi).', code: 'face_required' }, 403);
+      .where(and(eq(face_templates.employee_id, me.id), eq(face_templates.status, 'approved'))).limit(1));
+    if (!registered) return c.json({ error: 'Presensi belum bisa dilakukan: wajah Anda belum disetujui HC (Akun > Wajah untuk presensi).', code: 'face_required' }, 403);
   }
   let faceResult: FaceResult | null = null;
   let faceScore: number | null = null;
