@@ -52,3 +52,7 @@ export interface MonthSummary {
   topAbsent: { id: string; name: string; department: string; absent: number }[];
 }
 
+/** Status hari ini untuk tab Tim karyawan. Hanya status; tanpa jam, foto, lokasi, atau hasil wajah. */
+export type TeamStatus = 'hadir' | 'pulang' | 'terlambat' | 'belum' | 'izin' | 'libur';
+export interface TeamMember { name: string; status: TeamStatus; self: boolean }
+export interface TeamToday { department: string | null; dayOff: string | null; members: TeamMember[] }

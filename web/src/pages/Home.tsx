@@ -16,6 +16,8 @@ import SetupCard from '../components/SetupCard';
 import { FlashLinksButton } from '../components/FlashLinks';
 import Overview from '../components/dashboard/Overview';
 import { usePersisted } from '../components/dashboard/parts';
+import TeamStatusList from '../components/TeamStatusList';
+import { useTeamToday } from '../lib/team';
 
 function Row({ to, icon, title, sub }: { to: string; icon: React.ReactNode; title: string; sub: string }) {
   return (
@@ -37,7 +39,10 @@ export default function Home() {
   });
   // Admin/super admin: tab [Saya | Ringkasan]. Bawaan "Saya" (presensi tetap di depan); pilihan terakhir diingat. Karyawan biasa tidak melihat tab.
   const admin = Boolean(user && isAdmin(user.role));
-  const [tab, setTab] = usePersisted<'me' | 'overview'>('hris.homeTab', 'me', ['me', 'overview']);
+  const [tab, setTab] = usePersisted<'me' | 'overview' | 'team'>('hris.homeTab', 'me', ['me', 'overview', 'team']);
+  // Karyawan dengan departemen: tab Tim (status hari ini rekan satu departemen). Admin tidak mendapat tab ini.
+  const team = useTeamToday();
+  const teamOn = !admin && Boolean(team.data?.department);
   const annual = meta.data?.balances.find((b) => b.type === 'Cuti Tahunan');
   const pct = annual?.quota ? Math.max(0, Math.min(100, ((annual.remaining ?? 0) / annual.quota) * 100)) : 0;
 
@@ -60,7 +65,8 @@ export default function Home() {
       </div>
 
       {admin && <Segmented value={tab} onChange={setTab} options={[{ value: 'me', label: 'Saya' }, { value: 'overview', label: 'Ringkasan' }]} />}
-      {admin && tab === 'overview' ? <Overview /> : (
+      {!admin && teamOn && <Segmented value={tab === 'team' ? 'team' : 'me'} onChange={setTab} options={[{ value: 'me', label: 'Saya' }, { value: 'team', label: 'Tim' }]} />}
+      {admin && tab === 'overview' ? <Overview /> : !admin && teamOn && tab === 'team' ? <TeamStatusList /> : (
         <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-start lg:gap-6">
           <div className="flex flex-col gap-4">
           <TodayCard />

@@ -1,7 +1,7 @@
 // Ringkasan untuk dashboard Beranda admin. Memakai aturan yang sama dengan Rekap Excel (jam masuk berefektif-tanggal, izin terlambat,
 // hari libur, cuti sehari penuh), supaya angka di Beranda tidak bertentangan dengan Excel. Tidak diaudit tiap muat (hanya agregat dan nama).
 import { and, eq, gte, lte } from 'drizzle-orm';
-import { LEAVE_KEYS, isWeekendDate, lateMinutes, wibSecondsOfDay, type AttendanceReport, type DayPerson, type DaySnapshot, type MonthSummary } from '@hris/shared';
+import { LEAVE_KEYS, isWeekendDate, lateMinutes, wibSecondsOfDay, type AttendanceReport, type DayPerson, type DaySnapshot, type MonthSummary, type TeamStatus, type TeamToday } from '@hris/shared';
 import { attendances, employees, holidays, leave_requests, master_options } from '../db/schema';
 import type { Db } from './leave-db';
 import { loadPolicies } from './attendance-policy';
@@ -84,4 +84,40 @@ export async function buildMonthSummary(db: Db, month: string, last: string, tod
     topAbsent: report.summary.filter((r) => r.absent > 0).sort((a, b) => b.absent - a.absent).slice(0, 5)
       .map((r) => ({ id: r.employeeId, name: r.name, department: r.department, absent: r.absent })),
   };
+}
+
+/** Status hari ini untuk rekan satu departemen (tab Tim karyawan). Aturannya sama dengan buildDaySnapshot; yang dikembalikan hanya
+ *  status per orang: tanpa jam, foto, lokasi, atau hasil wajah. Hanya untuk hari ini. */
+export async function buildTeamToday(db: Db, me: { id: string; department_id: string | null }, today: string): Promise<TeamToday> {
+  if (!me.department_id) return { department: null, dayOff: null, members: [] };
+  const deptId = me.department_id;
+  const [policies, types, opts, emps, attRows, leaves, hols] = await Promise.all([
+    loadPolicies(db),
+    loadLeaveTypes(db),
+    db.select().from(master_options),
+    db.select().from(employees).where(and(eq(employees.active, true), eq(employees.department_id, deptId))),
+    db.select().from(attendances).where(eq(attendances.date, today)),
+    db.select().from(leave_requests).where(and(eq(leave_requests.status, 'approved'), lte(leave_requests.start_date, today), gte(leave_requests.end_date, today))),
+    db.select().from(holidays).where(eq(holidays.date, today)),
+  ]);
+  const timeBased = timeBasedKeys(types);
+  const holiday = hols[0]?.name ?? null;
+  const weekend = isWeekendDate(today);
+  const workday = !weekend && !holiday;
+  const att = new Map(attRows.map((r) => [r.employee_id, r]));
+  const members = [...emps].sort((a, b) => a.name.localeCompare(b.name)).map((e) => {
+    const row = att.get(e.id);
+    const mine = leaves.filter((l) => l.employee_id === e.id);
+    const fullLeave = mine.find((l) => !timeBased.has(l.leave_type));
+    const excused = mine.some((l) => l.leave_type === LEAVE_KEYS.lateIn);
+    let status: TeamStatus;
+    if (!workday) status = 'libur';
+    else if (row?.clock_in) {
+      const late = lateMinutes(row.clock_in, policies);
+      status = late > 0 && !excused ? 'terlambat' : row.clock_out ? 'pulang' : 'hadir';
+    } else if (fullLeave) status = 'izin';
+    else status = 'belum';
+    return { name: e.name, status, self: e.id === me.id };
+  });
+  return { department: opts.find((o) => o.id === deptId)?.name ?? null, dayOff: holiday ? `Libur: ${holiday}` : weekend ? 'Akhir pekan' : null, members };
 }

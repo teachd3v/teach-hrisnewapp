@@ -6,6 +6,7 @@ import type { AppEnv } from '../env';
 import { attendances, audit_log, employees, face_attempts, holidays, leave_requests } from '../db/schema';
 import { auditRow } from '../lib/audit';
 import type { Db } from '../lib/leave-db';
+import { buildTeamToday } from '../lib/dashboard';
 import { loadOffices, loadPolicies } from '../lib/attendance-policy';
 import { approvedTemplate, loadFaceSettings } from '../lib/face';
 import { labelMap, loadLeaveTypes, timeBasedKeys } from '../lib/leave-types';
@@ -232,6 +233,14 @@ attendance.post('/clock-in', (c) => punch(c, 'in'));
 attendance.post('/clock-out', (c) => punch(c, 'out'));
 
 /** HC: presensi semua karyawan aktif pada satu tanggal (`?date=YYYY-MM-DD`, default hari ini WIB). */
+/** Tab Tim karyawan: status hari ini rekan satu departemen (lihat buildTeamToday). Hanya status, tanpa jam atau detail lain. */
+attendance.get('/team', async (c) => {
+  const db = drizzle(c.env.DB);
+  const me = await actor(c, db);
+  if (!me) return c.json({ error: 'Sesi berakhir' }, 401);
+  return c.json(await buildTeamToday(db, me, wibDate()));
+});
+
 attendance.get('/admin', async (c) => {
   const db = drizzle(c.env.DB);
   const me = await actor(c, db);
