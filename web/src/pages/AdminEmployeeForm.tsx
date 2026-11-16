@@ -30,8 +30,6 @@ export default function AdminEmployeeForm() {
   const [resetPw, setResetPw] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
 
-  if (!isNew && list.data && !target) return <Navigate to="/admin/karyawan" replace />;
-  if (!isNew && !target) return <Spinner />;
   const f = form ?? toForm(target);
   const set = (k: string, v: string | boolean) => setForm({ ...f, [k]: v });
   const lockedAdmin = Boolean(target && target.role !== 'employee' && !isSuper && target.id !== user?.id);
@@ -74,13 +72,17 @@ export default function AdminEmployeeForm() {
     <Field label={label} hint={opts.hint}>{(fid, d) => <Input id={fid} aria-describedby={d} type={opts.type ?? 'text'} inputMode={opts.mode} disabled={opts.disabled || lockedAdmin} value={String(f[k] ?? '')} onChange={(e) => set(k, e.target.value)} />}</Field>
   );
 
+  // Penjaga ini ditaruh SETELAH semua hook: pemanggilan hook tidak boleh berubah jumlahnya antar-render.
+  if (!isNew && list.data && !target) return <Navigate to="/admin/karyawan" replace />;
+  if (!isNew && !target) return <Spinner />;
+
   return (
     <div className="flex flex-1 flex-col gap-6">
       {lockedAdmin && <p className="rounded-xl bg-warn-bg p-3 text-sm text-warn">Akun admin hanya dapat diubah super admin.</p>}
       {!isNew && target && (
         <Link to={`/admin/karyawan/${target.id}/profil`} className="mb-4 flex min-h-12 items-center justify-center rounded-xl bg-surface px-4 font-medium shadow-card active:bg-sub">Lihat profil lengkap</Link>
       )}
-      <form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
+      <form id="emp-form" onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
         <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2">
         {text('name', 'Nama')}
         {text('email', 'Email', { type: 'email', mode: 'email' })}
@@ -117,7 +119,6 @@ export default function AdminEmployeeForm() {
         </fieldset>
 
         <ErrorNote error={save.error} />
-        <BottomBar><Button type="submit" className="w-full" loading={save.isPending} disabled={lockedAdmin}>Simpan</Button></BottomBar>
       </form>
 
       {!isNew && !lockedAdmin && (
@@ -129,6 +130,7 @@ export default function AdminEmployeeForm() {
           <Button variant="secondary" disabled={!resetPw} loading={reset.isPending} onClick={() => { setNotice(null); reset.mutate(); }}>Atur ulang password</Button>
         </Card>
       )}
+      <BottomBar><Button type="submit" form="emp-form" className="w-full" loading={save.isPending} disabled={lockedAdmin}>Simpan</Button></BottomBar>
     </div>
   );
 }

@@ -43,7 +43,7 @@ export default function AdminEmployees() {
             </thead>
             <tbody className="divide-y divide-line">
               {shown.map((e) => (
-                <tr key={e.id} onClick={() => navigate(`/admin/karyawan/${e.id}`)} className={`cursor-pointer hover:bg-sub ${e.active ? '' : 'opacity-60'}`}>
+                <tr key={e.id} onClick={(ev) => { if (!(ev.target as HTMLElement).closest('a')) navigate(`/admin/karyawan/${e.id}`); }} className={`cursor-pointer hover:bg-sub ${e.active ? '' : 'opacity-60'}`}>
                   <td className="px-4 py-3"><Link to={`/admin/karyawan/${e.id}`} className="font-semibold">{e.name}</Link><span className="block text-muted">{e.email}</span></td>
                   <td className="px-4 py-3">{[nameOf(master.data, e.department_id), nameOf(master.data, e.level_id)].filter(Boolean).join(' · ') || '-'}</td>
                   <td className="px-4 py-3">{e.is_top_leader ? 'Pucuk pimpinan' : e.manager_id ? (byId.get(e.manager_id)?.name ?? '-') : <span className="text-muted">Belum ditetapkan</span>}</td>

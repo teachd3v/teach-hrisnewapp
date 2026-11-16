@@ -199,7 +199,10 @@ export function StackLayout() {
   const { title, back = '/', plain, wide } = useTitle();
   const navigate = useNavigate();
   const location = useLocation();
-  const goBack = () => (location.key === 'default' ? navigate(back, { replace: true }) : navigate(-1));
+  // Layar kelola karyawan: Kembali selalu menuju induknya (daftar, atau profil di atasnya), tidak mundur satu riwayat. Riwayat yang
+  // bercampur (tautan yang sama dibuka berulang) membuat Kembali mundur ke layar yang sama dan perlu diketuk berkali-kali.
+  const parentBack = back.startsWith('/admin/karyawan');
+  const goBack = () => (parentBack || location.key === 'default' ? navigate(back, { replace: true }) : navigate(-1));
   return (
     <div className="relative isolate mx-auto flex h-dvh max-w-md flex-col bg-app lg:max-w-none lg:flex-row">
       {!plain && <WallpaperLayer />}
