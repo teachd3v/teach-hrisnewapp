@@ -13,6 +13,7 @@ import WeekStrip from '../components/WeekStrip';
 import { Button, Card, Segmented, Spinner } from '../ui';
 import { TodayCard } from './Attendance';
 import SetupCard from '../components/SetupCard';
+import { FlashLinksButton } from '../components/FlashLinks';
 import Overview from '../components/dashboard/Overview';
 import { usePersisted } from '../components/dashboard/parts';
 
@@ -55,7 +56,7 @@ export default function Home() {
           <p className="text-sm text-muted">{greeting},</p>
           <p className="truncate text-xl font-extrabold">{user?.name}</p>
         </div>
-        <p className="shrink-0 rounded-full bg-surface px-3 py-1.5 text-xs font-semibold shadow-card">{new Date(`${today}T00:00:00Z`).toLocaleDateString('id-ID', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' })}</p>
+        <FlashLinksButton />
       </div>
 
       {admin && <Segmented value={tab} onChange={setTab} options={[{ value: 'me', label: 'Saya' }, { value: 'overview', label: 'Ringkasan' }]} />}

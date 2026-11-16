@@ -19,6 +19,7 @@ import { reports } from './routes/reports';
 import { audit } from './routes/audit';
 import { internal } from './routes/internal';
 import { notificationRoutes } from './routes/notifications';
+import { flashLinkRoutes } from './routes/flash-links';
 
 // Origin aplikasi Tauri (Android: http(s)://tauri.localhost, iOS/macOS: tauri://localhost)
 const TAURI_ORIGINS = ['tauri://localhost', 'http://tauri.localhost', 'https://tauri.localhost'];
@@ -57,6 +58,7 @@ app.route('/reports', reports);
 app.route('/audit', audit);
 app.route('/internal', internal);
 app.route('/notifications', notificationRoutes);
+app.route('/flash-links', flashLinkRoutes);
 
 app.notFound((c) => c.json({ error: 'Tidak ditemukan' }, 404));
 app.onError((err, c) => {

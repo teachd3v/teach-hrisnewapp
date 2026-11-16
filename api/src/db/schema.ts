@@ -388,6 +388,18 @@ export const app_settings = sqliteTable('app_settings', {
 
 // Dedup pengingat terjadwal: satu pengingat per jenis per orang per hari (tanggal WIB). Baris dimasukkan SEBELUM kirim (klaim),
 // jadi dua proses bersamaan atau cron yang berjalan berkali-kali tidak mengirim ganda.
+// Tautan cepat (beranda). owner_id kosong = untuk semua karyawan (dikelola super admin); terisi = milik satu karyawan.
+export const flash_links = sqliteTable('flash_links', {
+  id: text('id').primaryKey(),
+  owner_id: text('owner_id'),
+  title: text('title').notNull(),
+  url: text('url').notNull(),
+  created_by: text('created_by').notNull(),
+  created_at: text('created_at').notNull(),
+}, (t) => ({
+  ownerIdx: index('flash_links_owner_idx').on(t.owner_id),
+}));
+
 export const reminder_log = sqliteTable('reminder_log', {
   id: text('id').primaryKey(),
   kind: text('kind').notNull(),

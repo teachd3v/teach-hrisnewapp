@@ -46,6 +46,7 @@ export const AUDIT_ACTIONS: Record<string, { label: string; attention?: boolean 
   'holiday.set': { label: 'Simpan hari libur' },
   'holiday.deleted': { label: 'Hapus hari libur' },
   'setting.changed': { label: 'Ubah pengaturan', attention: true },
+  'flash_link.changed': { label: 'Ubah tautan cepat untuk semua karyawan' },
   'overtime.submitted': { label: 'Ajukan overtime' },
   'overtime.cancelled': { label: 'Batalkan overtime' },
   'overtime.manager_decision': { label: 'Keputusan atasan (overtime)' },
