@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/d1';
 import { and, asc, between, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
 import { LEAVE_KEYS, assessFace, assessLocation, bestScore, decodeVectors, encodeVectors, isAdmin, isWeekendDate, lateMinutes, normalize, policyFor, validEmbedding, validLatLng, wibDate, type AttendanceFlags, type AttendancePolicy, type FaceResult } from '@hris/shared';
 import type { AppEnv } from '../env';
-import { attendances, audit_log, employees, face_attempts, holidays, leave_requests } from '../db/schema';
+import { attendances, audit_log, employees, face_attempts, face_templates, holidays, leave_requests } from '../db/schema';
 import { auditRow } from '../lib/audit';
 import type { Db } from '../lib/leave-db';
 import { buildTeamToday } from '../lib/dashboard';
@@ -181,6 +181,12 @@ async function punch(c: Ctx, type: 'in' | 'out') {
 
   // Mode mati: tidak ada penilaian (kolom null). Mode 'flag': hasil hanya ditandai; presensi tidak pernah ditolak karena wajah.
   const faceSettings = await loadFaceSettings(db);
+  // Mode verifikasi aktif: presensi butuh wajah yang sudah didaftarkan (menunggu HC atau disetujui). Tanpa pendaftaran, presensi ditolak.
+  if (faceSettings.mode !== 'off') {
+    const registered = await one(db.select({ id: face_templates.id }).from(face_templates)
+      .where(and(eq(face_templates.employee_id, me.id), inArray(face_templates.status, ['pending', 'approved']))).limit(1));
+    if (!registered) return c.json({ error: 'Daftarkan wajah Anda dulu sebelum presensi (Akun > Wajah untuk presensi).', code: 'face_required' }, 403);
+  }
   let faceResult: FaceResult | null = null;
   let faceScore: number | null = null;
   if (faceSettings.mode !== 'off') {

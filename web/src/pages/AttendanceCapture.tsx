@@ -69,7 +69,8 @@ export default function AttendanceCapture() {
   const { type } = useParams();
   const [need, setNeed] = useState<PermissionNeed | null>(null); // null = masih memeriksa
   const policy = useToday().data?.policy;
-  const faceStatus = useFaceStatus().data;
+  const faceQ = useFaceStatus();
+  const faceStatus = faceQ.data;
   useEffect(() => {
     let cancelled = false;
     void pendingCapturePermissions().then((n) => { if (!cancelled) setNeed(n); });
@@ -77,7 +78,9 @@ export default function AttendanceCapture() {
   }, []);
 
   if (type !== 'in' && type !== 'out') return <Navigate to="/presensi" replace />;
-  if (!need) return <Spinner />;
+  if (!need || faceQ.isPending) return <Spinner />;
+  // Verifikasi wajah aktif tetapi belum ada pendaftaran: presensi tidak bisa dilakukan sebelum mendaftar.
+  if (faceStatus && faceStatus.settings.mode !== 'off' && !faceStatus.active && !faceStatus.pending) return <FaceRequired rejected={Boolean(faceStatus.rejected)} />;
   if (need.camera || need.location) {
     return (
       <PermissionPrimer need={need} faceActive={Boolean(faceStatus && faceStatus.settings.mode !== 'off' && faceStatus.active)} locationRequired={policy?.locationMode === 'block'}
@@ -85,6 +88,20 @@ export default function AttendanceCapture() {
     );
   }
   return <CaptureScreen />;
+}
+
+/** Layar pengganti presensi: wajah wajib didaftarkan lebih dulu (mode verifikasi aktif). */
+function FaceRequired({ rejected }: { rejected: boolean }) {
+  return (
+    <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+        <span className="grid size-20 place-items-center rounded-3xl bg-surface text-primary shadow-card" aria-hidden="true"><Camera className="size-9" /></span>
+        <h1 className="text-2xl font-extrabold">Daftarkan wajah dulu</h1>
+        <p className="max-w-xs text-muted">{rejected ? 'Pendaftaran wajah Anda sebelumnya ditolak HC. Daftarkan ulang agar bisa presensi.' : 'Presensi memakai verifikasi wajah. Daftarkan wajah Anda sekali; setelah itu Anda bisa presensi seperti biasa.'}</p>
+      </div>
+      <BottomBar><Link to="/profil/wajah" className="block"><Button className="w-full">Daftarkan wajah</Button></Link></BottomBar>
+    </div>
+  );
 }
 
 function CaptureScreen() {
