@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
-  CalendarCheck, CalendarCog, CalendarHeart, ChevronDown, ChevronRight, ClipboardList, Compass, ImagePlus, KeyRound, FilePen, FileSpreadsheet, ListTree, LogOut, MapPinned, ScanFace, ScrollText, UserRound, Users,
+  CalendarCheck, CalendarCog, CalendarHeart, ChevronDown, ChevronRight, ClipboardList, Compass, ImagePlus, ListChecks, KeyRound, FilePen, FileSpreadsheet, ListTree, LogOut, MapPinned, ScanFace, ScrollText, UserRound, Users,
 } from 'lucide-react';
 import { isAdmin, type Role } from '@hris/shared';
 import { useAuth } from '../lib/auth';
@@ -140,6 +140,7 @@ export default function Account() {
         <button type="button" onClick={() => { if (user) requestTour(user.id); navigate('/'); }} className="flex min-h-14 w-full items-center gap-3 px-4 text-left active:bg-sub">
           <Compass className="size-5" aria-hidden="true" /><span className="flex-1 font-medium">Lihat panduan lagi</span><ChevronRight className="size-5 text-muted" aria-hidden="true" />
         </button>
+        <MenuRow to="/siapkan-akun?ulang=1" icon={<ListChecks className="size-5" />} label="Ulangi penyiapan akun" />
       </section>
 
       {user && isAdmin(user.role) && <AdminMenu superAdmin={user.role === 'super_admin'} />}

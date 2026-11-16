@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router';
-import { BellRing, Check, ImagePlus, ScanFace } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router';
+import { BellRing, Check, ImagePlus, ScanFace, UserRound } from 'lucide-react';
+import { useAuth } from '../lib/auth';
 import { enablePush } from '../lib/push';
 import { useFaceStatus } from '../lib/face-status';
 import { ACCEPT, useWallpaper } from '../lib/wallpaper';
 import { PRESETS, presetThumbUrl } from '../lib/wallpaper-presets';
+import { markSetupDone } from '../lib/setup-state';
 import { usePushState } from '../components/PushCard';
 import WallpaperLayer from '../components/WallpaperLayer';
-import { Button, ErrorNote, Spinner, cx } from '../ui';
+import { Button, ErrorNote, Field, Input, Spinner, cx } from '../ui';
 import FaceEnroll from './FaceEnroll';
 
-type StepKey = 'push' | 'face' | 'wallpaper';
+type StepKey = 'push' | 'face' | 'wallpaper' | 'nickname';
 
 /** Wallpaper bawaan yang ditawarkan di sini (sebagian saja; galeri lengkap ada di Akun > Wallpaper). */
 const PICK_IDS = ['pastel_sky_white_clouds', 'calm_coast_twilight_minimalist', 'green_hills_sunny_sky', 'lone_tree_ocean_view', 'countryside_river_windmills', 'santorini_coastal_town'];
@@ -40,9 +42,17 @@ function PushStep({ onNext }: { onNext: () => void }) {
         <>
           <ErrorNote error={error} />
           <Button loading={busy} onClick={() => { setBusy(true); setError(null); enablePush().then(onNext, (e: unknown) => { setError(e); setBusy(false); }); }}>Aktifkan</Button>
-          <Button variant="ghost" onClick={onNext}>Nanti</Button>
         </>
       )} />
+  );
+}
+
+function FaceStep({ onNext }: { onNext: () => void }) {
+  const [enrolling, setEnrolling] = useState(false);
+  if (enrolling) return <FaceEnroll flow={{ onDone: onNext, onCancel: () => setEnrolling(false) }} />;
+  return (
+    <Intro icon={<ScanFace className="size-9" />} title="Daftarkan wajah untuk presensi" body="Tatap kamera beberapa detik. HC lalu mencocokkannya dengan KTP Anda; sementara itu presensi tetap bisa dilakukan."
+      actions={<Button onClick={() => setEnrolling(true)}>Daftarkan sekarang</Button>} />
   );
 }
 
@@ -61,13 +71,8 @@ function WallpaperStep({ onNext }: { onNext: () => void }) {
   }
 
   return (
-    <Intro title="Pilih wallpaper" body="Opsional. Bisa diganti kapan saja di Akun."
-      actions={(
-        <>
-          {active && <Button onClick={onNext}>Pakai wallpaper ini</Button>}
-          <Button variant={active ? 'ghost' : 'secondary'} onClick={() => { if (active) select({ kind: 'none' }); onNext(); }}>{active ? 'Tanpa wallpaper' : 'Lewati'}</Button>
-        </>
-      )}>
+    <Intro title="Pilih wallpaper" body="Pilih salah satu gambar, atau unggah gambar sendiri. Bisa diganti kapan saja di Akun."
+      actions={<Button disabled={!active} onClick={onNext}>{active ? 'Pakai wallpaper ini' : 'Pilih dulu wallpaper'}</Button>}>
       <div className="mt-2 grid w-full grid-cols-3 gap-2">
         {PICKS.map((p) => {
           const selected = choice.kind === 'preset' && choice.id === p.id;
@@ -88,18 +93,52 @@ function WallpaperStep({ onNext }: { onNext: () => void }) {
   );
 }
 
+/** Nama panggilan: dipakai di sapaan Beranda dan kartu "Selesai hari ini". Validasi juga dilakukan di server. */
+function NicknameStep({ onNext }: { onNext: () => void }) {
+  const { user, setNickname } = useAuth();
+  const [value, setValue] = useState(user?.nickname ?? '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const ok = value.trim().length >= 2;
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try { await setNickname(value.trim()); onNext(); } catch (e) { setError(e); setBusy(false); }
+  }
+
+  return (
+    <Intro icon={<UserRound className="size-9" />} title="Nama panggilan" body="Dipakai untuk sapaan di Beranda dan di kartu Selesai hari ini. Cukup nama pendek, misalnya Budi atau Mbak Sari."
+      actions={(
+        <>
+          <ErrorNote error={error} />
+          <Button loading={busy} disabled={!ok} onClick={() => void save()}>Simpan dan lanjut</Button>
+        </>
+      )}>
+      <form className="mt-2 w-full max-w-xs text-left" onSubmit={(e) => { e.preventDefault(); if (ok && !busy) void save(); }}>
+        <Field label="Nama panggilan" hint="2 sampai 20 karakter.">
+          {(id, d) => <Input id={id} aria-describedby={d} maxLength={20} autoComplete="nickname" autoFocus value={value} onChange={(e) => setValue(e.target.value)} />}
+        </Field>
+      </form>
+    </Intro>
+  );
+}
+
 /**
- * Penyiapan akun, dibuka sekali setelah password awal diganti: notifikasi, wajah untuk presensi, wallpaper. Setiap langkah bisa dilewati;
- * yang dilewati muncul lagi di kartu "Siapkan akun" di Beranda (components/SetupCard). Langkah yang tidak berlaku di perangkat ini
- * (notifikasi tidak bisa diaktifkan dari sini, verifikasi wajah dimatikan admin, wajah sudah terdaftar) tidak ditampilkan.
+ * Penyiapan akun, wajib sekali per akun di perangkat ini: notifikasi, wajah untuk presensi, wallpaper, nama panggilan.
+ * Tidak ada tombol lewati. Dibuka ulang dari Akun > "Ulangi penyiapan akun" (?ulang=1), yang juga menampilkan nama panggilan.
+ * Langkah yang tidak berlaku di perangkat ini (notifikasi tidak bisa diaktifkan, verifikasi wajah dimatikan admin, wajah sudah
+ * terdaftar) tidak ditampilkan.
  */
 export default function Setup() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [params] = useSearchParams();
+  const replay = params.get('ulang') === '1';
   const [push] = usePushState();
   const face = useFaceStatus();
   const [steps, setSteps] = useState<StepKey[] | null>(null);
   const [i, setI] = useState(0);
-  const [enrolling, setEnrolling] = useState(false);
 
   // Daftar langkah ditetapkan sekali, setelah keadaan perangkat dan status wajah diketahui, agar tidak bergeser saat sebuah langkah selesai.
   const faceSettled = !face.isPending;
@@ -110,11 +149,16 @@ export default function Setup() {
       ...(push === 'off' ? (['push'] as const) : []),
       ...(f && f.settings.mode !== 'off' && !f.active && !f.pending ? (['face'] as const) : []),
       'wallpaper',
+      ...(replay || !user?.nickname ? (['nickname'] as const) : []),
     ]);
-  }, [steps, push, faceSettled, f]);
+  }, [steps, push, faceSettled, f, replay, user?.nickname]);
 
   const step = steps?.[i];
-  const next = () => { setEnrolling(false); if (steps && i + 1 < steps.length) setI(i + 1); else navigate('/', { replace: true }); };
+  const next = () => {
+    if (steps && i + 1 < steps.length) { setI(i + 1); return; }
+    if (user) markSetupDone(user.id);
+    navigate('/', { replace: true });
+  };
 
   return (
     <div className="relative isolate mx-auto flex h-dvh max-w-md flex-col bg-app lg:max-w-none">
@@ -129,21 +173,12 @@ export default function Setup() {
           </div>
         </header>
       )}
-      <main key={`${step ?? 'load'}-${enrolling}`} className="screen-in mx-auto flex w-full flex-1 flex-col overflow-y-auto overscroll-contain px-4 pb-6 pt-4 lg:max-w-md lg:px-0 lg:pb-10">
+      <main key={step ?? 'load'} className="screen-in mx-auto flex w-full flex-1 flex-col overflow-y-auto overscroll-contain px-4 pb-6 pt-4 lg:max-w-md lg:px-0 lg:pb-10">
         {!step && <Spinner />}
         {step === 'push' && <PushStep onNext={next} />}
-        {step === 'face' && (enrolling
-          ? <FaceEnroll flow={{ onDone: next, onCancel: () => setEnrolling(false) }} />
-          : (
-            <Intro icon={<ScanFace className="size-9" />} title="Daftarkan wajah untuk presensi" body="Tatap kamera beberapa detik. HC lalu mencocokkannya dengan KTP Anda; sementara itu presensi tetap bisa dilakukan."
-              actions={(
-                <>
-                  <Button onClick={() => setEnrolling(true)}>Daftarkan sekarang</Button>
-                  <Button variant="ghost" onClick={next}>Nanti</Button>
-                </>
-              )} />
-          ))}
+        {step === 'face' && <FaceStep onNext={next} />}
         {step === 'wallpaper' && <WallpaperStep onNext={next} />}
+        {step === 'nickname' && <NicknameStep onNext={next} />}
       </main>
     </div>
   );

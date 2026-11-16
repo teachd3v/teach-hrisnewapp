@@ -36,6 +36,7 @@ import AdminReport from './pages/AdminReport';
 import AdminAudit from './pages/AdminAudit';
 import FaceEnroll from './pages/FaceEnroll';
 import AdminFace from './pages/AdminFace';
+import { setupDone } from './lib/setup-state';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: true } } });
 
@@ -46,6 +47,8 @@ function RequireAuth() {
   if (loading) return <Spinner />;
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   if (mustChangePassword) return <Navigate to="/ganti-password" replace />;
+  // Penyiapan akun wajib: sebelum selesai, semua layar lain dialihkan ke sana.
+  if (!setupDone(user.id) && location.pathname !== '/siapkan-akun') return <Navigate to="/siapkan-akun" replace />;
   return <Outlet />;
 }
 

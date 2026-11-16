@@ -81,7 +81,8 @@ export default function DayCard() {
   const photosBusy = showPhoto && ((Boolean(rec?.in?.photo) && inPhoto.isPending) || (Boolean(rec?.out?.photo) && outPhoto.isPending));
 
   const complete = Boolean(rec?.clock_in && rec.clock_out);
-  const firstName = (user?.name ?? '').trim().split(/\s+/)[0] || 'kamu';
+  // Nama panggilan (diisi di penyiapan akun); bila belum ada, pakai kata pertama dari nama lengkap.
+  const firstName = (user?.nickname || (user?.name ?? '').trim().split(/\s+/)[0]) || 'kamu';
   const quote = useMemo(() => pickQuote(user?.id ?? '', date), [user?.id, date]);
   const onTimeDays = useMemo(() => all.filter((r) => r.date <= date && ['ok', 'info'].includes(dotFor(r) ?? '')).length, [all, date]);
   const inTime = fmtTime(rec?.clock_in ?? null);

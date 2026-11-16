@@ -112,7 +112,7 @@ auth.post('/login', async (c) => {
   return c.json({
     ...tokens,
     mustChangePassword: cred.must_change_password,
-    user: { id: emp.id, name: emp.name, email: emp.email, role: emp.role },
+    user: { id: emp.id, name: emp.name, nickname: emp.nickname ?? null, email: emp.email, role: emp.role },
   });
 });
 
@@ -167,7 +167,19 @@ auth.get('/me', requireAuth, async (c) => {
   ]);
   if (!emp || !emp.active) return c.json({ error: 'Sesi berakhir' }, 401);
   // `mustChangePassword` ikut dikirim supaya memuat ulang aplikasi tidak melewati kewajiban mengganti password awal.
-  return c.json({ id: emp.id, name: emp.name, email: emp.email, role: emp.role, title: emp.title, mustChangePassword: Boolean(cred?.must) });
+  return c.json({ id: emp.id, name: emp.name, nickname: emp.nickname ?? null, email: emp.email, role: emp.role, title: emp.title, mustChangePassword: Boolean(cred?.must) });
+});
+
+/** Nama panggilan (2–20 karakter): dipakai di sapaan Beranda dan kartu "Selesai hari ini". Diisi di penyiapan akun dan bisa diulang dari Akun. */
+auth.put('/nickname', requireAuth, async (c) => {
+  const body = await c.req.json<{ nickname?: unknown }>().catch(() => ({}) as never);
+  const nickname = typeof body.nickname === 'string' ? body.nickname.trim().replace(/\s+/g, ' ') : '';
+  if (nickname.length < 2 || nickname.length > 20 || !/^[\p{L}\p{M}][\p{L}\p{M}\p{N} .'-]*$/u.test(nickname)) {
+    return c.json({ error: 'Nama panggilan 2–20 karakter: huruf, angka, spasi, titik, apostrof, atau tanda hubung.' }, 400);
+  }
+  const db = drizzle(c.env.DB);
+  await db.update(employees).set({ nickname }).where(eq(employees.id, c.get('user').id));
+  return c.json({ ok: true, nickname });
 });
 
 /**

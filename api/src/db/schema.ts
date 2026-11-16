@@ -6,6 +6,7 @@ export const employees = sqliteTable('employees', {
   id: text('id').primaryKey(),
   employee_code: text('employee_code'),
   name: text('name').notNull(),
+  nickname: text('nickname'), // nama panggilan (sapaan Beranda, kartu Selesai hari ini); diisi di penyiapan akun
   email: text('email').notNull(),
   phone: text('phone'),
   gender: text('gender'), // 'Laki-laki' | 'Perempuan'

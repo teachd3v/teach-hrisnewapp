@@ -4,7 +4,7 @@ import { api, apiPublic, clearTokens, refreshSession, setSessionExpiredHandler, 
 import { refreshStore } from './session';
 import { detachFromServer, syncPushSubscription } from './push';
 
-export interface User { id: string; name: string; email: string; role: Role }
+export interface User { id: string; name: string; nickname?: string | null; email: string; role: Role }
 
 interface AuthState {
   user: User | null;
@@ -20,6 +20,8 @@ interface AuthState {
   hasInitialPassword: boolean;
   /** `currentPassword` null = pakai password awal yang diingat. Perangkat ini tetap masuk; perangkat lain keluar. */
   changePassword(currentPassword: string | null, newPassword: string): Promise<void>;
+  /** Nama panggilan untuk sapaan dan kartu Selesai hari ini. */
+  setNickname(nickname: string): Promise<void>;
 }
 
 const Ctx = createContext<AuthState | null>(null);
@@ -76,6 +78,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (refreshToken) await apiPublic('/auth/logout', { method: 'POST', json: { refreshToken } }).catch(() => {});
     },
     hasInitialPassword: initialPassword !== null,
+    async setNickname(nickname) {
+      const res = await api<{ ok: true; nickname: string }>('/auth/nickname', { method: 'PUT', json: { nickname } });
+      setUser((u) => (u ? { ...u, nickname: res.nickname } : u));
+    },
     async changePassword(currentPassword, newPassword) {
       const res = await api<TokenPair>('/auth/change-password', {
         method: 'POST',

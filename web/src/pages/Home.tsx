@@ -59,7 +59,7 @@ export default function Home() {
         <ProfilePhoto fileKey={card?.photoKey} name={user?.name ?? ''} className="size-12" />
         <div className="min-w-0 flex-1">
           <p className="text-sm text-muted">{greeting},</p>
-          <p className="truncate text-xl font-extrabold">{user?.name}</p>
+          <p className="truncate text-xl font-extrabold">{user?.nickname || user?.name}</p>
         </div>
         <FlashLinksButton />
       </div>
