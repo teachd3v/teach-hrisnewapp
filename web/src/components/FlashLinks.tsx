@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ExternalLink, Trash2, Zap } from 'lucide-react';
+import { ExternalLink, Plus, Trash2, Zap } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useFlashLinks, type FlashLink } from '../lib/flash-links';
@@ -52,12 +52,13 @@ function FlashLinksSheet({ open, onClose }: { open: boolean; onClose: () => void
   const [title, setTitle] = useState('');
   const [url, setUrl] = useState('');
   const [scope, setScope] = useState<'mine' | 'global'>('mine');
+  const [adding, setAdding] = useState(false); // form tersembunyi sampai tombol Tambah ditekan
   const superAdmin = user?.role === 'super_admin';
   const refresh = () => void qc.invalidateQueries({ queryKey: ['flash-links'] });
 
   const add = useMutation({
     mutationFn: () => api('/flash-links', { method: 'POST', json: { title, url, scope } }),
-    onSuccess: () => { setTitle(''); setUrl(''); setScope('mine'); refresh(); },
+    onSuccess: () => { setTitle(''); setUrl(''); setScope('mine'); setAdding(false); refresh(); },
   });
   const remove = useMutation({
     mutationFn: (id: string) => api(`/flash-links/${id}`, { method: 'DELETE' }),
@@ -79,8 +80,11 @@ function FlashLinksSheet({ open, onClose }: { open: boolean; onClose: () => void
         )}
         <ErrorNote error={remove.error} />
 
+        {!adding ? (
+          <Button variant="secondary" onClick={() => setAdding(true)}><Plus className="size-5" aria-hidden="true" />Tambah tautan</Button>
+        ) : (
         <form onSubmit={onSubmit} className="flex flex-col gap-3 rounded-2xl bg-sub p-4">
-          <p className="font-semibold">Tambah tautan</p>
+          <p className="font-semibold">Tautan baru</p>
           <Field label="Nama tautan">{(id) => <Input id={id} value={title} maxLength={60} placeholder="mis. Peminjaman Kendaraan" onChange={(e) => setTitle(e.target.value)} />}</Field>
           <Field label="Alamat" hint="Harus diawali https://">{(id, d) => <Input id={id} type="url" inputMode="url" aria-describedby={d} value={url} placeholder="https://" onChange={(e) => setUrl(e.target.value)} />}</Field>
           {superAdmin && (
@@ -92,8 +96,12 @@ function FlashLinksSheet({ open, onClose }: { open: boolean; onClose: () => void
             )}</Field>
           )}
           <ErrorNote error={add.error} />
-          <Button type="submit" loading={add.isPending} disabled={!title.trim() || !url.trim()}>Tambah tautan</Button>
+          <div className="grid grid-cols-2 gap-3">
+            <Button variant="secondary" onClick={() => { setAdding(false); setTitle(''); setUrl(''); add.reset(); }}>Batal</Button>
+            <Button type="submit" loading={add.isPending} disabled={!title.trim() || !url.trim()}>Simpan</Button>
+          </div>
         </form>
+        )}
       </div>
     </Sheet>
   );
