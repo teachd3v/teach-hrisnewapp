@@ -71,3 +71,10 @@ Tidak ada butir yang terbuka. Butir yang selesai dipindah ke "Sudah dibangun" di
 - Tauri **tidak dihapus**: `web/src-tauri` dan `docs/SPIKE-TAURI.md` dipertahankan sebagai arsip; cabang `__TAURI_INTERNALS__` di `geo.ts`/`push.ts` dibiarkan tidak aktif. Halaman uji `/spike` dicabut dari produksi.
 - Distribusi lewat Play Store dan App Store tidak dilanjutkan (lihat butir 6). Tauri hanya akan dibuka kembali bila ada kebutuhan teknis yang PWA tidak bisa penuhi (mis. presensi latar belakang).
 - Penggantinya: panduan pasang PWA (Android: tombol pasang bawaan Chrome; iPhone: Safari > Bagikan > Tambahkan ke Layar Utama, syarat push di iOS) dan banner "ada versi baru" (`/version.json`, dicek saat aplikasi dibuka kembali dan tiap 10 menit).
+
+## Skema cuti: periode, apresiasi masa kerja, dan kuota manual (2026-11-17)
+- Cuti Besar 10 hari per milestone (7, 14, 21 tahun), maks. 5 hari per pengajuan, boleh diajukan berkali-kali sampai saldo habis, hangus 2 tahun dari tanggal milestone; sisa tetap hangus.
+- Cuti bulanan (Berkabung, Haid) hangus di akhir bulan; kuota baru tiap bulan. Pengajuan lintas bulan dihitung ke bulan tanggal mulai.
+- Cuti Berkabung boleh beberapa kejadian dalam satu bulan (tanggal tidak boleh tumpang tindih); kuota 5 hari per bulan dipakai bersama.
+- Kuota per karyawan tetap bisa diatur manual oleh Admin dan Super Admin.
+- Rancangan lengkap: `docs/CUTI-SKEMA.md`. Belum dibangun.
