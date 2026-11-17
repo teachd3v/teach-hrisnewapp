@@ -15,3 +15,10 @@ export const markBirthdaySeen = (userId: string) => put(seenKey(userId, todayWib
 /** Lilin sudah ditiup untuk presensi masuk hari ini (sekali per hari). */
 export const candleBlown = (userId: string) => has(candleKey(userId, todayWib()));
 export const markCandleBlown = (userId: string) => put(candleKey(userId, todayWib()));
+
+/** Hapus catatan ucapan dan lilin hari ini di perangkat ini, supaya gimmick muncul lagi (untuk uji coba di Akun). */
+export function resetBirthdayGimmick(userId: string) {
+  const today = todayWib();
+  const keys = [seenKey(userId, today.slice(0, 4)), candleKey(userId, today)];
+  for (const k of keys) { try { localStorage.removeItem(k); } catch { /* abaikan */ } }
+}

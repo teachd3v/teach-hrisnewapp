@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
-  CalendarCheck, CalendarCog, CalendarHeart, ChevronDown, ChevronRight, ClipboardList, Compass, ImagePlus, ListChecks, KeyRound, FilePen, FileSpreadsheet, ListTree, LogOut, MapPinned, ScanFace, ScrollText, UserRound, Users,
+  CalendarCheck, CalendarCog, CalendarHeart, ChevronDown, ChevronRight, Cake, ClipboardList, Compass, ImagePlus, ListChecks, KeyRound, FilePen, FileSpreadsheet, ListTree, LogOut, MapPinned, ScanFace, ScrollText, UserRound, Users,
 } from 'lucide-react';
 import { isAdmin, type Role } from '@hris/shared';
 import { useAuth } from '../lib/auth';
@@ -14,6 +14,7 @@ import { useFaceStatus } from '../lib/face-status';
 import { useAdminQueues } from '../lib/admin-queues';
 import { requestTour } from '../lib/guide';
 import FirstHint from '../components/FirstHint';
+import { resetBirthdayGimmick } from '../lib/birthday';
 
 const ROLE_LABEL: Record<Role, string> = { employee: 'Karyawan', admin: 'Admin (HC)', super_admin: 'Super Admin' };
 
@@ -141,6 +142,11 @@ export default function Account() {
           <Compass className="size-5" aria-hidden="true" /><span className="flex-1 font-medium">Lihat panduan lagi</span><ChevronRight className="size-5 text-muted" aria-hidden="true" />
         </button>
         <MenuRow to="/siapkan-akun?ulang=1" icon={<ListChecks className="size-5" />} label="Ulangi penyiapan akun" />
+        {user?.birthdayToday && (
+          <button type="button" onClick={() => { resetBirthdayGimmick(user.id); navigate('/'); }} className="flex min-h-14 w-full items-center gap-3 px-4 text-left active:bg-sub">
+            <Cake className="size-5" aria-hidden="true" /><span className="flex-1 font-medium">Ulangi gimmick ulang tahun</span><ChevronRight className="size-5 text-muted" aria-hidden="true" />
+          </button>
+        )}
       </section>
 
       {user && isAdmin(user.role) && <AdminMenu superAdmin={user.role === 'super_admin'} />}
