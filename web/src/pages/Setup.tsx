@@ -4,7 +4,7 @@ import { BellRing, Check, ImagePlus, ScanFace, UserRound } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { enablePush } from '../lib/push';
 import { useFaceStatus } from '../lib/face-status';
-import { ACCEPT, useWallpaper } from '../lib/wallpaper';
+import { ACCEPT, MAX_TRANSPARENCY, useWallpaper } from '../lib/wallpaper';
 import { PRESETS, presetThumbUrl } from '../lib/wallpaper-presets';
 import { markSetupDone } from '../lib/setup-state';
 import { usePushState } from '../components/PushCard';
@@ -19,13 +19,13 @@ const PICK_IDS = ['pastel_sky_white_clouds', 'calm_coast_twilight_minimalist', '
 const PICKS = PRESETS.filter((p) => PICK_IDS.includes(p.id));
 
 /** Kerangka satu langkah: ikon, judul, satu kalimat, lalu tombol di bawah. Satu layar, satu aksi. */
-function Intro({ icon, title, body, children, actions }: { icon?: ReactNode; title: string; body: string; children?: ReactNode; actions: ReactNode }) {
+function Intro({ icon, title, body, children, actions }: { icon?: ReactNode; title: string; body?: string; children?: ReactNode; actions: ReactNode }) {
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
         {icon && <span className="grid size-20 place-items-center rounded-3xl bg-surface text-primary shadow-card" aria-hidden="true">{icon}</span>}
         <h1 className="text-2xl font-extrabold">{title}</h1>
-        <p className="max-w-xs text-muted">{body}</p>
+        {body && <p className="max-w-xs text-muted">{body}</p>}
         {children}
       </div>
       <div className="flex flex-col gap-2 pt-4">{actions}</div>
@@ -57,7 +57,7 @@ function FaceStep({ onNext }: { onNext: () => void }) {
 }
 
 function WallpaperStep({ onNext }: { onNext: () => void }) {
-  const { choice, setImage, select } = useWallpaper();
+  const { choice, setImage, select, transparency, minTransparency, setTransparency } = useWallpaper();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -70,15 +70,15 @@ function WallpaperStep({ onNext }: { onNext: () => void }) {
     try { await setImage(file); } catch (e) { setError(e as Error); } finally { setBusy(false); if (input.current) input.current.value = ''; }
   }
 
+  // Semua muat dalam satu layar tanpa gulir: galeri 3 kolom, lalu transparansi, lalu tombol.
   return (
-    <Intro title="Pilih wallpaper" body="Pilih salah satu gambar, atau unggah gambar sendiri. Bisa diganti kapan saja di Akun."
-      actions={<Button disabled={!active} onClick={onNext}>{active ? 'Pakai wallpaper ini' : 'Pilih dulu wallpaper'}</Button>}>
-      <div className="mt-2 grid w-full grid-cols-3 gap-2">
+    <Intro title="Pilih wallpaper" actions={<Button disabled={!active} onClick={onNext}>{active ? 'Pakai wallpaper ini' : 'Pilih dulu wallpaper'}</Button>}>
+      <div className="mt-1 grid w-full grid-cols-3 gap-2">
         {PICKS.map((p) => {
           const selected = choice.kind === 'preset' && choice.id === p.id;
           return (
             <button key={p.id} type="button" aria-pressed={selected} aria-label={p.title} onClick={() => select({ kind: 'preset', id: p.id })}
-              className={cx('relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-sub shadow-card active:opacity-80', selected && 'ring-[3px] ring-primary ring-offset-2 ring-offset-bg')}>
+              className={cx('relative aspect-square w-full overflow-hidden rounded-xl bg-sub shadow-card active:opacity-80', selected && 'ring-[3px] ring-primary ring-offset-2 ring-offset-bg')}>
               <img src={presetThumbUrl(p)} alt="" className="size-full object-cover" />
               {selected && <span aria-hidden="true" className="absolute right-1.5 top-1.5 grid size-6 place-items-center rounded-full bg-primary text-primary-fg shadow-md"><Check className="size-4" /></span>}
             </button>
@@ -87,7 +87,17 @@ function WallpaperStep({ onNext }: { onNext: () => void }) {
       </div>
       <input ref={input} type="file" accept={ACCEPT} className="sr-only" tabIndex={-1} aria-hidden="true" onChange={(e) => void pick(e.target.files?.[0])} />
       <Button variant="secondary" className="w-full" loading={busy} onClick={() => input.current?.click()}><ImagePlus className="size-5" aria-hidden="true" />Unggah gambar sendiri</Button>
-      {choice.kind === 'custom' && <p role="status" className="text-sm text-muted">Gambarmu sedang dipakai.</p>}
+      <div className="w-full rounded-2xl bg-surface p-3 text-left shadow-card">
+        <div className="flex items-baseline justify-between">
+          <label htmlFor="setup-wp-transparency" className="text-sm font-bold">Transparansi</label>
+          <span className="text-sm font-semibold tabular-nums" aria-hidden="true">{transparency}%</span>
+        </div>
+        <input id="setup-wp-transparency" type="range" min={minTransparency} max={MAX_TRANSPARENCY} step={5} value={transparency} disabled={!active}
+          aria-valuetext={`${transparency} persen`} onChange={(e) => setTransparency(Number(e.target.value))}
+          className="h-9 w-full accent-primary disabled:opacity-40" />
+        <div className="flex justify-between text-xs text-muted" aria-hidden="true"><span>Jelas</span><span>Samar</span></div>
+        {active && minTransparency > 0 && <p className="mt-1 text-xs text-info">Gambar gelap, jadi dibatasi di {minTransparency}% agar teks tetap terbaca.</p>}
+      </div>
       <ErrorNote error={error} />
     </Intro>
   );
