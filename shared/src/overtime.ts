@@ -77,7 +77,7 @@ export function creditPreview(kind: string, minutes: number): string {
 
 // ------------------------------------------------------------------ lot kuota Ganti Hari
 
-export interface Lot { start: string; expiry: string; days: number; source: 'base' | 'overtime' }
+export interface Lot { start: string; expiry: string; days: number; source: 'base' | 'overtime' | 'service_award' }
 export interface OvertimeCreditRow { id: string; kind: string; date: string; minutes: number }
 export interface Use { start: string; days: number }
 
@@ -185,4 +185,30 @@ export function compensationBalance(inp: CompensationInput): CompensationBalance
     remaining: availableOn(lots, left, inp.asOf),
     shortfall,
   };
+}
+
+// ------------------------------------------------------------------ lot apresiasi masa kerja (Cuti Besar)
+
+const addMonthsUtc = (date: string, months: number, dayOffset = 0): string => {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  const target = new Date(Date.UTC(y, m - 1 + months, d + dayOffset));
+  // Tanggal yang tidak ada di bulan tujuan (mis. 31 Jan + 1 bulan) dibatasi ke akhir bulan itu.
+  const expectMonth = ((m - 1 + months) % 12 + 12) % 12;
+  if (target.getUTCMonth() !== expectMonth) return new Date(Date.UTC(y, m - 1 + months + 1, 0 + dayOffset)).toISOString().slice(0, 10);
+  return target.toISOString().slice(0, 10);
+};
+
+/**
+ * Lot apresiasi masa kerja: untuk setiap milestone (mis. 7, 14, 21 tahun) yang sudah tercapai pada `asOf`, satu lot sebesar `days`,
+ * mulai pada tanggal milestone dan hangus `expiryMonths` bulan kemudian (hari terakhir berlaku = sehari sebelum tanggal hangus).
+ */
+export function serviceAwardLots(joinDate: string | null, milestones: readonly number[], days: number, expiryMonths: number, asOf: string): Lot[] {
+  if (!joinDate || !/^\d{4}-\d{2}-\d{2}$/.test(joinDate)) return [];
+  const lots: Lot[] = [];
+  for (const years of milestones) {
+    const start = addMonthsUtc(joinDate, years * 12);
+    if (start > asOf) continue;
+    lots.push({ start, expiry: addMonthsUtc(start, expiryMonths, -1), days, source: 'service_award' });
+  }
+  return lots;
 }

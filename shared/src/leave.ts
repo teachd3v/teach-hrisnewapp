@@ -11,8 +11,12 @@ export interface LeaveTypeMeta {
   description: string;
   /** kuota bawaan per periode; null = tanpa batas */
   defaultQuota: number | null;
-  /** 'year' = per tahun (bawaan); 'month' = per bulan kalender, dihitung dari tanggal mulai pengajuan */
-  quotaPeriod: 'year' | 'month';
+  /** 'year' = per tahun (bawaan); 'month' = per bulan kalender, dihitung dari tanggal mulai pengajuan; 'milestone' = apresiasi masa kerja */
+  quotaPeriod: 'year' | 'month' | 'milestone';
+  /** masa kerja (tahun) yang memberi lot kuota; hanya untuk 'milestone' */
+  milestoneYears: number[] | null;
+  /** lot apresiasi hangus setelah sekian bulan dari tanggal milestone; hanya untuk 'milestone' */
+  lotExpiryMonths: number | null;
   /** batas hari per pengajuan; null = tanpa batas */
   maxDaysPerRequest: number | null;
   requiresAttachment: boolean;

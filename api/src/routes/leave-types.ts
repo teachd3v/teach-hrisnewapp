@@ -78,8 +78,17 @@ leaveTypes.get('/', async (c) => {
   return c.json(types.map((t) => ({ ...t, usedBy: used.get(t.key) ?? 0 })));
 });
 
-/** Periode kuota: 'year' (bawaan) atau 'month'. Nilai lain ditolak. */
-const periodOf = (v: unknown): 'year' | 'month' | null => (v === 'year' || v === 'month' ? v : null);
+/** Periode kuota: 'year' (bawaan), 'month', atau 'milestone' (apresiasi masa kerja). Nilai lain ditolak. */
+const periodOf = (v: unknown): 'year' | 'month' | 'milestone' | null => (v === 'year' || v === 'month' || v === 'milestone' ? v : null);
+/** Masa kerja (tahun): kosong, atau daftar bilangan bulat 1-60 yang unik. */
+const milestonesOf = (v: unknown): number[] | null | undefined => {
+  if (v === null || v === undefined) return null;
+  if (!Array.isArray(v) || v.length === 0 || v.length > 10) return undefined;
+  if (!v.every((x) => Number.isInteger(x) && x >= 1 && x <= 60)) return undefined;
+  return [...new Set(v as number[])].sort((a, b) => a - b);
+};
+/** Hangus lot apresiasi (bulan): kosong, atau bilangan bulat 1-120. */
+const expiryOf = (v: unknown): number | null | undefined => (v === null || v === undefined ? null : Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 120 ? (v as number) : undefined);
 /** Batas per pengajuan: kosong (tanpa batas) atau angka > 0 sampai 366, kelipatan 0,5. */
 const maxDaysOf = (v: unknown): number | null | undefined => (v === null || v === undefined ? null : typeof v === 'number' && v > 0 && isValidQuota(v) ? v : undefined);
 
@@ -101,13 +110,18 @@ leaveTypes.post('/', async (c) => {
   if (period === null) return c.json({ error: 'Periode kuota harus tahun atau bulan' }, 400);
   const maxDays = maxDaysOf(b.maxDaysPerRequest);
   if (maxDays === undefined) return c.json({ error: 'Batas per pengajuan harus angka lebih dari 0 (kelipatan 0,5) atau kosong' }, 400);
+  const milestones = milestonesOf(b.milestoneYears);
+  if (milestones === undefined) return c.json({ error: 'Masa kerja harus daftar tahun (1-60), mis. 7, 14, 21' }, 400);
+  const expiry = expiryOf(b.lotExpiryMonths);
+  if (expiry === undefined) return c.json({ error: 'Hangus harus bilangan bulat 1-120' }, 400);
+  if (period === 'milestone' && (!milestones || !expiry || !quota)) return c.json({ error: 'Apresiasi masa kerja wajib diisi masa kerja, lama hangus, dan kuota per lot' }, 400);
 
   const max = await one(db.select({ m: sql<number>`coalesce(max(${leave_types.sort_order}), 0)` }).from(leave_types));
   const key = crypto.randomUUID();
   const row = {
     key, label, description: clean(b.description, 200), default_quota: quota as number | null,
     requires_attachment: bool(b.requiresAttachment), time_based: bool(b.timeBased), gender, allowed_status_ids: statuses,
-    quota_period: period, max_days_per_request: maxDays,
+    quota_period: period, max_days_per_request: maxDays, service_milestones_years: milestones ? JSON.stringify(milestones) : null, lot_expiry_months: expiry,
     sort_order: Number(max?.m ?? 0) + 1, active: true, system: false, created_at: new Date().toISOString(),
   };
   await batch(db, [
@@ -163,6 +177,14 @@ leaveTypes.patch('/:key', async (c) => {
     const p = periodOf(b.quotaPeriod);
     if (p === null) return c.json({ error: 'Periode kuota harus tahun atau bulan' }, 400);
     if (p !== row.quota_period) set.quota_period = p;
+  }
+  if ('milestoneYears' in b || 'lotExpiryMonths' in b) {
+    const ms = 'milestoneYears' in b ? milestonesOf(b.milestoneYears) : (row.service_milestones_years ? (JSON.parse(row.service_milestones_years) as number[]) : null);
+    const ex = 'lotExpiryMonths' in b ? expiryOf(b.lotExpiryMonths) : row.lot_expiry_months;
+    if (ms === undefined) return c.json({ error: 'Masa kerja harus daftar tahun (1-60), mis. 7, 14, 21' }, 400);
+    if (ex === undefined) return c.json({ error: 'Hangus harus bilangan bulat 1-120' }, 400);
+    if ('milestoneYears' in b) set.service_milestones_years = ms ? JSON.stringify(ms) : null;
+    if ('lotExpiryMonths' in b) set.lot_expiry_months = ex;
   }
   if ('maxDaysPerRequest' in b) {
     const m = maxDaysOf(b.maxDaysPerRequest);

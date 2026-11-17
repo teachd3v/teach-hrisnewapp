@@ -9,11 +9,12 @@ import { Button, Card, Chip, Empty, ErrorNote, Field, Input, Select, Sheet, Spin
 
 type Row = LeaveTypeMeta & { usedBy: number };
 
-interface Form { label: string; description: string; quota: string; period: 'year' | 'month'; maxDays: string; requiresAttachment: boolean; timeBased: boolean; gender: string; statusIds: string[] }
-const EMPTY: Form = { label: '', description: '', quota: '', period: 'year', maxDays: '', requiresAttachment: false, timeBased: false, gender: '', statusIds: [] };
+interface Form { label: string; description: string; quota: string; period: 'year' | 'month' | 'milestone'; maxDays: string; milestones: string; expiry: string; requiresAttachment: boolean; timeBased: boolean; gender: string; statusIds: string[] }
+const EMPTY: Form = { label: '', description: '', quota: '', period: 'year', maxDays: '', milestones: '', expiry: '', requiresAttachment: false, timeBased: false, gender: '', statusIds: [] };
 const toForm = (t: Row): Form => ({
   label: t.label, description: t.description, quota: t.defaultQuota === null ? '' : String(t.defaultQuota),
   period: t.quotaPeriod, maxDays: t.maxDaysPerRequest === null ? '' : String(t.maxDaysPerRequest),
+  milestones: (t.milestoneYears ?? []).join(', '), expiry: t.lotExpiryMonths === null ? '' : String(t.lotExpiryMonths),
   requiresAttachment: t.requiresAttachment, timeBased: t.timeBased, gender: t.gender ?? '', statusIds: t.allowedStatusIds ?? [],
 });
 /** Kosong = tanpa batas (null); selain itu angka 0-366 kelipatan 0,5. `undefined` = tidak valid. */
@@ -37,9 +38,14 @@ export default function AdminLeaveTypes() {
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF((cur) => ({ ...cur, [k]: v }));
   const quota = parseQuota(f.quota);
   const maxDays = parseQuota(f.maxDays);
+  const milestoneList = f.milestones.split(',').map((x) => x.trim()).filter(Boolean).map(Number);
+  const milestonesValid = f.period !== 'milestone' || (milestoneList.length > 0 && milestoneList.every((n) => Number.isInteger(n) && n >= 1 && n <= 60));
+  const expiryNum = f.expiry.trim() === '' ? null : Number(f.expiry);
+  const expiryValid = f.period !== 'milestone' || (expiryNum !== null && Number.isInteger(expiryNum) && expiryNum >= 1 && expiryNum <= 120);
 
   const payload = () => ({
     label: f.label, description: f.description, defaultQuota: quota, quotaPeriod: f.period, maxDaysPerRequest: maxDays, requiresAttachment: f.requiresAttachment,
+    milestoneYears: f.period === 'milestone' ? milestoneList : null, lotExpiryMonths: f.period === 'milestone' ? expiryNum : null,
     gender: f.gender || null, allowedStatusIds: f.statusIds.length ? f.statusIds : null,
   });
   const save = useMutation({
@@ -72,11 +78,11 @@ export default function AdminLeaveTypes() {
     setEditing(t); setF(t === 'new' ? EMPTY : toForm(t));
     save.reset(); toggleActive.reset(); del.reset();
   }
-  function onSubmit(e: FormEvent) { e.preventDefault(); if (f.label.trim() && quota !== undefined && maxDays !== undefined) save.mutate(); }
+  function onSubmit(e: FormEvent) { e.preventDefault(); if (f.label.trim() && quota !== undefined && maxDays !== undefined && milestonesValid && expiryValid) save.mutate(); }
 
   const isNew = editing === 'new';
   const row = editing && editing !== 'new' ? editing : null;
-  const quotaText = (t: Row) => (t.defaultQuota === null ? 'Tanpa batas' : `${t.defaultQuota} hari/${t.quotaPeriod === 'month' ? 'bulan' : 'tahun'}`) + (t.maxDaysPerRequest ? ` · maks. ${t.maxDaysPerRequest} hari/pengajuan` : '');
+  const quotaText = (t: Row) => (t.defaultQuota === null ? 'Tanpa batas' : t.quotaPeriod === 'milestone' ? `${t.defaultQuota} hari per masa kerja ${(t.milestoneYears ?? []).join('/')} tahun, hangus ${t.lotExpiryMonths} bulan` : `${t.defaultQuota} hari/${t.quotaPeriod === 'month' ? 'bulan' : 'tahun'}`) + (t.maxDaysPerRequest ? ` · maks. ${t.maxDaysPerRequest} hari/pengajuan` : '');
 
   return (
     <div className="flex flex-col gap-4">
@@ -121,9 +127,20 @@ export default function AdminLeaveTypes() {
               <Select id={id} value={f.period} onChange={(e) => set('period', e.target.value as 'year' | 'month')}>
                 <option value="year">Per tahun</option>
                 <option value="month">Per bulan</option>
+                <option value="milestone">Per masa kerja (apresiasi)</option>
               </Select>
             )}</Field>
-            <Field label={`Kuota bawaan per ${f.period === 'month' ? 'bulan' : 'tahun'} (hari)`} hint="Kosongkan untuk tanpa batas. Kelipatan 0,5, maksimal 366." error={quota === undefined ? 'Isi 0-366, kelipatan 0,5' : null}>
+            {f.period === 'milestone' && (
+              <>
+                <Field label="Masa kerja pemberian (tahun)" hint="Pisahkan dengan koma, mis. 7, 14, 21." error={milestonesValid ? null : 'Isi tahun 1-60, pisahkan koma'}>
+                  {(id, d) => <Input id={id} aria-describedby={d} value={f.milestones} onChange={(e) => set('milestones', e.target.value)} />}
+                </Field>
+                <Field label="Hangus setelah (bulan)" hint="Dihitung dari tanggal tercapainya masa kerja." error={expiryValid ? null : 'Isi bilangan bulat 1-120'}>
+                  {(id, d) => <Input id={id} aria-describedby={d} inputMode="numeric" value={f.expiry} onChange={(e) => set('expiry', e.target.value)} />}
+                </Field>
+              </>
+            )}
+            <Field label={`Kuota bawaan per ${f.period === 'month' ? 'bulan' : f.period === 'milestone' ? 'lot masa kerja' : 'tahun'} (hari)`} hint="Kosongkan untuk tanpa batas. Kelipatan 0,5, maksimal 366." error={quota === undefined ? 'Isi 0-366, kelipatan 0,5' : null}>
               {(id, d) => <Input id={id} aria-describedby={d} inputMode="decimal" value={f.quota} onChange={(e) => set('quota', e.target.value)} />}
             </Field>
             <Field label="Maksimal per pengajuan (hari)" hint="Kosongkan jika tanpa batas per pengajuan." error={maxDays === undefined ? 'Isi angka lebih dari 0, kelipatan 0,5' : null}>
@@ -160,7 +177,7 @@ export default function AdminLeaveTypes() {
             {isNew && f.timeBased && <p className="text-sm text-muted">Jenis per jam buatan sendiri tidak memengaruhi penilaian terlambat/pulang cepat di presensi; itu hanya berlaku untuk jenis bawaan.</p>}
 
             <ErrorNote error={save.error ?? toggleActive.error ?? del.error} />
-            <Button type="submit" loading={save.isPending} disabled={!f.label.trim() || quota === undefined || maxDays === undefined}>Simpan</Button>
+            <Button type="submit" loading={save.isPending} disabled={!f.label.trim() || quota === undefined || maxDays === undefined || !milestonesValid || !expiryValid}>Simpan</Button>
             {row && (
               <>
                 <Button variant="secondary" loading={toggleActive.isPending} onClick={() => toggleActive.mutate(row)}>{row.active ? 'Nonaktifkan' : 'Aktifkan kembali'}</Button>

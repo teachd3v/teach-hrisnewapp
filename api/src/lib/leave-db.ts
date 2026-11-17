@@ -6,7 +6,9 @@ import {
   ACTIVE_STATUSES,
   LEAVE_KEYS,
   allocateLots,
+  availableOn,
   baseLot,
+  serviceAwardLots,
   compensationBalance,
   computeBalances,
   jointLeaveDeduction,
@@ -160,6 +162,23 @@ export async function getBalances(db: Db, employeeId: string, year: number, asOf
       const idx = all.findIndex((b) => b.type === mb.type);
       if (idx >= 0) all[idx] = { ...all[idx]!, ...mb };
     }
+  }
+  // Apresiasi masa kerja (quota_period = 'milestone', mis. Cuti Besar): lot per milestone yang sudah tercapai pada tanggal acuan.
+  // Pemakaian dialokasikan FIFO ke lot yang paling cepat hangus (sama seperti Ganti Hari); sisa dinilai pada tanggal acuan.
+  for (const t of types.filter((x) => x.quotaPeriod === 'milestone' && x.milestoneYears?.length && x.lotExpiryMonths)) {
+    const idx = all.findIndex((b) => b.type === t.key);
+    if (idx < 0) continue;
+    const lots = serviceAwardLots(emp?.join_date ?? null, t.milestoneYears!, t.defaultQuota ?? 0, t.lotExpiryMonths!, asOf);
+    const rows = await db
+      .select({ start: leave_requests.start_date, status: leave_requests.status, days: leave_requests.total_days })
+      .from(leave_requests)
+      .where(and(eq(leave_requests.employee_id, employeeId), eq(leave_requests.leave_type, t.key), inArray(leave_requests.status, ACTIVE_STATUSES), lte(leave_requests.start_date, asOf)));
+    const uses = rows.map((r) => ({ start: r.start, days: Number(r.days) }));
+    const { left } = allocateLots(lots, uses);
+    const used = rows.filter((r) => r.status === 'approved').reduce((a, r) => a + Number(r.days), 0);
+    const pending = rows.filter((r) => r.status !== 'approved').reduce((a, r) => a + Number(r.days), 0);
+    const quota = lots.filter((l) => l.start <= asOf && asOf <= l.expiry).reduce((a, l) => a + l.days, 0);
+    all[idx] = { ...all[idx]!, quota, used, pending, remaining: availableOn(lots, left, asOf), explicit: false };
   }
   const visible = new Set(types.filter((t) => t.active && leaveTypeAllowsStatus(t, emp?.status)).map((t) => t.key));
   return all.filter((b) => visible.has(b.type) || b.used + b.pending + b.jointDeducted > 0);

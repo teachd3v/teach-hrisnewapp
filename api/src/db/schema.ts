@@ -277,7 +277,9 @@ export const leave_types = sqliteTable('leave_types', {
   label: text('label').notNull(),
   description: text('description').notNull().default(''),
   default_quota: real('default_quota'), // hari per periode (lihat quota_period); null = tanpa batas
-  quota_period: text('quota_period', { enum: ['year', 'month'] }).notNull().default('year'), // 'month' = kuota per bulan kalender (WIB) dari tanggal mulai pengajuan
+  quota_period: text('quota_period', { enum: ['year', 'month', 'milestone'] }).notNull().default('year'), // 'month' = per bulan kalender (WIB) dari tanggal mulai; 'milestone' = apresiasi masa kerja (lot per milestone)
+  service_milestones_years: text('service_milestones_years'), // JSON, mis. [7,14,21]; hanya untuk quota_period 'milestone'
+  lot_expiry_months: integer('lot_expiry_months'), // lot apresiasi hangus setelah sekian bulan dari tanggal milestone
   max_days_per_request: real('max_days_per_request'), // batas hari per pengajuan; null = tanpa batas
   requires_attachment: integer('requires_attachment', { mode: 'boolean' }).notNull().default(false),
   time_based: integer('time_based', { mode: 'boolean' }).notNull().default(false), // izin per jam; tidak dapat diubah setelah dibuat

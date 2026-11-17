@@ -15,9 +15,19 @@ function parseStatuses(raw: string | null): string[] | null {
   } catch { return null; }
 }
 
+/** Daftar masa kerja (tahun) dari kolom JSON; kosong atau rusak = null. */
+function parseMilestones(raw: string | null): number[] | null {
+  if (!raw) return null;
+  try {
+    const v: unknown = JSON.parse(raw);
+    return Array.isArray(v) && v.length > 0 && v.every((x) => Number.isInteger(x) && x > 0) ? (v as number[]) : null;
+  } catch { return null; }
+}
+
 export const toMeta = (r: typeof leave_types.$inferSelect): LeaveTypeMeta => ({
   key: r.key, label: r.label, description: r.description, defaultQuota: r.default_quota,
   quotaPeriod: r.quota_period, maxDaysPerRequest: r.max_days_per_request ?? null,
+  milestoneYears: parseMilestones(r.service_milestones_years), lotExpiryMonths: r.lot_expiry_months ?? null,
   requiresAttachment: r.requires_attachment, timeBased: r.time_based, gender: r.gender,
   allowedStatusIds: parseStatuses(r.allowed_status_ids),
   active: r.active, system: r.system, sortOrder: r.sort_order,
