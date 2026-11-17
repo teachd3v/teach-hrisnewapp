@@ -247,6 +247,49 @@ attendance.get('/team', async (c) => {
   return c.json(await buildTeamToday(db, me, wibDate()));
 });
 
+/** HC: batalkan presensi masuk atau pulang yang salah (mis. karyawan keliru menekan). Pulang dibatalkan dulu sebelum masuk. Dicatat di log audit; foto dihapus dari R2. */
+const OUT_CLEAR = {
+  clock_out: null, clock_out_lat: null, clock_out_lng: null, clock_out_accuracy: null, clock_out_distance: null, clock_out_outside: null,
+  clock_out_face: null, clock_out_face_score: null, clock_out_face_result: null, clock_out_live: null, clock_out_face_vec: null,
+  clock_out_corrected: false, clock_out_photo_key: null,
+};
+attendance.post('/admin/cancel', async (c) => {
+  const db = drizzle(c.env.DB);
+  const me = await actor(c, db);
+  if (!me || !isAdmin(me.role)) return c.json({ error: 'Tidak diizinkan' }, 403);
+  const b = await c.req.json<{ employeeId?: unknown; date?: unknown; type?: unknown; reason?: unknown }>().catch(() => ({}) as never);
+  const employeeId = typeof b.employeeId === 'string' ? b.employeeId : '';
+  const date = typeof b.date === 'string' ? b.date : '';
+  const type = b.type === 'in' || b.type === 'out' ? b.type : null;
+  const reason = typeof b.reason === 'string' ? b.reason.trim() : '';
+  if (!employeeId || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !type) return c.json({ error: 'Data tidak lengkap' }, 400);
+  if (reason.length < 3 || reason.length > 200) return c.json({ error: 'Alasan harus 3 sampai 200 karakter' }, 400);
+  if (employeeId === me.id) return c.json({ error: 'Anda tidak dapat membatalkan presensi sendiri' }, 403);
+
+  const row = await one(db.select().from(attendances).where(and(eq(attendances.employee_id, employeeId), eq(attendances.date, date))).limit(1));
+  const owner = await one(db.select({ name: employees.name }).from(employees).where(eq(employees.id, employeeId)).limit(1));
+  if (!row || !owner) return c.json({ error: 'Presensi tidak ditemukan' }, 404);
+
+  const audit = (time: string | null) => db.insert(audit_log).values(auditRow({
+    actorId: me.id, actorName: me.name, action: 'attendance.cancelled', targetType: 'attendance', targetId: date, targetLabel: owner.name,
+    ip: c.req.header('CF-Connecting-IP'), details: { type, date, time, reason },
+  }));
+
+  let photoKey: string | null;
+  if (type === 'in') {
+    if (!row.clock_in) return c.json({ error: 'Tidak ada presensi masuk untuk dibatalkan' }, 409);
+    if (row.clock_out) return c.json({ error: 'Batalkan presensi pulang dulu, baru presensi masuk' }, 409);
+    photoKey = row.clock_in_photo_key;
+    await batch(db, [db.delete(attendances).where(eq(attendances.id, row.id)), audit(row.clock_in)]);
+  } else {
+    if (!row.clock_out) return c.json({ error: 'Tidak ada presensi pulang untuk dibatalkan' }, 409);
+    photoKey = row.clock_out_photo_key;
+    await batch(db, [db.update(attendances).set(OUT_CLEAR).where(eq(attendances.id, row.id)), audit(row.clock_out)]);
+  }
+  if (photoKey) await c.env.STORAGE.delete(photoKey).catch(() => {});
+  return c.json({ ok: true });
+});
+
 attendance.get('/admin', async (c) => {
   const db = drizzle(c.env.DB);
   const me = await actor(c, db);
