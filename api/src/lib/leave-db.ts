@@ -135,6 +135,32 @@ export async function getBalances(db: Db, employeeId: string, year: number, asOf
       all[compIdx] = { ...b, quota: comp.quota, overtimeCredit: comp.overtimeCredit, expired: comp.expired, shortfall: comp.shortfall, remaining: comp.remaining };
     }
   }
+  // Kuota bulanan (quota_period = 'month'): hanya pemakaian di bulan kalender tanggal acuan yang dihitung.
+  const monthTypes = types.filter((t) => t.quotaPeriod === 'month');
+  if (monthTypes.length) {
+    const monthKeys = new Set(monthTypes.map((t) => t.key));
+    const monthStart = `${asOf.slice(0, 7)}-01`;
+    const monthEnd = `${asOf.slice(0, 7)}-31`;
+    const monthUsage = await db
+      .select({ type: leave_requests.leave_type, status: leave_requests.status, days: sql<number>`coalesce(sum(${leave_requests.total_days}), 0)` })
+      .from(leave_requests)
+      .where(and(
+        eq(leave_requests.employee_id, employeeId),
+        gte(leave_requests.start_date, monthStart),
+        lte(leave_requests.start_date, monthEnd),
+        inArray(leave_requests.status, ACTIVE_STATUSES),
+      ))
+      .groupBy(leave_requests.leave_type, leave_requests.status);
+    const perMonth = computeBalances(
+      monthTypes,
+      new Map(quotaRows.filter((r) => monthKeys.has(r.leave_type)).map((r) => [r.leave_type, r.quota])),
+      monthUsage.filter((u) => monthKeys.has(u.type)).map((u) => ({ type: u.type, status: u.status as LeaveStatus, days: Number(u.days) })),
+    );
+    for (const mb of perMonth) {
+      const idx = all.findIndex((b) => b.type === mb.type);
+      if (idx >= 0) all[idx] = { ...all[idx]!, ...mb };
+    }
+  }
   const visible = new Set(types.filter((t) => t.active && leaveTypeAllowsStatus(t, emp?.status)).map((t) => t.key));
   return all.filter((b) => visible.has(b.type) || b.used + b.pending + b.jointDeducted > 0);
 }

@@ -9,10 +9,11 @@ import { Button, Card, Chip, Empty, ErrorNote, Field, Input, Select, Sheet, Spin
 
 type Row = LeaveTypeMeta & { usedBy: number };
 
-interface Form { label: string; description: string; quota: string; requiresAttachment: boolean; timeBased: boolean; gender: string; statusIds: string[] }
-const EMPTY: Form = { label: '', description: '', quota: '', requiresAttachment: false, timeBased: false, gender: '', statusIds: [] };
+interface Form { label: string; description: string; quota: string; period: 'year' | 'month'; maxDays: string; requiresAttachment: boolean; timeBased: boolean; gender: string; statusIds: string[] }
+const EMPTY: Form = { label: '', description: '', quota: '', period: 'year', maxDays: '', requiresAttachment: false, timeBased: false, gender: '', statusIds: [] };
 const toForm = (t: Row): Form => ({
   label: t.label, description: t.description, quota: t.defaultQuota === null ? '' : String(t.defaultQuota),
+  period: t.quotaPeriod, maxDays: t.maxDaysPerRequest === null ? '' : String(t.maxDaysPerRequest),
   requiresAttachment: t.requiresAttachment, timeBased: t.timeBased, gender: t.gender ?? '', statusIds: t.allowedStatusIds ?? [],
 });
 /** Kosong = tanpa batas (null); selain itu angka 0-366 kelipatan 0,5. `undefined` = tidak valid. */
@@ -35,9 +36,10 @@ export default function AdminLeaveTypes() {
   const refresh = () => qc.invalidateQueries({ queryKey: ['leave-types'] });
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF((cur) => ({ ...cur, [k]: v }));
   const quota = parseQuota(f.quota);
+  const maxDays = parseQuota(f.maxDays);
 
   const payload = () => ({
-    label: f.label, description: f.description, defaultQuota: quota, requiresAttachment: f.requiresAttachment,
+    label: f.label, description: f.description, defaultQuota: quota, quotaPeriod: f.period, maxDaysPerRequest: maxDays, requiresAttachment: f.requiresAttachment,
     gender: f.gender || null, allowedStatusIds: f.statusIds.length ? f.statusIds : null,
   });
   const save = useMutation({
@@ -70,11 +72,11 @@ export default function AdminLeaveTypes() {
     setEditing(t); setF(t === 'new' ? EMPTY : toForm(t));
     save.reset(); toggleActive.reset(); del.reset();
   }
-  function onSubmit(e: FormEvent) { e.preventDefault(); if (f.label.trim() && quota !== undefined) save.mutate(); }
+  function onSubmit(e: FormEvent) { e.preventDefault(); if (f.label.trim() && quota !== undefined && maxDays !== undefined) save.mutate(); }
 
   const isNew = editing === 'new';
   const row = editing && editing !== 'new' ? editing : null;
-  const quotaText = (t: Row) => (t.defaultQuota === null ? 'Tanpa batas' : `${t.defaultQuota} hari/tahun`);
+  const quotaText = (t: Row) => (t.defaultQuota === null ? 'Tanpa batas' : `${t.defaultQuota} hari/${t.quotaPeriod === 'month' ? 'bulan' : 'tahun'}`) + (t.maxDaysPerRequest ? ` · maks. ${t.maxDaysPerRequest} hari/pengajuan` : '');
 
   return (
     <div className="flex flex-col gap-4">
@@ -115,8 +117,17 @@ export default function AdminLeaveTypes() {
           <form onSubmit={onSubmit} className="flex flex-col gap-4">
             <Field label="Nama">{(id) => <Input id={id} required maxLength={60} value={f.label} onChange={(e) => set('label', e.target.value)} />}</Field>
             <Field label="Keterangan" hint="Tampil di form pengajuan.">{(id, d) => <Textarea id={id} aria-describedby={d} rows={2} maxLength={200} value={f.description} onChange={(e) => set('description', e.target.value)} />}</Field>
-            <Field label="Kuota bawaan per tahun (hari)" hint="Kosongkan untuk tanpa batas. Kelipatan 0,5, maksimal 366." error={quota === undefined ? 'Isi 0-366, kelipatan 0,5' : null}>
+            <Field label="Periode kuota" hint="Per bulan: kuota baru tiap bulan kalender, sisa tidak dibawa.">{(id) => (
+              <Select id={id} value={f.period} onChange={(e) => set('period', e.target.value as 'year' | 'month')}>
+                <option value="year">Per tahun</option>
+                <option value="month">Per bulan</option>
+              </Select>
+            )}</Field>
+            <Field label={`Kuota bawaan per ${f.period === 'month' ? 'bulan' : 'tahun'} (hari)`} hint="Kosongkan untuk tanpa batas. Kelipatan 0,5, maksimal 366." error={quota === undefined ? 'Isi 0-366, kelipatan 0,5' : null}>
               {(id, d) => <Input id={id} aria-describedby={d} inputMode="decimal" value={f.quota} onChange={(e) => set('quota', e.target.value)} />}
+            </Field>
+            <Field label="Maksimal per pengajuan (hari)" hint="Kosongkan jika tanpa batas per pengajuan." error={maxDays === undefined ? 'Isi angka lebih dari 0, kelipatan 0,5' : null}>
+              {(id, d) => <Input id={id} aria-describedby={d} inputMode="decimal" value={f.maxDays} onChange={(e) => set('maxDays', e.target.value)} />}
             </Field>
             <Field label="Berlaku untuk">{(id) => (
               <Select id={id} value={f.gender} onChange={(e) => set('gender', e.target.value)}>
@@ -149,7 +160,7 @@ export default function AdminLeaveTypes() {
             {isNew && f.timeBased && <p className="text-sm text-muted">Jenis per jam buatan sendiri tidak memengaruhi penilaian terlambat/pulang cepat di presensi; itu hanya berlaku untuk jenis bawaan.</p>}
 
             <ErrorNote error={save.error ?? toggleActive.error ?? del.error} />
-            <Button type="submit" loading={save.isPending} disabled={!f.label.trim() || quota === undefined}>Simpan</Button>
+            <Button type="submit" loading={save.isPending} disabled={!f.label.trim() || quota === undefined || maxDays === undefined}>Simpan</Button>
             {row && (
               <>
                 <Button variant="secondary" loading={toggleActive.isPending} onClick={() => toggleActive.mutate(row)}>{row.active ? 'Nonaktifkan' : 'Aktifkan kembali'}</Button>

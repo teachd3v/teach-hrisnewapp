@@ -78,6 +78,11 @@ leaveTypes.get('/', async (c) => {
   return c.json(types.map((t) => ({ ...t, usedBy: used.get(t.key) ?? 0 })));
 });
 
+/** Periode kuota: 'year' (bawaan) atau 'month'. Nilai lain ditolak. */
+const periodOf = (v: unknown): 'year' | 'month' | null => (v === 'year' || v === 'month' ? v : null);
+/** Batas per pengajuan: kosong (tanpa batas) atau angka > 0 sampai 366, kelipatan 0,5. */
+const maxDaysOf = (v: unknown): number | null | undefined => (v === null || v === undefined ? null : typeof v === 'number' && v > 0 && isValidQuota(v) ? v : undefined);
+
 leaveTypes.post('/', async (c) => {
   const db = drizzle(c.env.DB);
   const me = await superAdmin(c, db);
@@ -92,12 +97,17 @@ leaveTypes.post('/', async (c) => {
   if (gender === undefined) return c.json({ error: 'Jenis kelamin tidak valid' }, 400);
   const statuses = await statusesJson(db, b.allowedStatusIds);
   if (statuses === undefined) return c.json({ error: 'Status kepegawaian tidak valid' }, 400);
+  const period = b.quotaPeriod === undefined ? 'year' : periodOf(b.quotaPeriod);
+  if (period === null) return c.json({ error: 'Periode kuota harus tahun atau bulan' }, 400);
+  const maxDays = maxDaysOf(b.maxDaysPerRequest);
+  if (maxDays === undefined) return c.json({ error: 'Batas per pengajuan harus angka lebih dari 0 (kelipatan 0,5) atau kosong' }, 400);
 
   const max = await one(db.select({ m: sql<number>`coalesce(max(${leave_types.sort_order}), 0)` }).from(leave_types));
   const key = crypto.randomUUID();
   const row = {
     key, label, description: clean(b.description, 200), default_quota: quota as number | null,
     requires_attachment: bool(b.requiresAttachment), time_based: bool(b.timeBased), gender, allowed_status_ids: statuses,
+    quota_period: period, max_days_per_request: maxDays,
     sort_order: Number(max?.m ?? 0) + 1, active: true, system: false, created_at: new Date().toISOString(),
   };
   await batch(db, [
@@ -148,6 +158,16 @@ leaveTypes.patch('/:key', async (c) => {
     const q = b.defaultQuota;
     if (q !== null && !isValidQuota(q)) return c.json({ error: 'Kuota harus 0-366 hari (kelipatan 0,5) atau kosong untuk tanpa batas' }, 400);
     if (q !== row.default_quota) set.default_quota = q as number | null;
+  }
+  if ('quotaPeriod' in b) {
+    const p = periodOf(b.quotaPeriod);
+    if (p === null) return c.json({ error: 'Periode kuota harus tahun atau bulan' }, 400);
+    if (p !== row.quota_period) set.quota_period = p;
+  }
+  if ('maxDaysPerRequest' in b) {
+    const m = maxDaysOf(b.maxDaysPerRequest);
+    if (m === undefined) return c.json({ error: 'Batas per pengajuan harus angka lebih dari 0 (kelipatan 0,5) atau kosong' }, 400);
+    if (m !== row.max_days_per_request) set.max_days_per_request = m;
   }
   if ('requiresAttachment' in b && typeof b.requiresAttachment === 'boolean' && b.requiresAttachment !== row.requires_attachment) set.requires_attachment = b.requiresAttachment;
   if ('gender' in b) {

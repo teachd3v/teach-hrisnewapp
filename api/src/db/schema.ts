@@ -276,7 +276,9 @@ export const leave_types = sqliteTable('leave_types', {
   key: text('key').primaryKey(),
   label: text('label').notNull(),
   description: text('description').notNull().default(''),
-  default_quota: real('default_quota'), // hari per tahun; null = tanpa batas
+  default_quota: real('default_quota'), // hari per periode (lihat quota_period); null = tanpa batas
+  quota_period: text('quota_period', { enum: ['year', 'month'] }).notNull().default('year'), // 'month' = kuota per bulan kalender (WIB) dari tanggal mulai pengajuan
+  max_days_per_request: real('max_days_per_request'), // batas hari per pengajuan; null = tanpa batas
   requires_attachment: integer('requires_attachment', { mode: 'boolean' }).notNull().default(false),
   time_based: integer('time_based', { mode: 'boolean' }).notNull().default(false), // izin per jam; tidak dapat diubah setelah dibuat
   gender: text('gender', { enum: ['Laki-laki', 'Perempuan'] }), // null = semua

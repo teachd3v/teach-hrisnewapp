@@ -9,8 +9,12 @@ export interface LeaveTypeMeta {
   /** nama yang ditampilkan (dapat diubah) */
   label: string;
   description: string;
-  /** kuota bawaan per tahun; null = tanpa batas */
+  /** kuota bawaan per periode; null = tanpa batas */
   defaultQuota: number | null;
+  /** 'year' = per tahun (bawaan); 'month' = per bulan kalender, dihitung dari tanggal mulai pengajuan */
+  quotaPeriod: 'year' | 'month';
+  /** batas hari per pengajuan; null = tanpa batas */
+  maxDaysPerRequest: number | null;
   requiresAttachment: boolean;
   /** izin per jam: satu tanggal + jam mulai/selesai, dihitung 1 hari kerja */
   timeBased: boolean;

@@ -17,6 +17,7 @@ function parseStatuses(raw: string | null): string[] | null {
 
 export const toMeta = (r: typeof leave_types.$inferSelect): LeaveTypeMeta => ({
   key: r.key, label: r.label, description: r.description, defaultQuota: r.default_quota,
+  quotaPeriod: r.quota_period, maxDaysPerRequest: r.max_days_per_request ?? null,
   requiresAttachment: r.requires_attachment, timeBased: r.time_based, gender: r.gender,
   allowedStatusIds: parseStatuses(r.allowed_status_ids),
   active: r.active, system: r.system, sortOrder: r.sort_order,

@@ -122,6 +122,9 @@ leave.post('/', async (c) => {
   // Durasi dihitung server, bukan dari klien
   const days = calculateLeaveDuration(meta.timeBased, start, end, holidaySet);
   if (days > 366) return c.json({ error: 'Durasi pengajuan terlalu panjang' }, 400);
+  if (meta.maxDaysPerRequest !== null && days > meta.maxDaysPerRequest) {
+    return c.json({ error: `${meta.label} maksimal ${meta.maxDaysPerRequest} hari kerja per pengajuan` }, 400);
+  }
 
   if (meta.gender && me.gender && me.gender !== meta.gender) {
     return c.json({ error: `${meta.label} hanya diperuntukkan bagi karyawan ${meta.gender}` }, 400);
