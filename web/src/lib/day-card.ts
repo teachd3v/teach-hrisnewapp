@@ -19,6 +19,30 @@ export interface DayCardData {
   /** Wallpaper pengguna sebagai latar kartu (null = latar gradasi bawaan) dan keburamannya, 0..1 (1 - transparansi). */
   wallpaper?: ImageBitmap | null;
   wallpaperAlpha?: number;
+  /** Tema ulang tahun: balon, rumbai, dan judul ucapan. */
+  birthday?: boolean;
+}
+
+/** Tema ulang tahun: rumbai di tepi atas dan balon di sudut. Digambar sebelum teks agar teks tetap di atas. */
+function drawBirthdayDecor(ctx: CanvasRenderingContext2D) {
+  const colors = ['#f43f5e', '#f59e0b', '#22c55e', '#3b82f6', '#a855f7', '#14b8a6'];
+  // Rumbai: deretan titik berwarna melengkung di tepi atas.
+  for (let i = 0; i < 60; i++) {
+    const x = (i + 0.5) * (CARD_W / 60);
+    ctx.fillStyle = colors[i % colors.length]!;
+    ctx.beginPath(); ctx.arc(x, 34 + Math.sin(i * 0.55) * 14, 9, 0, Math.PI * 2); ctx.fill();
+  }
+  // Balon di sudut bawah dan kiri-kanan atas (tepi, jauh dari teks dan foto).
+  const balloons = [
+    { x: 110, y: 1560, r: 78, c: '#f43f5e' }, { x: 230, y: 1760, r: 92, c: '#f59e0b' }, { x: CARD_W - 110, y: 1580, r: 80, c: '#3b82f6' },
+    { x: CARD_W - 240, y: 1790, r: 92, c: '#a855f7' }, { x: 90, y: 360, r: 56, c: '#22c55e' }, { x: CARD_W - 90, y: 380, r: 58, c: '#14b8a6' },
+  ];
+  for (const b of balloons) {
+    ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(b.x, b.y + b.r * 1.15); ctx.quadraticCurveTo(b.x - 30, b.y + b.r * 1.9, b.x + 8, b.y + b.r * 2.5); ctx.stroke();
+    ctx.fillStyle = b.c; ctx.beginPath(); ctx.ellipse(b.x, b.y, b.r * 0.9, b.r, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.ellipse(b.x - b.r * 0.35, b.y - b.r * 0.4, b.r * 0.2, b.r * 0.3, -0.5, 0, Math.PI * 2); ctx.fill();
+  }
 }
 
 export const CARD_W = 1080;
@@ -122,6 +146,7 @@ export async function renderDayCard(d: DayCardData): Promise<Blob> {
     ctx.restore();
   }
 
+  if (d.birthday) drawBirthdayDecor(ctx);
   const initial = (d.firstName[0] ?? '?').toUpperCase();
   const dateLabel = new Date(`${d.date}T00:00:00Z`).toLocaleDateString('id-ID', { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase();
 
@@ -135,7 +160,7 @@ export async function renderDayCard(d: DayCardData): Promise<Blob> {
   ctx.fillText(dateLabel, CARD_W - 80, 130);
 
   // Judul (dikecilkan bila nama panjang)
-  const title = `Selesai hari ini, ${d.firstName}!`;
+  const title = d.birthday ? `Selamat ulang tahun, ${d.firstName}!` : `Selesai hari ini, ${d.firstName}!`;
   let size = 72;
   ctx.textAlign = 'center';
   do { ctx.font = `800 ${size}px ${FONT}`; size -= 4; } while (ctx.measureText(title).width > CARD_W - 160 && size > 36);

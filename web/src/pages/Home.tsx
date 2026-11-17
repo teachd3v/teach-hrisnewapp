@@ -17,6 +17,7 @@ import { FlashLinksButton } from '../components/FlashLinks';
 import Overview from '../components/dashboard/Overview';
 import { usePersisted } from '../components/dashboard/parts';
 import TeamStatusList from '../components/TeamStatusList';
+import { BirthdayBanner, BirthdayDecor, BirthdayPopup } from '../components/Birthday';
 import { useTeamToday } from '../lib/team';
 
 function Row({ to, icon, title, sub }: { to: string; icon: React.ReactNode; title: string; sub: string }) {
@@ -53,8 +54,13 @@ export default function Home() {
   const hour = Number(new Date(Date.now() + 7 * 3600_000).toISOString().slice(11, 13));
   const greeting = hour < 11 ? 'Selamat pagi' : hour < 15 ? 'Selamat siang' : hour < 18 ? 'Selamat sore' : 'Selamat malam';
 
+  const birthday = Boolean(user?.birthdayToday);
+  const firstName = (user?.nickname || (user?.name ?? '').trim().split(/\s+/)[0]) || '';
+
   return (
     <div className="flex flex-col gap-4">
+      {birthday && user && <BirthdayPopup userId={user.id} name={firstName} />}
+      {birthday && <BirthdayDecor />}
       <div className="flex items-center gap-3">
         <ProfilePhoto fileKey={card?.photoKey} name={user?.name ?? ''} className="size-12" />
         <div className="min-w-0 flex-1">
@@ -63,6 +69,8 @@ export default function Home() {
         </div>
         <FlashLinksButton />
       </div>
+
+      {birthday && <BirthdayBanner name={firstName} />}
 
       {admin && <Segmented value={tab} onChange={setTab} options={[{ value: 'me', label: 'Saya' }, { value: 'overview', label: 'Ringkasan' }]} />}
       {!admin && teamOn && <Segmented value={tab === 'team' ? 'team' : 'me'} onChange={setTab} options={[{ value: 'me', label: 'Saya' }, { value: 'team', label: 'Tim' }]} />}

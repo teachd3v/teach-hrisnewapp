@@ -69,6 +69,11 @@ input, textarea, select { font-size: 16px; }
 
 @keyframes confetti-fall { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 100% { transform: translateY(105dvh) rotate(540deg); opacity: 0; } }
 .confetti-bit { animation: confetti-fall 2.6s ease-in forwards; }
+@keyframes bday-rise { 0% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateX(14px) rotate(4deg); } 100% { transform: translateY(-120dvh) rotate(-4deg); } }
+@keyframes bday-fall { from { transform: translateY(0); } to { transform: translateY(115dvh); } }
+.bday-balloon { animation: bday-rise linear infinite; }
+.bday-streamer { animation: bday-fall 9s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .bday-balloon, .bday-streamer { animation: none; } }
 
 @keyframes screen-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes sheet-in { from { transform: translateY(100%); } to { transform: none; } }

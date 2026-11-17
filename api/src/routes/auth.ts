@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import { drizzle, type DrizzleD1Database } from 'drizzle-orm/d1';
 import { and, eq, gte, isNull, sql } from 'drizzle-orm';
 import {
+  isBirthdayOn,
+  wibDate,
   ACCESS_TOKEN_TTL_SECONDS,
   IP_BLOCK_MINUTES,
   LOCKOUT_MINUTES,
@@ -112,7 +114,7 @@ auth.post('/login', async (c) => {
   return c.json({
     ...tokens,
     mustChangePassword: cred.must_change_password,
-    user: { id: emp.id, name: emp.name, nickname: emp.nickname ?? null, email: emp.email, role: emp.role },
+    user: { id: emp.id, name: emp.name, nickname: emp.nickname ?? null, email: emp.email, role: emp.role, birthdayToday: isBirthdayOn(emp.birth_date, wibDate()) },
   });
 });
 
@@ -167,7 +169,7 @@ auth.get('/me', requireAuth, async (c) => {
   ]);
   if (!emp || !emp.active) return c.json({ error: 'Sesi berakhir' }, 401);
   // `mustChangePassword` ikut dikirim supaya memuat ulang aplikasi tidak melewati kewajiban mengganti password awal.
-  return c.json({ id: emp.id, name: emp.name, nickname: emp.nickname ?? null, email: emp.email, role: emp.role, title: emp.title, mustChangePassword: Boolean(cred?.must) });
+  return c.json({ id: emp.id, name: emp.name, nickname: emp.nickname ?? null, email: emp.email, role: emp.role, title: emp.title, mustChangePassword: Boolean(cred?.must), birthdayToday: isBirthdayOn(emp.birth_date, wibDate()) });
 });
 
 /** Nama panggilan (2–20 karakter): dipakai di sapaan Beranda dan kartu "Selesai hari ini". Diisi di penyiapan akun dan bisa diulang dari Akun. */

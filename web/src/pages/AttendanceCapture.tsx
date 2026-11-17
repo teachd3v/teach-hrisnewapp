@@ -11,6 +11,9 @@ import { km } from '../lib/attendance-types';
 import { isFaceReady, loadFaceDetector, mapBoxToView, snapshotVideo, type ViewBox } from '../lib/face';
 import { alignFace, embedFace, faceFeatures, headPose, liveFromInput, liveInput, loadFaceModels, type Keypoints, type PixelBox } from '../lib/face-ml';
 import { useFaceStatus } from '../lib/face-status';
+import { useAuth } from '../lib/auth';
+import { BirthdayCandle } from '../components/Birthday';
+import { candleBlown, markCandleBlown } from '../lib/birthday';
 import { markPrimed, pendingCapturePermissions, type PermissionNeed } from '../lib/permissions';
 import { BottomBar, Button, ErrorNote, Spinner, cx } from '../ui';
 
@@ -73,6 +76,9 @@ export default function AttendanceCapture() {
   const policy = useToday().data?.policy;
   const faceQ = useFaceStatus();
   const faceStatus = faceQ.data;
+  const { user } = useAuth();
+  // Hari ulang tahun: lilin ditiup sekali sebelum presensi masuk.
+  const [candleDone, setCandleDone] = useState(() => (user ? candleBlown(user.id) : true));
   useEffect(() => {
     let cancelled = false;
     void pendingCapturePermissions().then((n) => { if (!cancelled) setNeed(n); });
@@ -80,6 +86,10 @@ export default function AttendanceCapture() {
   }, []);
 
   if (type !== 'in' && type !== 'out') return <Navigate to="/presensi" replace />;
+  if (type === 'in' && user?.birthdayToday && !candleDone) {
+    const firstName = (user.nickname || user.name.trim().split(/\s+/)[0]) || '';
+    return <BirthdayCandle name={firstName} onDone={() => { markCandleBlown(user.id); setCandleDone(true); }} />;
+  }
   if (!need || faceQ.isPending) return <Spinner />;
   // Verifikasi wajah aktif tetapi belum ada pendaftaran: presensi tidak bisa dilakukan sebelum mendaftar.
   if (faceStatus && faceStatus.settings.mode !== 'off' && !faceStatus.active) return <FaceRequired pending={Boolean(faceStatus.pending)} rejected={Boolean(faceStatus.rejected)} />;

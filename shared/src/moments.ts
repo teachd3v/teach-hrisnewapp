@@ -21,6 +21,11 @@ export function dateInYear(ymd: string, year: number): string {
 }
 
 /** Tanggal valid berbentuk YYYY-MM-DD (menolak 2026-02-30 dan sejenisnya). */
+/** Ulang tahun pada tanggal `today` (YYYY-MM-DD, WIB): hanya bulan dan tanggal yang dibandingkan. */
+export function isBirthdayOn(birthDate: string | null | undefined, today: string): boolean {
+  return validYmd(birthDate) && birthDate.slice(5) === today.slice(5);
+}
+
 export function validYmd(v: string | null | undefined): v is string {
   if (!v || !ISO.test(v)) return false;
   const y = Number(v.slice(0, 4)), m = Number(v.slice(5, 7)), d = Number(v.slice(8, 10));

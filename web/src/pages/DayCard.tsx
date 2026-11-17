@@ -104,7 +104,7 @@ export default function DayCard() {
         const [a, b] = await Promise.all([load(inPhoto.data), load(outPhoto.data)]);
         let w: ImageBitmap | null = null;
         if (wpBlob) { try { w = await createImageBitmap(wpBlob); bitmaps.push(w); } catch { w = null; } }
-        const png = await renderDayCard({ firstName, date, inTime, outTime, duration, onTimeDays, quote: quote.text, inPhoto: a, outPhoto: b, wallpaper: w, wallpaperAlpha: wpAlpha });
+        const png = await renderDayCard({ firstName, date, inTime, outTime, duration, onTimeDays, quote: quote.text, inPhoto: a, outPhoto: b, wallpaper: w, wallpaperAlpha: wpAlpha, birthday: user?.birthdayToday === true });
         if (cancelled) return;
         url = URL.createObjectURL(png);
         setBlob(png);

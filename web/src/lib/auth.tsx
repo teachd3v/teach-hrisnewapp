@@ -4,7 +4,7 @@ import { api, apiPublic, clearTokens, refreshSession, setSessionExpiredHandler, 
 import { refreshStore } from './session';
 import { detachFromServer, syncPushSubscription } from './push';
 
-export interface User { id: string; name: string; nickname?: string | null; email: string; role: Role }
+export interface User { id: string; name: string; nickname?: string | null; email: string; role: Role; /** hari ini ulang tahun (dihitung server, WIB) */ birthdayToday?: boolean }
 
 interface AuthState {
   user: User | null;

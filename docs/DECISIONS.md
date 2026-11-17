@@ -78,3 +78,8 @@ Tidak ada butir yang terbuka. Butir yang selesai dipindah ke "Sudah dibangun" di
 - Cuti Berkabung boleh beberapa kejadian dalam satu bulan (tanggal tidak boleh tumpang tindih); kuota 5 hari per bulan dipakai bersama.
 - Kuota per karyawan tetap bisa diatur manual oleh Admin dan Super Admin.
 - Rancangan lengkap: `docs/CUTI-SKEMA.md`. Belum dibangun.
+
+## Kuota cuti manual tetap per karyawan; Fase 3 dibatalkan (2026-11-17)
+- Fase 3 (tabel grant dan migrasi `leave_quotas`) tidak dilanjutkan. Kuota manual tetap diatur per karyawan per jenis per tahun lewat menu Kuota cuti.
+- Kuota bawaan berlaku otomatis untuk semua karyawan. Kuota manual hanya untuk pengecualian.
+- Kredit Ganti Hari dari data Epployee dimasukkan sebagai kuota manual tahun berjalan. Masa berlakunya mengikuti 31 Desember tahun itu (kuota dasar). Kredit baru dari lembur atau kerja hari libur yang disetujui di aplikasi tetap otomatis dan berlaku sampai 31 Maret tahun berikutnya.
