@@ -79,6 +79,23 @@ Tidak ada butir yang terbuka. Butir yang selesai dipindah ke "Sudah dibangun" di
 - Kuota per karyawan tetap bisa diatur manual oleh Admin dan Super Admin.
 - Rancangan lengkap: `docs/CUTI-SKEMA.md`. Belum dibangun.
 
+## Penyiapan akun wajib dan nama panggilan (2026-11-16)
+- Penyiapan akun (notifikasi, wajah bila verifikasi aktif, wallpaper dengan transparansi, nama panggilan) wajib. Tidak ada Nanti atau Lewati. Bisa diulang dari Akun.
+- Nama panggilan dipakai di sapaan Beranda dan judul kartu Selesai hari ini.
+
+## Presensi menunggu persetujuan wajah HC (2026-11-17)
+- Bila verifikasi wajah aktif, presensi hanya bisa setelah pendaftaran wajah disetujui HC. Menunggu persetujuan, ditolak, atau belum mendaftar tidak bisa presensi.
+
+## Pembatalan presensi oleh HC (2026-11-17)
+- Admin dan super admin dapat membatalkan presensi masuk atau pulang yang keliru, dengan alasan wajib dan jejak di audit. Pulang harus dibatalkan lebih dulu sebelum masuk.
+
+## Foto presensi lebih kecil (2026-11-17)
+- Foto presensi disimpan 640 px dengan JPEG 0,75 untuk menghemat R2. Verifikasi wajah tidak terpengaruh.
+
+## Gimmick ulang tahun (2026-11-17)
+- Ulang tahun dihitung di server. Tanggal lahir tidak dikirim ke klien.
+- Presensi masuk di hari ulang tahun diawali tiup lilin lewat mikrofon, dengan tombol cadangan. Hanya sekali per hari di perangkat.
+
 ## Kuota cuti manual tetap per karyawan; Fase 3 dibatalkan (2026-11-17)
 - Fase 3 (tabel grant dan migrasi `leave_quotas`) tidak dilanjutkan. Kuota manual tetap diatur per karyawan per jenis per tahun lewat menu Kuota cuti.
 - Kuota bawaan berlaku otomatis untuk semua karyawan. Kuota manual hanya untuk pengecualian.

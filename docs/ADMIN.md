@@ -43,6 +43,13 @@ Departemen, level, dan status kepegawaian adalah pilihan dropdown di form karyaw
 - Urutan bisa diatur (penting untuk level). Isi awal dari project lama: departemen IDEAS, SGLT, BI, Budaya, REMO, LSP; level Direktur sampai Pelaksana; status Kontrak, Tetap, Probation, Magang.
 - Server menolak id yang jenisnya salah atau yang nonaktif saat dipilih.
 
+## Presensi harian: batalkan presensi
+HC dapat membatalkan presensi masuk atau pulang yang keliru lewat tautan **Batalkan** di Akun > Presensi harian. Aturan dan API ada di `docs/PRESENSI.md` ("Pembatalan presensi oleh HC").
+
+## Data master: periode kuota cuti
+Di Data master > Cuti, tiap jenis punya **periode kuota** (per tahun, per bulan, atau per masa kerja), **maksimal per pengajuan**, dan untuk per masa kerja: daftar masa kerja (mis. 7, 14, 21) dan lama hangus (bulan). Aturan lengkap di `docs/LEAVE.md`.
+Kuota manual per karyawan tetap diatur satu per satu lewat menu Kuota cuti (Fase 3 dibatalkan, lihat `docs/DECISIONS.md`).
+
 ## Aturan
 - Atasan: tidak boleh diri sendiri atau membentuk rantai melingkar; harus karyawan aktif. Pucuk pimpinan tidak punya atasan.
 - Harus tersisa minimal satu super admin aktif; tidak bisa menonaktifkan akun sendiri.

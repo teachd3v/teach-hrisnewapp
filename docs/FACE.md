@@ -15,6 +15,8 @@
 ## Kondisi sekarang
 `@mediapipe/tasks-vision` `FaceDetector` di perangkat hanya memastikan ada wajah (`clock_in_face` / `clock_out_face`, boolean). Bukan verifikasi identitas; foto dinilai manual oleh HC (`docs/PRESENSI.md`, "Batasan").
 
+**Aturan presensi saat verifikasi aktif (2026-11-17):** presensi hanya bisa dilakukan setelah pendaftaran wajah **disetujui HC**. Pendaftaran yang masih menunggu persetujuan, ditolak, atau belum ada tidak memenuhi syarat dan presensi ditolak server (`403`, `face_required`). Ini keputusan pemilik; mode `flag` tetap tidak pernah menolak presensi karena hasil penilaian wajah.
+
 ## Arsitektur hybrid
 | Di HP | Di server (Worker) |
 |---|---|

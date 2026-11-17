@@ -23,7 +23,9 @@ kamera depan 3:4 (tampilan dicerminkan), kotak deteksi wajah kuning, foto otomat
 - Kamera gagal/ditolak: tombol "Buka kamera sistem" (`<input capture>`), foto tetap wajib.
 - Deteksi wajah gagal dimuat: tombol manual tetap berfungsi; foto ditandai "wajah tidak terdeteksi otomatis".
 - Lokasi gagal/ditolak: pengguna bisa "Coba lokasi lagi" atau "Kirim tanpa lokasi" (tercatat tanpa titik lokasi).
-- Foto diproses di perangkat (potong 3:4, maks. 900 px, JPEG), tidak dicerminkan.
+- Foto diproses di perangkat (potong 3:4, 640 px, JPEG kualitas 0,75), tidak dicerminkan. Ukuran ini menghemat R2; verifikasi wajah memakai bingkai video langsung, jadi tidak terpengaruh.
+- **Gerbang pendaftaran wajah:** bila verifikasi wajah aktif, presensi hanya bisa dilakukan setelah pendaftaran wajah **disetujui HC**. Yang masih menunggu persetujuan, ditolak, atau belum mendaftar tidak bisa presensi: layar presensi menampilkan "Menunggu persetujuan HC" atau "Daftarkan wajah dulu", dan server menolak dengan `403` (`code: face_required`).
+- **Hari ulang tahun:** presensi **masuk** diawali layar tiup lilin (lihat `docs/UX.md`, "Gimmick ulang tahun"), sekali per hari di perangkat. Presensi pulang tidak diawali lilin.
 
 ## API (`/api/attendance`, Bearer)
 | Endpoint | Fungsi |
@@ -45,6 +47,13 @@ Karyawan mengajukan, **HC memutuskan** (satu tahap). Menu: Presensi → "Lupa pr
 - HC tidak bisa memutuskan koreksinya sendiri. Saat diputuskan keadaan data diperiksa lagi (mis. jam pulang sudah terisi -> setuju ditolak server, HC cukup menolak). Dua putusan bersamaan tidak sama-sama lolos.
 - Notifikasi: HC (perlu aksi) saat diajukan, pemohon saat diputuskan; tanpa alasan. Semua tercatat di audit.
 - API: `/api/attendance-corrections` (`POST /`, `GET /state?date=`, `GET /mine`, `POST /:id/cancel`, `GET /admin`, `POST /:id/decision`).
+
+## Pembatalan presensi oleh HC (salah tekan)
+Untuk presensi yang keliru (mis. karyawan menekan pulang padahal masih bekerja). Menu: Akun > Presensi harian > tautan **Batalkan** di jam masuk atau pulang.
+- Admin dan super admin saja; tidak bisa membatalkan presensi sendiri. Alasan wajib (3-200 karakter).
+- **Pulang** dibatalkan dengan mengosongkan jam dan data pulang (karyawan bisa presensi pulang lagi). **Masuk** menghapus presensi hari itu, tetapi hanya bila pulang sudah dibatalkan lebih dulu.
+- Foto presensi yang dibatalkan dihapus dari R2. Dicatat di audit (`attendance.cancelled`) beserta alasan.
+- API: `POST /api/attendance/admin/cancel` `{employeeId, date, type: 'in'|'out', reason}`.
 
 ## Batasan yang perlu diketahui
 - "Wajah terdeteksi" berasal dari perangkat; bukan verifikasi identitas. Verifikasi identitas hanya ada bila fitur Verifikasi wajah diaktifkan dan karyawan sudah terdaftar. Foto dilihat HC bila perlu.

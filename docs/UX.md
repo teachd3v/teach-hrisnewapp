@@ -22,6 +22,14 @@ Aplikasi ini target utamanya **aplikasi HP (Tauri)**; web hanya cadangan. Semua 
 
 - **Tarik-untuk-segarkan** (`web/src/lib/pull-to-refresh.tsx`): tarik ke bawah saat layar di paling atas memuat ulang data layar aktif (TanStack Query), bukan seluruh halaman. Tidak aktif bila layar sedang tergulir, saat mulai dari kolom isian/lembar, atau tarikan pendek. Data juga otomatis segar saat aplikasi kembali dibuka (`refetchOnWindowFocus`) dan notifikasi tiap 60 detik.
 
+## Gimmick ulang tahun
+- Hanya pada hari ulang tahun akun (`birthdayToday` dari server; tanggal lahir tidak dikirim ke klien). Komponen di `web/src/components/Birthday.tsx`, logika ingatan di `web/src/lib/birthday.ts`.
+- **Beranda:** popup ucapan sekali per tahun, balon dan rumbai yang naik dan turun (CSS, tidak menghalangi sentuhan), serta banner. Animasi mati bila `prefers-reduced-motion`.
+- **Presensi masuk:** layar tiup lilin sebelum kamera. Utamanya lewat mikrofon: hembusan keras dideteksi di perangkat (suara tidak direkam dan tidak dikirim), dengan kalibrasi kebisingan ruangan. Tombol tiup selalu tersedia sebagai cadangan. Sekali per hari di perangkat.
+- **Kartu Selesai hari ini:** judul ucapan dan balon di hari ulang tahun.
+- **Akun:** "Ulangi gimmick ulang tahun" (hanya pada hari ulang tahun) menghapus catatan popup dan lilin di perangkat ini, untuk uji coba.
+- Ambang deteksi tiupan belum diuji di perangkat nyata.
+
 ## Belum dikerjakan
 - Mode gelap (sengaja ditunda; tema terang disepakati).
 - Gestur geser, haptics (butuh plugin Tauri), dan splash screen.

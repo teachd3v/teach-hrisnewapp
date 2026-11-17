@@ -25,6 +25,9 @@ Pucuk pimpinan (`employees.is_top_leader`) langsung `pending_hc`. Karyawan lain 
 ## Aturan yang ditegakkan server
 - Durasi dihitung server: hari kerja Senin–Jumat di luar `holidays`.
 - Tanggal valid, tidak bentrok dengan pengajuan aktif lain, kuota cukup (dicek lagi saat HC menyetujui), jenis berbatas gender, izin jam-jaman wajib jam.
+- **Periode kuota per jenis** (`leave_types.quota_period`, migrasi 0020 dan 0021): `year` (bawaan, kuota per tahun), `month` (kuota per bulan kalender, dihitung dari tanggal mulai; kuota baru tiap bulan dan tidak dibawa), dan `milestone` (apresiasi masa kerja). Cuti Haid 2 hari per bulan dan Cuti Berkabung 5 hari per bulan, keduanya boleh beberapa pengajuan dalam sebulan selama tanggalnya tidak tumpang tindih.
+- **Batas per pengajuan** (`max_days_per_request`): pengajuan melebihi batas ditolak. Cuti Besar 5 hari.
+- **Apresiasi masa kerja** (`service_milestones_years`, `lot_expiry_months`): Cuti Besar mendapat 10 hari pada milestone 7, 14, dan 21 tahun dari `join_date`. Lot hangus 24 bulan dari tanggal milestone (hari terakhir sehari sebelum tanggal hangus). Lot dihitung saat saldo dibaca, tidak disimpan sebagai baris. Pemakaian dialokasikan FIFO ke lot yang paling cepat hangus (`shared/src/overtime.ts`, `serviceAwardLots`).
 - Jenis Sakit wajib lampiran. Satu berkas hanya untuk satu pengajuan; lampiran pengajuan yang dibatalkan dihapus dari R2.
 - Tidak boleh memutuskan pengajuan sendiri. Atasan harus atasan langsung pengaju; peran admin dibaca ulang dari D1, bukan dari token.
 - Keputusan memakai update bersyarat pada status, jadi dua keputusan bersamaan tidak sama-sama lolos.
