@@ -74,7 +74,8 @@ leave.get('/meta', async (c) => {
   ]);
   return c.json({
     gender: me.gender,
-    types: types.filter((t) => t.active && leaveTypeAllowsStatus(t, me.employment_status_id)),
+    // Daftar form: sama dengan aturan saat mengajukan (status dan gender).
+    types: types.filter((t) => t.active && leaveTypeAllowsStatus(t, me.employment_status_id) && (!t.gender || !me.gender || me.gender === t.gender)),
     managerName: manager?.name ?? null,
     canSubmit: Boolean(me.manager_id) || me.is_top_leader,
     isManager: Boolean(reports),
