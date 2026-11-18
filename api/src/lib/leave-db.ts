@@ -99,7 +99,7 @@ export function defaultAsOf(year: number, today = wibDate()): string {
  * disembunyikan dari karyawan yang tidak berhak, kecuali sudah punya pemakaian.
  */
 export async function getBalances(db: Db, employeeId: string, year: number, asOf: string = defaultAsOf(year)): Promise<LeaveBalance[]> {
-  const [emp] = await db.select({ join_date: employees.join_date, status: employees.employment_status_id })
+  const [emp] = await db.select({ join_date: employees.join_date, status: employees.employment_status_id, gender: employees.gender })
     .from(employees).where(eq(employees.id, employeeId)).limit(1);
   const [types, jointDeducted, quotaRows, usage] = await Promise.all([
     loadLeaveTypes(db),
@@ -180,7 +180,9 @@ export async function getBalances(db: Db, employeeId: string, year: number, asOf
     const quota = lots.filter((l) => l.start <= asOf && asOf <= l.expiry).reduce((a, l) => a + l.days, 0);
     all[idx] = { ...all[idx]!, quota, used, pending, remaining: availableOn(lots, left, asOf), explicit: false };
   }
-  const visible = new Set(types.filter((t) => t.active && leaveTypeAllowsStatus(t, emp?.status)).map((t) => t.key));
+  // Jenis khusus gender (Cuti Haid, Cuti Ayah, dst.) hanya tampil untuk gender yang sesuai, sama dengan aturan saat mengajukan.
+  const genderOk = (t: { gender: string | null }) => !t.gender || !emp?.gender || emp.gender === t.gender;
+  const visible = new Set(types.filter((t) => t.active && leaveTypeAllowsStatus(t, emp?.status) && genderOk(t)).map((t) => t.key));
   return all.filter((b) => visible.has(b.type) || b.used + b.pending + b.jointDeducted > 0);
 }
 
