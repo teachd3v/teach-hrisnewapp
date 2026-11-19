@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { Cake, Briefcase, Award } from 'lucide-react';
 import { LSA_YEARS, type LsaItem } from '@hris/shared';
 import { dayMonth, monthLabel, usePeopleMoments } from '../../lib/dashboard';
-import { Card, ErrorNote, Segmented, Spinner } from '../../ui';
+import { Card, ErrorNote, Segmented, Select, Spinner } from '../../ui';
 import { PersonRow, usePersisted } from './parts';
 
 type Tab = 'bd' | 'ann' | 'lsa';
@@ -15,6 +16,7 @@ export default function PeopleMoments() {
   const q = usePeopleMoments();
   const [tab, setTab] = usePersisted<Tab>('hris.dash.momentTab', 'bd', ['bd', 'ann', 'lsa']);
   const [period, setPeriod] = usePersisted<Period>('hris.dash.momentPeriod', 'today', ['today', 'month']);
+  const [lsaYear, setLsaYear] = useState<string | null>(null); // null = tahun berjalan (atau tahun pertama yang tersedia)
   if (q.isPending) return <Card><Spinner /></Card>;
   if (!q.data) return <Card><ErrorNote error={q.error} /></Card>;
   const d = q.data;
@@ -32,11 +34,21 @@ export default function PeopleMoments() {
       return <ul className="divide-y divide-line">{items.map((a) => <PersonRow key={a.id} name={a.name} department={a.department} right={<span className="font-semibold">{a.years} tahun</span>} sub={`${dayMonth(a.date)}${a.lsa ? ' · LSA' : ''}`} />)}</ul>;
     }
     if (!d.lsa.length) return <p className="py-3 text-center text-sm text-muted">Belum ada karyawan yang mencapai tonggak LSA.</p>;
-    // Diklasifikasikan per tonggak masa kerja (5-21 tahun), urut tanggal di dalam setiap tonggak.
+    // Filter tahun kalender: tonggak yang jatuh pada tahun itu, lalu dikelompokkan per tonggak masa kerja (5-21 tahun).
+    const yearsAvail = [...new Set(d.lsa.map((i) => i.date.slice(0, 4)))].sort();
+    const year = lsaYear && yearsAvail.includes(lsaYear) ? lsaYear : yearsAvail.includes(d.today.slice(0, 4)) ? d.today.slice(0, 4) : yearsAvail[0]!;
+    const inYear = d.lsa.filter((i) => i.date.slice(0, 4) === year);
     return (
       <div className="flex flex-col gap-3">
+        <label className="flex items-center gap-2 text-sm">
+          <span className="text-muted">Tahun</span>
+          <Select value={year} onChange={(e) => setLsaYear(e.target.value)} aria-label="Pilih tahun LSA" className="min-h-11 w-auto">
+            {yearsAvail.map((y) => <option key={y} value={y}>{y}</option>)}
+          </Select>
+        </label>
+        {!inYear.length && <p className="py-3 text-center text-sm text-muted">Tidak ada karyawan yang mencapai tonggak LSA pada {year}.</p>}
         {LSA_YEARS.map((years) => {
-          const list = d.lsa.filter((i) => i.years === years);
+          const list = inYear.filter((i) => i.years === years);
           if (!list.length) return null;
           return (
             <section key={years} aria-label={`${years} tahun`}>
