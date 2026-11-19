@@ -91,6 +91,34 @@ export function lsaWindow(people: readonly MomentPerson[], today: string, months
   return out.sort(byDateThenName);
 }
 
+export interface Tenure { years: number; months: number; days: number }
+
+/** Lama bekerja sejak `joinDate` sampai `today` (keduanya YYYY-MM-DD, WIB), dalam tahun-bulan-hari kalender. null bila tanggal tidak valid atau belum masuk. */
+export function tenureOf(joinDate: string | null | undefined, today: string): Tenure | null {
+  if (!validYmd(joinDate) || !validYmd(today) || joinDate > today) return null;
+  let years = Number(today.slice(0, 4)) - Number(joinDate.slice(0, 4));
+  let months = Number(today.slice(5, 7)) - Number(joinDate.slice(5, 7));
+  let days = Number(today.slice(8, 10)) - Number(joinDate.slice(8, 10));
+  // pinjam hari dari bulan-bulan sebelum `today` sampai selisih hari tidak negatif (mis. 31 Jan -> 1 Mar)
+  let cy = Number(today.slice(0, 4)), cm = Number(today.slice(5, 7));
+  while (days < 0) {
+    cm -= 1;
+    if (cm === 0) { cm = 12; cy -= 1; }
+    days += lastDayOf(cy, cm);
+    months -= 1;
+  }
+  if (months < 0) { months += 12; years -= 1; }
+  return { years, months, days };
+}
+
+/** Teks ringkas: "3 thn 2 bln" bila sudah setahun, selain itu "5 bln 12 hari". */
+export function formatTenure(t: Tenure | null): string | null {
+  if (!t) return null;
+  if (t.years > 0) return `${t.years} thn ${t.months} bln`;
+  if (t.months > 0) return `${t.months} bln ${t.days} hari`;
+  return `${t.days} hari`;
+}
+
 /** Jumlah karyawan yang belum punya tanggal lahir / tanggal masuk (agar daftar yang kosong tidak disangka "tidak ada"). */
 export function missingDates(people: readonly MomentPerson[]): { birthDate: number; joinDate: number } {
   return { birthDate: people.filter((p) => !validYmd(p.birthDate)).length, joinDate: people.filter((p) => !validYmd(p.joinDate)).length };

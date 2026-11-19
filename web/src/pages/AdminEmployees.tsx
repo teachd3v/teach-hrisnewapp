@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronRight, Plus, SearchX } from 'lucide-react';
-import type { Role } from '@hris/shared';
+import { formatTenure, tenureOf, wibDate, type Role } from '@hris/shared';
 import { api } from '../lib/api';
 import { Chip, Empty, ErrorNote, Input, Spinner } from '../ui';
 import { nameOf, useMaster } from '../lib/master';
@@ -25,6 +25,8 @@ export default function AdminEmployees() {
     return (list.data ?? []).filter((e) => !q || e.name.toLowerCase().includes(q) || e.email.toLowerCase().includes(q));
   }, [list.data, search]);
   const byId = useMemo(() => new Map((list.data ?? []).map((e) => [e.id, e])), [list.data]);
+  const today = wibDate();
+  const tenure = (e: Emp) => formatTenure(tenureOf(e.join_date, today)) ?? '-';
 
   return (
     <div className="flex flex-col gap-4">
@@ -39,7 +41,7 @@ export default function AdminEmployees() {
         <div className="hidden overflow-hidden rounded-2xl bg-surface shadow-card lg:block">
           <table className="w-full text-left text-sm">
             <thead className="bg-sub text-xs font-semibold text-muted">
-              <tr><th scope="col" className="px-4 py-3">Nama</th><th scope="col" className="px-4 py-3">Departemen dan level</th><th scope="col" className="px-4 py-3">Atasan</th><th scope="col" className="px-4 py-3">Peran</th><th scope="col" className="px-4 py-3">Status</th></tr>
+              <tr><th scope="col" className="px-4 py-3">Nama</th><th scope="col" className="px-4 py-3">Departemen dan level</th><th scope="col" className="px-4 py-3">Atasan</th><th scope="col" className="px-4 py-3">Masa kerja</th><th scope="col" className="px-4 py-3">Peran</th><th scope="col" className="px-4 py-3">Status</th></tr>
             </thead>
             <tbody className="divide-y divide-line">
               {shown.map((e) => (
@@ -47,6 +49,7 @@ export default function AdminEmployees() {
                   <td className="px-4 py-3"><Link to={`/admin/karyawan/${e.id}`} className="font-semibold">{e.name}</Link><span className="block text-muted">{e.email}</span></td>
                   <td className="px-4 py-3">{[nameOf(master.data, e.department_id), nameOf(master.data, e.level_id)].filter(Boolean).join(' · ') || '-'}</td>
                   <td className="px-4 py-3">{e.is_top_leader ? 'Pucuk pimpinan' : e.manager_id ? (byId.get(e.manager_id)?.name ?? '-') : <span className="text-muted">Belum ditetapkan</span>}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">{tenure(e)}</td>
                   <td className="px-4 py-3">{ROLE_LABEL[e.role]}</td>
                   <td className="px-4 py-3">{e.active ? <Chip tone="ok">Aktif</Chip> : <Chip>Nonaktif</Chip>}</td>
                 </tr>
@@ -63,6 +66,7 @@ export default function AdminEmployees() {
                 <span className="flex items-center gap-2"><b>{e.name}</b>{!e.active && <Chip>Nonaktif</Chip>}{e.role !== 'employee' && <Chip tone="info">{ROLE_LABEL[e.role]}</Chip>}</span>
                 <span className="block text-sm text-muted">{[nameOf(master.data, e.department_id), nameOf(master.data, e.level_id)].filter(Boolean).join(' · ') || e.email}</span>
                 <span className="block text-sm text-muted">{e.is_top_leader ? 'Pucuk pimpinan' : e.manager_id ? `Atasan: ${byId.get(e.manager_id)?.name ?? '-'}` : 'Atasan belum ditetapkan'}</span>
+                {e.join_date && <span className="block text-sm text-muted">Masa kerja: {tenure(e)}</span>}
               </span>
               <ChevronRight className="size-5 text-muted" aria-hidden="true" />
             </Link>
