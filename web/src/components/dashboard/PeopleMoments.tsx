@@ -32,17 +32,19 @@ export default function PeopleMoments() {
       return <ul className="divide-y divide-line">{items.map((a) => <PersonRow key={a.id} name={a.name} department={a.department} right={<span className="font-semibold">{a.years} tahun</span>} sub={`${dayMonth(a.date)}${a.lsa ? ' · LSA' : ''}`} />)}</ul>;
     }
     if (!d.lsa.length) return <p className="py-3 text-center text-sm text-muted">Belum ada karyawan yang mencapai tonggak LSA.</p>;
-    // Dikelompokkan per bulan.
-    const groups = new Map<string, LsaItem[]>();
-    for (const i of d.lsa) groups.set(i.date.slice(0, 7), [...(groups.get(i.date.slice(0, 7)) ?? []), i]);
+    // Diklasifikasikan per tonggak masa kerja (5-21 tahun), urut tanggal di dalam setiap tonggak.
     return (
       <div className="flex flex-col gap-3">
-        {[...groups.entries()].map(([ym, list]) => (
-          <section key={ym} aria-label={monthLabel(ym)}>
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">{monthLabel(ym)}</h3>
-            <ul className="divide-y divide-line">{list.map((i) => <PersonRow key={`${i.id}-${i.years}`} name={i.name} department={i.department} right={<span className="font-semibold">{i.years} tahun</span>} sub={`${dayMonth(i.date)} · ${lsaStatus(i)}`} />)}</ul>
-          </section>
-        ))}
+        {LSA_YEARS.map((years) => {
+          const list = d.lsa.filter((i) => i.years === years);
+          if (!list.length) return null;
+          return (
+            <section key={years} aria-label={`${years} tahun`}>
+              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">{years} tahun · {list.length} orang</h3>
+              <ul className="divide-y divide-line">{list.map((i) => <PersonRow key={`${i.id}-${i.years}`} name={i.name} department={i.department} right={<span className="font-semibold">{dayMonth(i.date)} {i.date.slice(0, 4)}</span>} sub={lsaStatus(i)} />)}</ul>
+            </section>
+          );
+        })}
       </div>
     );
   };
