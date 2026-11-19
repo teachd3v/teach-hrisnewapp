@@ -33,7 +33,7 @@ Angka lencana dari `GET /api/admin/queues` (admin): `leave` dan `overtime` berst
 Beranda admin punya tab **[Saya | Ringkasan]** (`web/src/pages/Home.tsx`); karyawan biasa tidak melihat tab dan tidak memanggil API dashboard. Bawaan "Saya", pilihan terakhir diingat di perangkat. Isi Ringkasan, tiap kartu memuat datanya sendiri:
 - **Perlu tindakan**: ubin antrean (izin & overtime, koreksi, wajah) dari `GET /api/admin/queues`; hanya tampil bila ada yang menunggu.
 - **Kehadiran** Harian/Bulanan, `GET /api/dashboard/attendance?mode=day&date=` dan `?mode=month&month=`. Memakai aturan Rekap (jam masuk berefektif-tanggal, izin terlambat, hari libur, cuti sehari penuh). Hari berjalan: "Belum presensi"; "Tidak hadir" hanya sampai kemarin. Tingkat bulanan = hadir / (hadir + tidak hadir). Tanggal sebelum 2024-01-01 atau masa depan ditolak.
-- **Momen karyawan**, `GET /api/dashboard/people?month=`: tab Ulang tahun, Masa kerja (tonggak LSA ditandai), LSA (bulan ini + 3 bulan ke depan; tonggak 5, 7, 10, 14, 20 tahun). Ulang tahun hanya tanggal dan bulan (tahun lahir tidak dikirim). Ada petunjuk "N karyawan belum punya tanggal lahir/masuk".
+- **Momen karyawan**, `GET /api/dashboard/people?month=`: tab Ulang tahun, Masa kerja (tonggak LSA ditandai), LSA (semua tanggal tanpa batas bulan; tonggak 5, 7, 10, 14, 15, 20, 21 tahun). Ulang tahun hanya tanggal dan bulan (tahun lahir tidak dikirim). Ada petunjuk "N karyawan belum punya tanggal lahir/masuk".
 Endpoint hanya untuk admin. Aturan murni ada di `shared/src/moments.ts`. Tanpa migrasi; tidak ada audit per pemuatan dashboard.
 Belum ada: pencatatan LSA "sudah diberikan", ulang tahun terlihat semua karyawan, grafik tren, notifikasi push ulang tahun.
 

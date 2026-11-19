@@ -1,7 +1,7 @@
 import { Hono, type Context } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
 import { eq } from 'drizzle-orm';
-import { REPORT_MIN_DATE, addMonths, anniversariesInMonth, birthdaysInMonth, isAdmin, lsaWindow, missingDates, monthLast, parseIsoDate, wibDate, type MomentPerson } from '@hris/shared';
+import { REPORT_MIN_DATE, addMonths, anniversariesInMonth, birthdaysInMonth, isAdmin, lsaAll, missingDates, monthLast, parseIsoDate, wibDate, type MomentPerson } from '@hris/shared';
 import type { AppEnv } from '../env';
 import { employees, master_options } from '../db/schema';
 import { buildDaySnapshot, buildMonthSummary } from '../lib/dashboard';
@@ -49,7 +49,7 @@ dashboard.get('/attendance', async (c) => {
 
 /**
  * Momen karyawan karyawan aktif. `?month=YYYY-MM` (bawaan bulan ini) menentukan bulan untuk ulang tahun dan ulang tahun kerja;
- * LSA selalu dari bulan ini sampai 3 bulan ke depan. `missing` = jumlah karyawan aktif yang tanggal lahir/masuknya belum terisi.
+ * LSA selalu semua tonggak (tanpa batas bulan). `missing` = jumlah karyawan aktif yang tanggal lahir/masuknya belum terisi.
  */
 dashboard.get('/people', async (c) => {
   const db = drizzle(c.env.DB);
@@ -69,7 +69,7 @@ dashboard.get('/people', async (c) => {
     month, today,
     birthdays: birthdaysInMonth(people, month, today),
     anniversaries: anniversariesInMonth(people, month, today),
-    lsa: lsaWindow(people, today),
+    lsa: lsaAll(people, today),
     missing: missingDates(people),
     total: people.length,
   });

@@ -1,6 +1,6 @@
 import { Link } from 'react-router';
 import { Cake, Briefcase, Award } from 'lucide-react';
-import { LSA_MONTHS_AHEAD, LSA_YEARS, type LsaItem } from '@hris/shared';
+import { LSA_YEARS, type LsaItem } from '@hris/shared';
 import { dayMonth, monthLabel, usePeopleMoments } from '../../lib/dashboard';
 import { Card, ErrorNote, Segmented, Spinner } from '../../ui';
 import { PersonRow, usePersisted } from './parts';
@@ -31,7 +31,7 @@ export default function PeopleMoments() {
       if (!items.length) return <p className="py-3 text-center text-sm text-muted">{period === 'today' ? 'Tidak ada ulang tahun kerja hari ini.' : `Tidak ada ulang tahun kerja pada ${monthLabel(d.month)}.`}</p>;
       return <ul className="divide-y divide-line">{items.map((a) => <PersonRow key={a.id} name={a.name} department={a.department} right={<span className="font-semibold">{a.years} tahun</span>} sub={`${dayMonth(a.date)}${a.lsa ? ' · LSA' : ''}`} />)}</ul>;
     }
-    if (!d.lsa.length) return <p className="py-3 text-center text-sm text-muted">Tidak ada LSA bulan ini sampai {LSA_MONTHS_AHEAD} bulan ke depan.</p>;
+    if (!d.lsa.length) return <p className="py-3 text-center text-sm text-muted">Belum ada karyawan yang mencapai tonggak LSA.</p>;
     // Dikelompokkan per bulan.
     const groups = new Map<string, LsaItem[]>();
     for (const i of d.lsa) groups.set(i.date.slice(0, 7), [...(groups.get(i.date.slice(0, 7)) ?? []), i]);
@@ -54,7 +54,7 @@ export default function PeopleMoments() {
       {tab !== 'lsa' && <Segmented value={period} onChange={setPeriod} options={[{ value: 'today', label: 'Hari ini' }, { value: 'month', label: monthLabel(d.month) }]} />}
       <div className="flex items-center gap-2 text-xs text-muted" aria-hidden="true">
         {tab === 'bd' ? <Cake className="size-4" /> : tab === 'ann' ? <Briefcase className="size-4" /> : <Award className="size-4" />}
-        <span>{tab === 'bd' ? 'Ulang tahun karyawan aktif' : tab === 'ann' ? 'Ulang tahun masa kerja (minimal 1 tahun); "LSA" menandai tonggak penghargaan' : `Long Service Award: ${LSA_YEARS.join(', ')} tahun, dari bulan ini sampai ${LSA_MONTHS_AHEAD} bulan ke depan`}</span>
+        <span>{tab === 'bd' ? 'Ulang tahun karyawan aktif' : tab === 'ann' ? 'Ulang tahun masa kerja (minimal 1 tahun); "LSA" menandai tonggak penghargaan' : `Long Service Award: ${LSA_YEARS.join(', ')} tahun, semua tanggal`}</span>
       </div>
       {body()}
       {(miss.birthDate > 0 || miss.joinDate > 0) && (

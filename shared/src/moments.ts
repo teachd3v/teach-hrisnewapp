@@ -2,9 +2,7 @@
 // Fungsi murni (tanpa akses database); semua tanggal kalender WIB dalam bentuk YYYY-MM-DD. Dipakai server (penentu) dan klien (tampilan).
 
 /** Tonggak masa kerja (tahun) yang mendapat LSA. */
-export const LSA_YEARS: readonly number[] = [5, 7, 10, 14, 20];
-/** Daftar LSA ke depan: bulan berjalan ditambah sekian bulan berikutnya. */
-export const LSA_MONTHS_AHEAD = 3;
+export const LSA_YEARS: readonly number[] = [5, 7, 10, 14, 15, 20, 21];
 
 export interface MomentPerson { id: string; name: string; department: string; birthDate: string | null; joinDate: string | null }
 
@@ -74,17 +72,14 @@ export function anniversariesInMonth(people: readonly MomentPerson[], ym: string
 
 const dayDiff = (a: string, b: string) => Math.round((new Date(`${a}T00:00:00Z`).getTime() - new Date(`${b}T00:00:00Z`).getTime()) / 86_400_000);
 
-/** LSA yang jatuh dari awal bulan ini sampai akhir bulan ke-`monthsAhead` berikutnya, urut tanggal. */
-export function lsaWindow(people: readonly MomentPerson[], today: string, monthsAhead = LSA_MONTHS_AHEAD): LsaItem[] {
-  const ym = today.slice(0, 7);
-  const from = monthFirst(ym), to = monthLast(addMonths(ym, monthsAhead));
+/** Semua tonggak LSA setiap karyawan (tanpa batas bulan), urut tanggal. Status menandai yang sudah lewat, hari ini, dan yang akan datang. */
+export function lsaAll(people: readonly MomentPerson[], today: string): LsaItem[] {
   const out: LsaItem[] = [];
   for (const p of people) {
     if (!validYmd(p.joinDate)) continue;
     const joinYear = Number(p.joinDate.slice(0, 4));
     for (const years of LSA_YEARS) {
       const date = dateInYear(p.joinDate, joinYear + years);
-      if (date < from || date > to) continue;
       out.push({ id: p.id, name: p.name, department: p.department, date, years, status: date < today ? 'lewat' : date === today ? 'hari_ini' : 'akan_datang', daysUntil: dayDiff(date, today) });
     }
   }
