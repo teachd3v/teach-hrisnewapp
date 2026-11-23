@@ -10,7 +10,7 @@ import { requireAuth } from '../middleware/auth';
 
 /**
  * Dashboard Beranda untuk admin/super admin: kehadiran (harian atau bulanan, tanpa mengunduh rekap) dan momen karyawan
- * (ulang tahun, ulang tahun kerja, LSA). Hanya baca; tidak diaudit tiap muat. Tanggal lahir hanya tampil sebagai tanggal dan bulan.
+ * (ulang tahun beserta usia, LSA dengan tanggal masuk). Hanya baca; tidak diaudit tiap muat.
  */
 export const dashboard = new Hono<AppEnv>();
 dashboard.use('*', requireAuth);

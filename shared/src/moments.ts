@@ -38,20 +38,21 @@ export function addMonths(ym: string, n: number): string {
 export const monthFirst = (ym: string) => `${ym}-01`;
 export const monthLast = (ym: string) => `${ym}-${pad(lastDayOf(Number(ym.slice(0, 4)), Number(ym.slice(5, 7))))}`;
 
-export interface BirthdayItem { id: string; name: string; department: string; /** tanggal pada bulan yang diminta (tanpa tahun lahir) */ date: string; today: boolean }
+export interface BirthdayItem { id: string; name: string; department: string; /** tanggal ulang tahun pada bulan yang diminta */ date: string; /** usia yang dicapai pada ulang tahun tersebut (tahun) */ age: number; today: boolean }
 export interface AnniversaryItem { id: string; name: string; department: string; date: string; years: number; today: boolean; lsa: boolean }
-export interface LsaItem { id: string; name: string; department: string; date: string; years: number; /** 'lewat' = sudah lewat bulan ini, 'hari_ini', 'akan_datang' */ status: 'lewat' | 'hari_ini' | 'akan_datang'; daysUntil: number }
+export interface LsaItem { id: string; name: string; department: string; /** tanggal tonggak LSA tercapai */ date: string; /** tanggal masuk karyawan */ joinDate: string; years: number; /** 'lewat' = sudah lewat, 'hari_ini', 'akan_datang' */ status: 'lewat' | 'hari_ini' | 'akan_datang'; daysUntil: number }
 
 const byDateThenName = <T extends { date: string; name: string }>(a: T, b: T) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name);
 
-/** Ulang tahun pada bulan `ym`. Hanya tanggal dan bulan yang dikembalikan (tahun lahir dan usia tidak ditampilkan). */
+/** Ulang tahun pada bulan `ym`, beserta usia yang dicapai pada tahun tersebut. */
 export function birthdaysInMonth(people: readonly MomentPerson[], ym: string, today: string): BirthdayItem[] {
   const year = Number(ym.slice(0, 4)), month = ym.slice(5, 7);
   const out: BirthdayItem[] = [];
   for (const p of people) {
     if (!validYmd(p.birthDate) || p.birthDate.slice(5, 7) !== month) continue;
     const date = dateInYear(p.birthDate, year);
-    out.push({ id: p.id, name: p.name, department: p.department, date, today: date === today });
+    const age = year - Number(p.birthDate.slice(0, 4));
+    out.push({ id: p.id, name: p.name, department: p.department, date, age, today: date === today });
   }
   return out.sort(byDateThenName);
 }
@@ -80,7 +81,7 @@ export function lsaAll(people: readonly MomentPerson[], today: string): LsaItem[
     const joinYear = Number(p.joinDate.slice(0, 4));
     for (const years of LSA_YEARS) {
       const date = dateInYear(p.joinDate, joinYear + years);
-      out.push({ id: p.id, name: p.name, department: p.department, date, years, status: date < today ? 'lewat' : date === today ? 'hari_ini' : 'akan_datang', daysUntil: dayDiff(date, today) });
+      out.push({ id: p.id, name: p.name, department: p.department, date, joinDate: p.joinDate, years, status: date < today ? 'lewat' : date === today ? 'hari_ini' : 'akan_datang', daysUntil: dayDiff(date, today) });
     }
   }
   return out.sort(byDateThenName);
