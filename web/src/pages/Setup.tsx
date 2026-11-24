@@ -51,7 +51,7 @@ function FaceStep({ onNext }: { onNext: () => void }) {
   const [enrolling, setEnrolling] = useState(false);
   if (enrolling) return <FaceEnroll flow={{ onDone: onNext, onCancel: () => setEnrolling(false) }} />;
   return (
-    <Intro icon={<ScanFace className="size-9" />} title="Daftarkan wajah untuk presensi" body="Tatap kamera beberapa detik. HC lalu mencocokkannya dengan KTP Anda; sementara itu presensi tetap bisa dilakukan."
+    <Intro icon={<ScanFace className="size-9" />} title="Daftarkan wajah untuk presensi" body="Ambil 1 foto wajah hadap depan. HC akan mencocokkannya dengan KTP Anda sebelum presensi aktif."
       actions={<Button onClick={() => setEnrolling(true)}>Daftarkan sekarang</Button>} />
   );
 }

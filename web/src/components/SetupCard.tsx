@@ -62,12 +62,12 @@ export default function SetupCard() {
       action: <button type="button" className={ACTION} disabled={busy} onClick={() => { setBusy(true); setError(null); enablePush().catch(setError).finally(() => { setBusy(false); refreshPush(); }); }}>Aktifkan</button>,
     });
   }
-  if (f && (f.settings.mode !== 'off' || f.active || f.pending)) {
+  if (f && (f.settings.mode !== 'off' || f.active || f.pending || f.needsReenroll)) {
     const done = f.active || Boolean(f.pending);
     items.push({
       key: 'face', icon: <ScanFace className="size-5" />, label: 'Wajah untuk presensi', done,
-      sub: f.active ? 'Terdaftar' : f.pending ? 'Terkirim, menunggu HC' : f.rejected ? 'Ditolak HC, perlu daftar ulang' : 'Tatap kamera beberapa detik',
-      action: <Link to="/profil/wajah" className={ACTION}>{f.rejected ? 'Daftar ulang' : 'Daftarkan'}</Link>,
+      sub: f.active ? 'Terdaftar' : f.pending ? 'Terkirim, menunggu HC' : f.needsReenroll ? 'Perlu daftar ulang (versi baru)' : f.rejected ? 'Ditolak HC, perlu daftar ulang' : 'Ambil 1 foto hadap depan',
+      action: <Link to="/profil/wajah" className={ACTION}>{f.rejected || f.needsReenroll ? 'Daftar ulang' : 'Daftarkan'}</Link>,
     });
   }
   items.push({

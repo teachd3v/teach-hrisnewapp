@@ -9,8 +9,10 @@ export interface FaceStatus {
   settings: { mode: FaceMode; threshold?: number; liveThreshold?: number };
   consent: { version: string; text: string[] };
   modelVersion: string;
-  /** punya template aktif (disetujui HC) */
+  /** punya template aktif (disetujui HC) pada versi model saat ini */
   active: boolean;
+  /** punya template versi model lama sehingga perlu daftar ulang 1 foto */
+  needsReenroll?: boolean;
   approved: FaceTemplateInfo | null;
   pending: FaceTemplateInfo | null;
   rejected: FaceTemplateInfo | null;

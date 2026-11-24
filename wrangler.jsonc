@@ -13,6 +13,7 @@
 		}
 	],
 	"r2_buckets": [{ "binding": "STORAGE", "bucket_name": "hris-spa-storage" }],
+	"services": [{ "binding": "FACE_SERVICE", "service": "teach-hris-face" }],
 	"vars": {
 		"WEB_ORIGIN": "https://app.hrteach.site",
 		// Kunci publik VAPID (bukan rahasia). Kunci privatnya: secret VAPID_PRIVATE_KEY.

@@ -1,0 +1,32 @@
+{
+	"$schema": "../node_modules/wrangler/config-schema.json",
+	"name": "teach-hris-face",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-10-13",
+	// Layanan privat: tanpa alamat publik, hanya dipanggil oleh Pages `teach-hris-spa` lewat Service Binding `FACE_SERVICE`.
+	"workers_dev": false,
+	"containers": [
+		{
+			"class_name": "FaceContainer",
+			"image": "./Dockerfile",
+			// AuraFace v1 (glintr100.onnx 261 MB) butuh RAM > 1 GiB agar aman dari OOM; tidur otomatis setelah 2 menit idle.
+			"instance_type": "standard-1",
+			"max_instances": 2
+		}
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "FACE_CONTAINER",
+				"class_name": "FaceContainer"
+			}
+		]
+	},
+	"exports": {
+		"FaceContainer": {
+			"type": "durable-object",
+			"storage": "sqlite"
+		}
+	},
+	"observability": { "enabled": true }
+}

@@ -1,8 +1,22 @@
-# Face recognition presensi (rencana)
+# Face recognition presensi
 
-**Status: Fase 1 dibangun 2026-11-11 (mode Mati/Hanya ditandai), belum dideploy dan belum diuji di HP nyata.** Keputusan: `docs/DECISIONS.md` ("Sudah dibangun" nomor 9). Bagian di bawah ini adalah rencana dan hasil spike yang mendasarinya; ringkasan fitur yang berjalan ada di "Yang dibangun".
+**Arsitektur aktif (diperbarui 2026-11-23): 100% Server-Side di Cloudflare Containers (`face/`).**
+HP (PWA) tidak lagi mengunduh atau menjalankan WASM/ML (0 MB beban model di browser). Kamera HP/browser (termasuk fallback kamera sistem) hanya mengambil 1 foto JPEG, lalu Pages Functions meneruskannya secara privat lewat Service Binding `FACE_SERVICE` ke Cloudflare Container Worker `teach-hris-face`.
 
-## Yang dibangun (Fase 1)
+## Komponen Server-Side (`face/`)
+- **Worker Container:** `face/wrangler.jsonc` (`name: "teach-hris-face"`, `workers_dev: false`, `instance_type: "standard-1"`, `max_instances: 2`), tidur otomatis setelah 2 menit idle (`INACTIVITY_TIMEOUT_MS = 120_000`) agar hemat GiB-jam (scale-to-zero).
+- **Pipeline Python (`face/app.py`):**
+  1. Decode gambar + normalisasi orientasi EXIF (`Pillow` `ImageOps.exif_transpose`).
+  2. Deteksi & 5 landmark wajah: **YuNet** (`face_detection_yunet_2023mar.onnx`, MIT, OpenCV Zoo). Cek 1 wajah utama, ukuran wajah, dan pose kepala terkompensasi miring (*roll*).
+  3. Penyelarasan ArcFace 5 titik ke 112x112 RGB + cek cahaya (`lum >= 22`) & buram ekstrem (`sharp >= 20`).
+  4. Ekstraksi embedding: **AuraFace v1** (`glintr100.onnx`, Apache-2.0, **512 dimensi**, L2-normalized, `FACE_MODEL_VERSION = 'auraface-v1'`).
+  5. Anti-spoofing pasif: **MiniFASNetV2** (`MiniFASNetV2.onnx`, crop 2,7x 80x80 BGR).
+- **Deploy & Binding:**
+  1. Deploy Worker Container: `npm run deploy:face` (butuh Docker aktif).
+  2. Di Cloudflare Dashboard > Pages `teach-hris-spa` > Settings > Bindings: pastikan ada Service Binding `FACE_SERVICE` -> Worker `teach-hris-face` (juga dideklarasikan di `wrangler.jsonc`).
+  3. **Daftar ulang karyawan:** template lama (`sface-int8-2021dec`, 128-d) otomatis tidak dianggap aktif oleh `approvedTemplate()`, dan karyawan melihat ajakan daftar ulang 1 foto. Menyetujui pendaftaran baru otomatis menghapus template & foto referensi lama.
+
+## Yang dibangun (riwayat Fase 1)
 - **Skema:** migrasi `0016_face_verification.sql`: tabel `face_templates` (vektor base64 float32, status pending/approved/rejected, persetujuan, foto referensi di R2 `face_reference/`) dan kolom `clock_{in,out}_face_score`, `_face_result`, `_live`, `_face_vec` di `attendances`.
 - **Shared** (`shared/src/face.ts`): `assessFace` (urutan: tanpa template/skor -> `none`; liveness di bawah ambang -> `spoof`; skor >= ambang -> `match`, selain itu `mismatch`), `cosine`/`bestScore`, `encodeVectors`/`decodeVectors`, `parseFaceSettings`, teks persetujuan, notifikasi.
 - **API:** `/api/face` (`GET /status`, `POST /enroll`, `DELETE /me`, HC: `GET /admin`, `POST /:id/decision`, `DELETE /employee/:id`, super admin: `PUT /settings`); `clock-in`/`clock-out` menerima `embedding` dan `live`; `GET /api/attendance/admin` menyertakan skor, karyawan hanya melihat hasil. Foto referensi dibuka lewat `/api/files/link` (pemilik dan admin; akses admin diaudit).

@@ -11,7 +11,7 @@ import { Button, Card, Chip, Empty, ErrorNote, Sheet, Spinner, Textarea } from '
 /** `live`: skor wajah asli saat pendaftaran (0-1); null bila tidak tersedia. */
 interface PendingRow extends FaceTemplateInfo { employeeId: string; name: string; photoKey: string; ktpKey: string | null; live: number | null; replacing: boolean }
 interface ApprovedRow extends FaceTemplateInfo { employeeId: string; name: string }
-interface AdminData { settings: FaceSettings; coverage: { enrolled: number; active: number }; pending: PendingRow[]; approved: ApprovedRow[] }
+interface AdminData { settings: FaceSettings; coverage: { enrolled: number; active: number; outdated?: number }; pending: PendingRow[]; approved: ApprovedRow[] }
 
 /** HC: antrean pendaftaran wajah (cocokkan foto referensi dengan KTP), daftar yang aktif, dan reset. */
 export default function AdminFace() {
@@ -41,6 +41,11 @@ export default function AdminFace() {
       <Card className="flex flex-col gap-1">
         <p className="font-semibold">Terdaftar {d.coverage.enrolled} dari {d.coverage.active} karyawan aktif</p>
         <p className="text-sm text-muted">{modeText}</p>
+        {(d.coverage.outdated ?? 0) > 0 && (
+          <p className="mt-1 rounded-xl bg-warn-bg p-2.5 text-sm text-warn">
+            {d.coverage.outdated} karyawan masih memakai pendaftaran model lama dan perlu daftar ulang 1 foto.
+          </p>
+        )}
       </Card>
 
       <section aria-labelledby="pend-h" className="flex flex-col gap-3">

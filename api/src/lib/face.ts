@@ -1,7 +1,7 @@
 // Akses pengaturan dan template verifikasi wajah untuk server (docs/FACE.md).
 import type { DrizzleD1Database } from 'drizzle-orm/d1';
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import { FACE_SETTING_KEYS, parseFaceSettings, type FaceSettings } from '@hris/shared';
+import { FACE_MODEL_VERSION, FACE_SETTING_KEYS, parseFaceSettings, type FaceSettings } from '@hris/shared';
 import { app_settings, face_templates } from '../db/schema';
 
 type Db = DrizzleD1Database;
@@ -14,10 +14,14 @@ export async function loadFaceSettings(db: Db): Promise<FaceSettings> {
   return parseFaceSettings(rows);
 }
 
-/** Template aktif (disetujui) terbaru seorang karyawan, atau undefined. */
+/** Template aktif (disetujui) terbaru seorang karyawan untuk versi model saat ini, atau undefined. */
 export async function approvedTemplate(db: Db, employeeId: string) {
   const [row] = await db.select().from(face_templates)
-    .where(and(eq(face_templates.employee_id, employeeId), eq(face_templates.status, 'approved')))
+    .where(and(
+      eq(face_templates.employee_id, employeeId),
+      eq(face_templates.status, 'approved'),
+      eq(face_templates.model_version, FACE_MODEL_VERSION),
+    ))
     .orderBy(desc(face_templates.decided_at)).limit(1);
   return row;
 }

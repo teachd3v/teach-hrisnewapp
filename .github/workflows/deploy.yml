@@ -2,7 +2,8 @@ name: Deploy ke Cloudflare Pages
 
 # Push ke main -> cek tipe -> build -> deploy ke project Pages `teach-hris-spa` (alamat dan secret Pages tidak berubah).
 # Migrasi database TIDAK otomatis: jalankan manual `npx wrangler d1 migrations apply hris-spa-db --remote`
-# SEBELUM mendorong kode yang membutuhkannya. Worker cron (cron/) juga tetap manual: `npm run deploy:cron`.
+# SEBELUM mendorong kode yang membutuhkannya. Worker cron (cron/) dan Container wajah (face/) dideploy terpisah:
+# `npm run deploy:cron` dan `npm run deploy:face` (butuh Docker & akun Workers Paid).
 #
 # Secret GitHub yang dibutuhkan (Settings > Secrets and variables > Actions):
 #   CLOUDFLARE_API_TOKEN   token dengan izin Account > Cloudflare Pages > Edit

@@ -6,7 +6,8 @@
     "shared",
     "api",
     "web",
-    "cron"
+    "cron",
+    "face"
   ],
   "scripts": {
     "dev:web": "npm run dev -w web",
@@ -15,7 +16,8 @@
     "typecheck": "npm run typecheck -ws --if-present",
     "db:generate": "npm run db:generate -w api",
     "deploy": "npm run build && wrangler pages deploy web/dist --project-name teach-hris-spa --branch main",
-    "deploy:cron": "wrangler deploy --config cron/wrangler.jsonc"
+    "deploy:cron": "wrangler deploy --config cron/wrangler.jsonc",
+    "deploy:face": "wrangler deploy --config face/wrangler.jsonc"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

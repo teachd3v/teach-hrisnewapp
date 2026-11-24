@@ -1,19 +1,30 @@
 import type { NotifyInput } from './leave-notifications';
 
-// Verifikasi wajah pada presensi (lihat docs/FACE.md). Arsitektur hybrid: HP menghitung embedding dan skor "wajah asli" (liveness),
-// server mencocokkan dengan template karyawan dan menyimpan hasilnya sebagai snapshot. Template tidak pernah dikirim ke HP.
+// Verifikasi wajah pada presensi (lihat docs/FACE.md). Arsitektur server-side (Cloudflare Container): HP cukup mengirim
+// foto JPEG biasa, server menjalankan deteksi (YuNet), ekstraksi embedding (AuraFace v1, 512-d), dan liveness pasif (MiniFASNetV2),
+// lalu mencocokkan 1:1 dengan template karyawan di D1. Template tidak pernah dikirim ke HP.
 // Dipakai server (penentu) dan klien (tampilan).
 
 /** Model embedding yang dipakai. Embedding dari model berbeda tidak bisa dibandingkan; ganti model berarti daftar ulang. */
-export const FACE_MODEL_VERSION = 'sface-int8-2021dec';
-export const FACE_DIM = 128;
+export const FACE_MODEL_VERSION = 'auraface-v1';
+export const FACE_DIM = 512;
 /**
- * Jumlah sampel (vektor) per pendaftaran. Pendaftaran mengambil tepat 3 sampel hadap depan (= minimum): sampelnya nyaris serupa,
- * jadi lebih banyak hanya menambah waktu. Sampel buram dilewati saat pengambilan, jadi yang terkumpul selalu 3 kecuali ada pencilan
- * (lalu diminta mengulang). Batas atas tetap longgar agar template lama (sampai 10 sampel) dan perubahan kelak tetap sah.
+ * Jumlah sampel (vektor) per pendaftaran. Pendaftaran cukup 1 foto hadap depan yang lolos validasi kualitas di server
+ * (wajah tunggal, ukuran cukup, menghadap lurus, tidak terlalu gelap/buram). Batas atas tetap longgar untuk kompatibilitas.
  */
-export const FACE_ENROLL_MIN = 3;
+export const FACE_ENROLL_MIN = 1;
 export const FACE_ENROLL_MAX = 12;
+
+/** Alasan foto tidak dapat dinilai oleh layanan verifikasi wajah. */
+export type FaceRejectReason =
+  | 'no_face'
+  | 'multi_face'
+  | 'too_small'
+  | 'turned'
+  | 'too_dark'
+  | 'too_blurry'
+  | 'invalid_image'
+  | 'service_unavailable';
 
 /** 'off' = tidak ada verifikasi wajah; 'flag' = hasil hanya ditandai untuk HC, presensi tidak pernah ditolak karena wajah. */
 export type FaceMode = 'off' | 'flag';

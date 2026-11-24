@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
 import { and, asc, eq, gte, isNull, lte, ne, sql } from 'drizzle-orm';
 import {
-  SETTING_KEYS, isAdmin, isJointWorkday, isValidQuota, jointLeaveDeduction, parseIsoDate,
+  FACE_MODEL_VERSION, SETTING_KEYS, isAdmin, isJointWorkday, isValidQuota, jointLeaveDeduction, parseIsoDate,
   planJointHolidayChange, planJointSettingChange, type Role,
 } from '@hris/shared';
 import type { AppEnv } from '../env';
@@ -65,7 +65,7 @@ admin.get('/queues', async (c) => {
     n(db.select({ n: sql<number>`count(*)` }).from(leave_requests).where(eq(leave_requests.status, 'pending_hc'))),
     n(db.select({ n: sql<number>`count(*)` }).from(overtime_requests).where(eq(overtime_requests.status, 'pending_hc'))),
     n(db.select({ n: sql<number>`count(*)` }).from(attendance_corrections).where(eq(attendance_corrections.status, 'pending'))),
-    n(db.select({ n: sql<number>`count(*)` }).from(face_templates).where(eq(face_templates.status, 'pending'))),
+    n(db.select({ n: sql<number>`count(*)` }).from(face_templates).where(and(eq(face_templates.status, 'pending'), eq(face_templates.model_version, FACE_MODEL_VERSION)))),
   ]);
   return c.json({ leave, overtime, corrections, face });
 });

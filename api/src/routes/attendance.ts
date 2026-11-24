@@ -1,14 +1,15 @@
 import { Hono, type Context } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
 import { and, asc, between, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
-import { LEAVE_KEYS, assessFace, assessLocation, bestScore, decodeVectors, encodeVectors, isAdmin, isWeekendDate, lateMinutes, normalize, policyFor, validEmbedding, validLatLng, wibDate, type AttendanceFlags, type AttendancePolicy, type FaceResult } from '@hris/shared';
+import { LEAVE_KEYS, assessFace, assessLocation, bestScore, decodeVectors, encodeVectors, isAdmin, isWeekendDate, lateMinutes, policyFor, validLatLng, wibDate, type AttendanceFlags, type AttendancePolicy, type FaceRejectReason, type FaceResult } from '@hris/shared';
 import type { AppEnv } from '../env';
-import { attendances, audit_log, employees, face_attempts, face_templates, holidays, leave_requests } from '../db/schema';
+import { attendances, audit_log, employees, face_attempts, holidays, leave_requests } from '../db/schema';
 import { auditRow } from '../lib/audit';
 import type { Db } from '../lib/leave-db';
 import { buildTeamToday } from '../lib/dashboard';
 import { loadOffices, loadPolicies } from '../lib/attendance-policy';
 import { approvedTemplate, loadFaceSettings } from '../lib/face';
+import { analyzeFace } from '../lib/face-client';
 import { labelMap, loadLeaveTypes, timeBasedKeys } from '../lib/leave-types';
 import { MB, validateUpload } from '../lib/upload';
 import { requireAuth } from '../middleware/auth';
@@ -155,12 +156,6 @@ async function punch(c: Ctx, type: 'in' | 'out') {
   const hasLoc = lat !== null && lng !== null;
   if (hasLoc && !validLatLng(lat, lng)) return c.json({ error: 'Koordinat tidak valid' }, 400);
   const accuracy = num(form?.accuracy);
-  const face = form?.face === '1';
-  // Verifikasi wajah: embedding (JSON) dan skor wajah asli dari perangkat. Penilaian resmi di server (template tidak pernah dikirim ke klien).
-  let emb: Float32Array | null = null;
-  try { const raw: unknown = JSON.parse(typeof form?.embedding === 'string' ? form.embedding : 'null'); if (validEmbedding(raw)) emb = normalize(raw); } catch { /* tanpa embedding */ }
-  const liveRaw = num(form?.live);
-  const live = liveRaw !== null && liveRaw >= 0 && liveRaw <= 1 ? liveRaw : null;
 
   const now = new Date();
   const date = wibDate(now);
@@ -181,18 +176,27 @@ async function punch(c: Ctx, type: 'in' | 'out') {
 
   // Mode mati: tidak ada penilaian (kolom null). Mode 'flag': hasil hanya ditandai; presensi tidak pernah ditolak karena wajah.
   const faceSettings = await loadFaceSettings(db);
-  // Mode verifikasi aktif: presensi hanya bisa setelah pendaftaran wajah disetujui HC. Menunggu persetujuan atau ditolak = belum bisa presensi.
-  if (faceSettings.mode !== 'off') {
-    const registered = await one(db.select({ id: face_templates.id }).from(face_templates)
-      .where(and(eq(face_templates.employee_id, me.id), eq(face_templates.status, 'approved'))).limit(1));
-    if (!registered) return c.json({ error: 'Presensi belum bisa dilakukan: wajah Anda belum disetujui HC (Akun > Wajah untuk presensi).', code: 'face_required' }, 403);
-  }
+  let face = false;
+  let emb: Float32Array | null = null;
+  let live: number | null = null;
   let faceResult: FaceResult | null = null;
   let faceScore: number | null = null;
+  let faceReason: FaceRejectReason | null = null;
   if (faceSettings.mode !== 'off') {
+    // Mode verifikasi aktif: presensi hanya bisa setelah pendaftaran wajah versi model saat ini disetujui HC.
     const tpl = await approvedTemplate(db, me.id);
-    if (tpl && emb) faceScore = bestScore(decodeVectors(tpl.vectors), emb);
-    faceResult = assessFace({ hasTemplate: Boolean(tpl), score: faceScore, live: emb ? live : null }, faceSettings);
+    if (!tpl) return c.json({ error: 'Presensi belum bisa dilakukan: wajah Anda belum terdaftar/disetujui HC (Akun > Wajah untuk presensi).', code: 'face_required' }, 403);
+    const analyzed = await analyzeFace(c.env, v.buffer, v.contentType);
+    if (analyzed.ok) {
+      face = true;
+      emb = analyzed.embedding;
+      live = analyzed.live;
+      faceScore = bestScore(decodeVectors(tpl.vectors), emb);
+      faceResult = assessFace({ hasTemplate: true, score: faceScore, live }, faceSettings);
+    } else {
+      faceReason = analyzed.reason;
+      faceResult = 'none';
+    }
   }
   const faceVec = faceResult && emb ? encodeVectors([emb]) : null;
   const faceLive = faceResult && emb ? live : null;
@@ -202,7 +206,7 @@ async function punch(c: Ctx, type: 'in' | 'out') {
   const iso = now.toISOString();
   const auditStmt = db.insert(audit_log).values(auditRow({
     actorId: me.id, actorName: me.name, action: type === 'in' ? 'attendance.clock_in' : 'attendance.clock_out', targetType: 'attendance', targetId: date,
-    ip: c.req.header('CF-Connecting-IP'), details: { distance, accuracy, face, hasLoc, outside, ...(faceResult ? { faceResult, faceScore: faceScore === null ? undefined : Math.round(faceScore * 1000) / 1000, live: faceLive ?? undefined } : {}) },
+    ip: c.req.header('CF-Connecting-IP'), details: { distance, accuracy, face, hasLoc, outside, ...(faceResult ? { faceResult, faceScore: faceScore === null ? undefined : Math.round(faceScore * 1000) / 1000, live: faceLive ?? undefined, ...(faceReason ? { faceReason } : {}) } : {}) },
   }));
 
   try {

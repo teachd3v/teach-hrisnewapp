@@ -17,6 +17,10 @@ export interface Bindings {
   CRON_SECRET?: string;
   /** Hanya untuk uji lokal (.dev.vars): izinkan ?now= pada /api/internal/cron. Jangan diset di produksi. */
   CRON_ALLOW_NOW?: string;
+  /** Service binding privat ke Worker Container `teach-hris-face` (YuNet + AuraFace v1 + MiniFASNetV2). */
+  FACE_SERVICE?: Fetcher;
+  /** Opsional untuk uji lokal (.dev.vars) tanpa Container Worker, mis. http://127.0.0.1:8080. */
+  FACE_SERVICE_URL?: string;
 }
 
 export interface AuthUser {

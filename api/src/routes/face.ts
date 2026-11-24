@@ -2,13 +2,14 @@ import { Hono, type Context } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
 import { and, asc, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import {
-  FACE_CONSENT_TEXT, FACE_CONSENT_VERSION, FACE_ENROLL_MAX, FACE_ENROLL_MIN, FACE_MODEL_VERSION, FACE_SETTING_KEYS, FACE_VERIFY_LIMIT,
-  assessFace, bestScore, decodeVectors, encodeVectors, faceSettingsError, isAdmin, normalize, planFaceDecided, planFaceRequested, validEmbedding, wibDate,
+  FACE_CONSENT_TEXT, FACE_CONSENT_VERSION, FACE_MODEL_VERSION, FACE_SETTING_KEYS, FACE_VERIFY_LIMIT,
+  assessFace, bestScore, decodeVectors, encodeVectors, faceSettingsError, isAdmin, planFaceDecided, planFaceRequested, wibDate,
 } from '@hris/shared';
 import type { AppEnv } from '../env';
 import { app_settings, audit_log, employee_documents, employees, face_attempts, face_templates } from '../db/schema';
 import { auditRow } from '../lib/audit';
 import { FACE_PREFIX, approvedTemplate, loadFaceSettings, purgeFace } from '../lib/face';
+import { analyzeFace } from '../lib/face-client';
 import { adminRecipientIds, notifyStmts, resolveStmt, type Db } from '../lib/leave-db';
 import { pushNotify } from '../lib/push';
 import { MB, validateUpload } from '../lib/upload';
@@ -55,15 +56,18 @@ face.get('/status', async (c) => {
     loadFaceSettings(db),
     db.select().from(face_templates).where(eq(face_templates.employee_id, me.id)).orderBy(desc(face_templates.created_at)),
   ]);
-  const approved = rows.find((r) => r.status === 'approved');
-  const pending = rows.find((r) => r.status === 'pending');
+  const current = rows.filter((r) => r.model_version === FACE_MODEL_VERSION);
+  const approved = current.find((r) => r.status === 'approved');
+  const pending = current.find((r) => r.status === 'pending');
   // Penolakan terakhir hanya relevan bila lebih baru dari template aktif dan tidak ada pengajuan yang sedang menunggu.
-  const rejected = !pending ? rows.find((r) => r.status === 'rejected' && (!approved || r.created_at > approved.created_at)) : undefined;
+  const rejected = !pending ? current.find((r) => r.status === 'rejected' && (!approved || r.created_at > approved.created_at)) : undefined;
+  const needsReenroll = !approved && !pending && rows.some((r) => r.status === 'approved' && r.model_version !== FACE_MODEL_VERSION);
   return c.json({
     settings: isAdmin(me.role) ? settings : { mode: settings.mode },
     consent: { version: FACE_CONSENT_VERSION, text: FACE_CONSENT_TEXT },
     modelVersion: FACE_MODEL_VERSION,
     active: Boolean(approved),
+    needsReenroll,
     approved: approved ? publicTemplate(approved) : null,
     pending: pending ? publicTemplate(pending) : null,
     rejected: rejected ? publicTemplate(rejected) : null,
@@ -71,18 +75,24 @@ face.get('/status', async (c) => {
 });
 
 /**
- * Pratinjau verifikasi sebelum presensi dikirim: server menilai embedding terhadap template dan mengembalikan HASILNYA SAJA
- * (tanpa skor, supaya tidak bisa dipakai menebak template). Tidak menyimpan presensi. Dibatasi per karyawan; setiap percobaan dicatat
- * (hasil saja) agar HC melihat berapa kali karyawan gagal. Keputusan resmi tetap dibuat saat presensi dikirim.
+ * Pratinjau verifikasi sebelum presensi dikirim: multipart `photo` + `type` ('in' | 'out').
+ * Server mengekstrak embedding & liveness lewat Container, lalu mengembalikan HASILNYA SAJA (tanpa skor).
+ * Kegagalan kualitas foto (buram, menoleh, tanpa wajah) tidak mengurangi kuota percobaan.
  */
 face.post('/verify', async (c) => {
   const db = drizzle(c.env.DB);
   const me = await actor(c, db);
   if (!me) return c.json({ error: 'Sesi berakhir' }, 401);
-  const b = await c.req.json<{ embedding?: unknown; live?: unknown; type?: unknown }>().catch(() => ({} as never));
-  if (b.type !== 'in' && b.type !== 'out') return c.json({ error: 'Jenis presensi tidak valid' }, 400);
-  if (!validEmbedding(b.embedding)) return c.json({ error: 'Data wajah tidak valid' }, 400);
-  const live = typeof b.live === 'number' && b.live >= 0 && b.live <= 1 ? b.live : null;
+  const declared = Number(c.req.header('Content-Length'));
+  if (Number.isFinite(declared) && declared > PHOTO_MAX + 64 * 1024) return c.json({ error: 'Foto terlalu besar (maks. 3 MB)' }, 413);
+  const form = await c.req.parseBody().catch(() => null);
+  if (!form) return c.json({ error: 'Data tidak valid' }, 400);
+  const type = form.type;
+  if (type !== 'in' && type !== 'out') return c.json({ error: 'Jenis presensi tidak valid' }, 400);
+  const file = form.photo;
+  if (!(file instanceof File)) return c.json({ error: 'Foto wajib diambil' }, 400);
+  const v = await validateUpload(file, { maxBytes: PHOTO_MAX, kinds: ['jpeg', 'png', 'webp'] });
+  if (!v.ok) return c.json({ error: v.error }, 400);
 
   const settings = await loadFaceSettings(db);
   if (settings.mode === 'off') return c.json({ result: 'none' });
@@ -94,21 +104,31 @@ face.post('/verify', async (c) => {
   if (Number(recent?.n ?? 0) >= FACE_VERIFY_LIMIT.max) {
     return c.json({ error: `Terlalu banyak percobaan verifikasi. Tunggu ${FACE_VERIFY_LIMIT.windowMinutes} menit, atau kirim presensi dan akan ditandai untuk HC.` }, 429);
   }
-  const score = bestScore(decodeVectors(tpl.vectors), normalize(b.embedding));
-  const result = assessFace({ hasTemplate: true, score, live }, settings);
-  if (result === 'none') return c.json({ result: 'none' }); // tidak mungkin: template dan skor ada
+
+  const analyzed = await analyzeFace(c.env, v.buffer, v.contentType);
+  if (!analyzed.ok) {
+    return c.json({
+      result: analyzed.reason === 'service_unavailable' ? 'unavailable' : 'unclear',
+      reason: analyzed.reason,
+      message: analyzed.message,
+    });
+  }
+
+  const score = bestScore(decodeVectors(tpl.vectors), analyzed.embedding);
+  const result = assessFace({ hasTemplate: true, score, live: analyzed.live }, settings);
+  if (result === 'none') return c.json({ result: 'none' });
   const now = new Date();
-  await db.insert(face_attempts).values({ id: crypto.randomUUID(), employee_id: me.id, date: wibDate(now), type: b.type, result, created_at: now.toISOString() });
+  await db.insert(face_attempts).values({ id: crypto.randomUUID(), employee_id: me.id, date: wibDate(now), type, result, created_at: now.toISOString() });
   return c.json({ result });
 });
 
-/** Daftar wajah: multipart `photo` (referensi), `vectors` (JSON larik vektor), `stats` (JSON, termasuk `live` opsional), `consent`='1', `consentVersion`. */
+/** Daftar wajah: multipart `photo` (referensi), `consent`='1', `consentVersion`. Validasi & ekstraksi embedding dilakukan di server. */
 face.post('/enroll', async (c) => {
   const db = drizzle(c.env.DB);
   const me = await actor(c, db);
   if (!me) return c.json({ error: 'Sesi berakhir' }, 401);
   const declared = Number(c.req.header('Content-Length'));
-  if (Number.isFinite(declared) && declared > PHOTO_MAX + 256 * 1024) return c.json({ error: 'Data terlalu besar' }, 413);
+  if (Number.isFinite(declared) && declared > PHOTO_MAX + 64 * 1024) return c.json({ error: 'Data terlalu besar' }, 413);
   const form = await c.req.parseBody().catch(() => null);
   if (!form) return c.json({ error: 'Data tidak valid' }, 400);
 
@@ -118,20 +138,12 @@ face.post('/enroll', async (c) => {
   const v = await validateUpload(file, { maxBytes: PHOTO_MAX, kinds: ['jpeg', 'png', 'webp'] });
   if (!v.ok) return c.json({ error: v.error }, 400);
 
-  let raw: unknown;
-  try { raw = JSON.parse(typeof form.vectors === 'string' ? form.vectors : ''); } catch { raw = null; }
-  if (!Array.isArray(raw) || raw.length < FACE_ENROLL_MIN || raw.length > FACE_ENROLL_MAX || !raw.every(validEmbedding)) {
-    return c.json({ error: `Data wajah tidak valid (butuh ${FACE_ENROLL_MIN}-${FACE_ENROLL_MAX} sampel)` }, 400);
+  const analyzed = await analyzeFace(c.env, v.buffer, v.contentType);
+  if (!analyzed.ok) {
+    return c.json({ error: analyzed.message, reason: analyzed.reason }, analyzed.reason === 'service_unavailable' ? 503 : 422);
   }
-  const vectors = (raw as number[][]).map((x) => normalize(x));
-  let stats: string | null = null;
-  try {
-    const s = JSON.parse(typeof form.stats === 'string' ? form.stats : 'null') as Record<string, unknown> | null;
-    if (s && ['lum', 'sharp', 'eyeRatio'].every((k) => typeof s[k] === 'number' && Number.isFinite(s[k] as number))) {
-      const live = typeof s.live === 'number' && s.live >= 0 && s.live <= 1 ? s.live : null;
-      stats = JSON.stringify({ lum: s.lum, sharp: s.sharp, eyeRatio: s.eyeRatio, live });
-    }
-  } catch { /* statistik opsional */ }
+  const vectors = [analyzed.embedding];
+  const stats = JSON.stringify({ ...analyzed.stats, live: analyzed.live });
 
   const id = crypto.randomUUID();
   const key = `${FACE_PREFIX}${me.id}/${id}.${v.ext}`;
@@ -196,12 +208,16 @@ face.get('/admin', async (c) => {
     for (const d of docs) if (!ktp.has(d.employee_id)) ktp.set(d.employee_id, d.key);
   }
   const active = (await db.select({ id: employees.id }).from(employees).where(eq(employees.active, true))).length;
-  const approved = rows.filter((r) => r.status === 'approved');
+  const current = rows.filter((r) => r.model_version === FACE_MODEL_VERSION);
+  const approved = current.filter((r) => r.status === 'approved');
+  const approvedIds = new Set(approved.map((r) => r.employee_id));
+  const oldApprovedIds = new Set(rows.filter((r) => r.status === 'approved' && r.model_version !== FACE_MODEL_VERSION).map((r) => r.employee_id));
+  const outdated = [...oldApprovedIds].filter((id) => !approvedIds.has(id)).length;
   return c.json({
     settings: await loadFaceSettings(db),
-    coverage: { enrolled: new Set(approved.map((r) => r.employee_id)).size, active },
-    pending: rows.filter((r) => r.status === 'pending').map((r) => ({
-      ...publicTemplate(r), employeeId: r.employee_id, name: names.get(r.employee_id) ?? '-', photoKey: r.reference_photo_key, ktpKey: ktp.get(r.employee_id) ?? null, live: enrollLive(r.stats), replacing: approved.some((a) => a.employee_id === r.employee_id),
+    coverage: { enrolled: approvedIds.size, active, outdated },
+    pending: current.filter((r) => r.status === 'pending').map((r) => ({
+      ...publicTemplate(r), employeeId: r.employee_id, name: names.get(r.employee_id) ?? '-', photoKey: r.reference_photo_key, ktpKey: ktp.get(r.employee_id) ?? null, live: enrollLive(r.stats), replacing: approvedIds.has(r.employee_id) || oldApprovedIds.has(r.employee_id),
     })),
     approved: approved.map((r) => ({ ...publicTemplate(r), employeeId: r.employee_id, name: names.get(r.employee_id) ?? '-' })),
   });
