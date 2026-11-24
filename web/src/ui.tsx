@@ -110,7 +110,7 @@ export function BottomBar({ children }: { children: ReactNode }) {
 }
 
 /** Lembar dari bawah. Esc/ketuk latar menutup; fokus dipindah ke lembar dan dikembalikan saat ditutup. */
-export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
+export function Sheet({ open, onClose, title, wide, children }: { open: boolean; onClose: () => void; title: string; wide?: boolean; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
   // `onClose` biasanya fungsi baru di tiap render induk. Disimpan di ref supaya efek di bawah HANYA jalan saat lembar
@@ -138,7 +138,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
     <div className="fixed inset-0 z-50 flex items-end justify-center lg:items-center lg:p-6">
       <div className="scrim-in absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
       <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={titleId}
-        className="sheet-in relative max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-surface px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] outline-none lg:rounded-3xl lg:px-6 lg:pb-6">
+        className={cx('sheet-in relative max-h-[88dvh] w-full overflow-y-auto rounded-t-3xl bg-surface px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] outline-none lg:rounded-3xl lg:px-6 lg:pb-6', wide ? 'max-w-xl' : 'max-w-md')}>
         <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-line lg:hidden" aria-hidden="true" />
         <h2 id={titleId} className="mb-3 text-lg font-semibold">{title}</h2>
         {children}
