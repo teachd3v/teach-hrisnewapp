@@ -8,7 +8,8 @@ import type { AppEnv, Bindings } from '../env';
 import { push_devices } from '../db/schema';
 import { sendWebPush, type VapidConfig } from './web-push';
 
-const MAX_DEVICES_PER_CALL = 40; // batas subrequest per permintaan Worker
+const MAX_DEVICES_PER_CALL = 200; // aman pada paket Workers Paid (batas 1.000 subrequest)
+const PUSH_CONCURRENCY = 25;
 
 export function vapidConfig(env: Bindings): VapidConfig | null {
   const publicKey = env.VAPID_PUBLIC_KEY?.trim();
@@ -34,24 +35,35 @@ export interface PushMessage { title: string; body?: string | null; href?: strin
 export async function sendPushToEmployees(env: Bindings, employeeIds: string[], make: (employeeId: string) => PushMessage[], vapid: VapidConfig): Promise<number> {
   if (employeeIds.length === 0) return 0;
   const db = drizzle(env.DB);
-  const devices = await db.select().from(push_devices)
-    .where(and(eq(push_devices.kind, 'webpush'), inArray(push_devices.employee_id, employeeIds))).limit(MAX_DEVICES_PER_CALL);
+  const devices: (typeof push_devices.$inferSelect)[] = [];
+  for (let i = 0; i < employeeIds.length && devices.length < MAX_DEVICES_PER_CALL; i += 80) {
+    const chunk = await db.select().from(push_devices)
+      .where(and(eq(push_devices.kind, 'webpush'), inArray(push_devices.employee_id, employeeIds.slice(i, i + 80))))
+      .limit(MAX_DEVICES_PER_CALL - devices.length);
+    devices.push(...chunk);
+  }
   let sent = 0;
-  await Promise.allSettled(devices.flatMap((d) => {
+  const tasks: (() => Promise<void>)[] = [];
+  for (const d of devices) {
     const keys = d.web_keys ? (JSON.parse(d.web_keys) as { p256dh?: string; auth?: string }) : {};
-    if (!keys.p256dh || !keys.auth) return [];
-    return make(d.employee_id).map(async (m) => {
-      try {
-        const payload = JSON.stringify({ title: m.title, body: m.body ?? '', href: m.href ?? '/notifikasi', tag: m.tag });
-        const res = await sendWebPush({ endpoint: d.token, p256dh: keys.p256dh!, auth: keys.auth! }, payload, vapid);
-        if (res.gone) await db.delete(push_devices).where(eq(push_devices.token, d.token));
-        else if (res.status >= 200 && res.status < 300) sent++;
-        else console.warn('Push ditolak', res.status, new URL(d.token).hostname);
-      } catch (e) {
-        console.warn('Push gagal', new URL(d.token).hostname, e instanceof Error ? e.message : e);
-      }
-    });
-  }));
+    if (!keys.p256dh || !keys.auth) continue;
+    for (const m of make(d.employee_id)) {
+      tasks.push(async () => {
+        try {
+          const payload = JSON.stringify({ title: m.title, body: m.body ?? '', href: m.href ?? '/notifikasi', tag: m.tag });
+          const res = await sendWebPush({ endpoint: d.token, p256dh: keys.p256dh!, auth: keys.auth! }, payload, vapid);
+          if (res.gone) await db.delete(push_devices).where(eq(push_devices.token, d.token));
+          else if (res.status >= 200 && res.status < 300) sent++;
+          else console.warn('Push ditolak', res.status, new URL(d.token).hostname);
+        } catch (e) {
+          console.warn('Push gagal', new URL(d.token).hostname, e instanceof Error ? e.message : e);
+        }
+      });
+    }
+  }
+  for (let i = 0; i < tasks.length; i += PUSH_CONCURRENCY) {
+    await Promise.allSettled(tasks.slice(i, i + PUSH_CONCURRENCY).map((fn) => fn()));
+  }
   return sent;
 }
 

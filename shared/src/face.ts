@@ -175,3 +175,15 @@ export function planFaceDecided(ref: { id: string; employeeId: string; approved:
     body: ref.approved ? 'Verifikasi wajah pada presensi kini aktif untuk Anda.' : 'Buka Profil untuk melihat alasan dan mendaftar ulang.', href: '/profil/wajah', entityId: ref.id,
   }];
 }
+
+/** Pengingat wajib daftar ulang wajah ke karyawan aktif yang belum memiliki pendaftaran aktif/menunggu di versi model terbaru. */
+export function planFaceReenrollReminder(employeeIds: readonly string[], modelVersion: string): NotifyInput[] {
+  return employeeIds.map((employeeId) => ({
+    employeeId,
+    type: 'face.reenroll_required',
+    title: 'Wajib daftar ulang wajah',
+    body: 'Sistem verifikasi wajah diperbarui. Daftar ulang 1 foto sekarang agar presensi masuk dan pulang tetap bisa dilakukan.',
+    href: '/profil/wajah',
+    entityId: `face-reenroll:${modelVersion}`,
+  }));
+}

@@ -17,7 +17,8 @@ export type NotificationType =
   | 'attendance.correction_requested' // admin: perlu aksi
   | 'attendance.correction_decided' // pengaju: pemberitahuan
   | 'face.requested' // admin: perlu aksi (pencocokan KTP)
-  | 'face.decided'; // karyawan: pemberitahuan
+  | 'face.decided' // karyawan: pemberitahuan
+  | 'face.reenroll_required'; // karyawan: wajib daftar ulang wajah
 
 export interface NotifyInput {
   employeeId: string;
@@ -29,7 +30,7 @@ export interface NotifyInput {
 }
 
 /** Notifikasi "perlu aksi": dianggap selesai begitu pengajuan diputuskan atau dibatalkan. */
-export const ACTIONABLE_TYPES: NotificationType[] = ['leave.submitted', 'leave.manager_approved', 'overtime.submitted', 'overtime.manager_approved', 'attendance.correction_requested', 'face.requested'];
+export const ACTIONABLE_TYPES: NotificationType[] = ['leave.submitted', 'leave.manager_approved', 'overtime.submitted', 'overtime.manager_approved', 'attendance.correction_requested', 'face.requested', 'face.reenroll_required'];
 
 const HREF = { approver: '/persetujuan', admin: '/admin/cuti', mine: '/cuti' } as const;
 

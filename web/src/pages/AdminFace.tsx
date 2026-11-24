@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ScanFace, Trash2 } from 'lucide-react';
+import { BellRing, CheckCircle2, ScanFace, Trash2 } from 'lucide-react';
 import type { FaceSettings } from '@hris/shared';
 import { api } from '../lib/api';
 import { fmtDate } from '../lib/leave-types';
@@ -11,15 +11,18 @@ import { Button, Card, Chip, Empty, ErrorNote, Sheet, Spinner, Textarea } from '
 /** `live`: skor wajah asli saat pendaftaran (0-1); null bila tidak tersedia. */
 interface PendingRow extends FaceTemplateInfo { employeeId: string; name: string; photoKey: string; ktpKey: string | null; live: number | null; replacing: boolean }
 interface ApprovedRow extends FaceTemplateInfo { employeeId: string; name: string }
-interface AdminData { settings: FaceSettings; coverage: { enrolled: number; active: number; outdated?: number }; pending: PendingRow[]; approved: ApprovedRow[] }
+interface MissingRow { id: string; name: string }
+interface AdminData { settings: FaceSettings; coverage: { enrolled: number; active: number; outdated?: number }; missing?: MissingRow[]; pending: PendingRow[]; approved: ApprovedRow[] }
 
-/** HC: antrean pendaftaran wajah (cocokkan foto referensi dengan KTP), daftar yang aktif, dan reset. */
+/** HC: antrean pendaftaran wajah (cocokkan foto referensi dengan KTP), daftar yang aktif, pengingat daftar ulang, dan reset. */
 export default function AdminFace() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ['face-admin'], queryFn: () => api<AdminData>('/face/admin') });
   const [deciding, setDeciding] = useState<{ row: PendingRow; approve: boolean } | null>(null);
   const [note, setNote] = useState('');
   const [resetting, setResetting] = useState<ApprovedRow | null>(null);
+  const [confirmRemind, setConfirmRemind] = useState(false);
+  const [remindResult, setRemindResult] = useState<{ notified: number; pushed: number } | null>(null);
   const refresh = () => { void qc.invalidateQueries({ queryKey: ['face-admin'] }); void qc.invalidateQueries({ queryKey: ['face-status'] }); void qc.invalidateQueries({ queryKey: ['notifications'] }); };
 
   const decide = useMutation({
@@ -30,21 +33,37 @@ export default function AdminFace() {
     mutationFn: (employeeId: string) => api(`/face/employee/${employeeId}`, { method: 'DELETE' }),
     onSuccess: () => { setResetting(null); refresh(); },
   });
+  const remind = useMutation({
+    mutationFn: () => api<{ ok: true; notified: number; pushed: number }>('/face/remind-reenroll', { method: 'POST' }),
+    onSuccess: (res) => { setConfirmRemind(false); setRemindResult({ notified: res.notified, pushed: res.pushed }); refresh(); },
+  });
 
   if (q.isPending) return <Spinner />;
   if (!q.data) return <ErrorNote error={q.error} />;
   const d = q.data;
+  const missing = d.missing ?? [];
   const modeText = d.settings.mode === 'off' ? 'Verifikasi wajah belum diaktifkan (Akun > Pengaturan presensi).' : 'Verifikasi wajah aktif: hasil hanya ditandai, presensi tidak ditolak.';
 
   return (
     <div className="flex flex-col gap-5">
-      <Card className="flex flex-col gap-1">
+      <Card className="flex flex-col gap-2">
         <p className="font-semibold">Terdaftar {d.coverage.enrolled} dari {d.coverage.active} karyawan aktif</p>
         <p className="text-sm text-muted">{modeText}</p>
         {(d.coverage.outdated ?? 0) > 0 && (
-          <p className="mt-1 rounded-xl bg-warn-bg p-2.5 text-sm text-warn">
+          <p className="rounded-xl bg-warn-bg p-2.5 text-sm text-warn">
             {d.coverage.outdated} karyawan masih memakai pendaftaran model lama dan perlu daftar ulang 1 foto.
           </p>
+        )}
+        {remindResult && (
+          <p role="status" className="flex items-center gap-2 rounded-xl bg-ok-bg p-2.5 text-sm font-medium text-ok">
+            <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
+            Pengingat terkirim ke {remindResult.notified} karyawan ({remindResult.pushed} notifikasi push HP).
+          </p>
+        )}
+        {d.settings.mode !== 'off' && missing.length > 0 && (
+          <Button variant="secondary" onClick={() => { remind.reset(); setRemindResult(null); setConfirmRemind(true); }}>
+            <BellRing className="size-5" aria-hidden="true" />Kirim pengingat daftar ulang ({missing.length} orang)
+          </Button>
         )}
       </Card>
 
@@ -123,6 +142,19 @@ export default function AdminFace() {
             </div>
           </div>
         )}
+      </Sheet>
+      <Sheet open={confirmRemind} onClose={() => setConfirmRemind(false)} title={`Kirim pengingat ke ${missing.length} karyawan?`}>
+        <div className="flex flex-col gap-3">
+          <p className="text-sm">Notifikasi aplikasi dan push HP akan dikirim ke karyawan aktif yang belum mengirim pendaftaran wajah terbaru (yang sudah mengirim atau disetujui tidak dikirimi lagi):</p>
+          <ul className="max-h-48 divide-y divide-line overflow-y-auto rounded-xl bg-sub px-3 text-sm">
+            {missing.map((m) => <li key={m.id} className="py-2">{m.name}</li>)}
+          </ul>
+          <ErrorNote error={remind.error} />
+          <div className="grid grid-cols-2 gap-3">
+            <Button variant="secondary" onClick={() => setConfirmRemind(false)}>Batal</Button>
+            <Button loading={remind.isPending} onClick={() => remind.mutate()}>Kirim sekarang</Button>
+          </div>
+        </div>
       </Sheet>
     </div>
   );

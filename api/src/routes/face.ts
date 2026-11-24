@@ -1,17 +1,17 @@
 import { Hono, type Context } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
-import { and, asc, desc, eq, gte, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, sql } from 'drizzle-orm';
 import {
   FACE_CONSENT_TEXT, FACE_CONSENT_VERSION, FACE_MODEL_VERSION, FACE_SETTING_KEYS, FACE_VERIFY_LIMIT,
-  assessFace, bestScore, decodeVectors, encodeVectors, faceSettingsError, isAdmin, planFaceDecided, planFaceRequested, wibDate,
+  assessFace, bestScore, decodeVectors, encodeVectors, faceSettingsError, isAdmin, planFaceDecided, planFaceReenrollReminder, planFaceRequested, wibDate,
 } from '@hris/shared';
 import type { AppEnv } from '../env';
-import { app_settings, audit_log, employee_documents, employees, face_attempts, face_templates } from '../db/schema';
+import { app_settings, audit_log, employee_documents, employees, face_attempts, face_templates, notifications } from '../db/schema';
 import { auditRow } from '../lib/audit';
 import { FACE_PREFIX, approvedTemplate, loadFaceSettings, purgeFace } from '../lib/face';
 import { analyzeFace } from '../lib/face-client';
 import { adminRecipientIds, notifyStmts, resolveStmt, type Db } from '../lib/leave-db';
-import { pushNotify } from '../lib/push';
+import { pushNotify, sendPushToEmployees, vapidConfig } from '../lib/push';
 import { MB, validateUpload } from '../lib/upload';
 import { requireAuth } from '../middleware/auth';
 
@@ -61,7 +61,7 @@ face.get('/status', async (c) => {
   const pending = current.find((r) => r.status === 'pending');
   // Penolakan terakhir hanya relevan bila lebih baru dari template aktif dan tidak ada pengajuan yang sedang menunggu.
   const rejected = !pending ? current.find((r) => r.status === 'rejected' && (!approved || r.created_at > approved.created_at)) : undefined;
-  const needsReenroll = !approved && !pending && rows.some((r) => r.status === 'approved' && r.model_version !== FACE_MODEL_VERSION);
+  const needsReenroll = !approved && !pending && rows.some((r) => (r.status === 'approved' || r.status === 'pending') && r.model_version !== FACE_MODEL_VERSION);
   return c.json({
     settings: isAdmin(me.role) ? settings : { mode: settings.mode },
     consent: { version: FACE_CONSENT_VERSION, text: FACE_CONSENT_TEXT },
@@ -164,6 +164,7 @@ face.post('/enroll', async (c) => {
       }),
       db.insert(audit_log).values(auditRow({ actorId: me.id, actorName: me.name, action: 'face.enrolled', targetType: 'face_template', targetId: id, targetLabel: me.name, ip: ip(c), details: { samples: vectors.length, model: FACE_MODEL_VERSION } })),
       ...oldPending.map((o) => resolveStmt(db, o.id)),
+      db.update(notifications).set({ read_at: now }).where(and(eq(notifications.employee_id, me.id), eq(notifications.type, 'face.reenroll_required'), isNull(notifications.read_at))),
       ...notifyStmts(db, notes),
     ]);
   } catch (e) {
@@ -207,20 +208,73 @@ face.get('/admin', async (c) => {
       .where(and(inArray(employee_documents.employee_id, chunk), eq(employee_documents.category, 'ktp'))).orderBy(desc(employee_documents.created_at));
     for (const d of docs) if (!ktp.has(d.employee_id)) ktp.set(d.employee_id, d.key);
   }
-  const active = (await db.select({ id: employees.id }).from(employees).where(eq(employees.active, true))).length;
+  const activeRows = await db.select({ id: employees.id, name: employees.name }).from(employees).where(eq(employees.active, true)).orderBy(asc(employees.name));
   const current = rows.filter((r) => r.model_version === FACE_MODEL_VERSION);
   const approved = current.filter((r) => r.status === 'approved');
+  const pendingRows = current.filter((r) => r.status === 'pending');
   const approvedIds = new Set(approved.map((r) => r.employee_id));
+  const coveredIds = new Set([...approvedIds, ...pendingRows.map((r) => r.employee_id)]);
   const oldApprovedIds = new Set(rows.filter((r) => r.status === 'approved' && r.model_version !== FACE_MODEL_VERSION).map((r) => r.employee_id));
   const outdated = [...oldApprovedIds].filter((id) => !approvedIds.has(id)).length;
+  const missing = activeRows.filter((e) => !coveredIds.has(e.id));
   return c.json({
     settings: await loadFaceSettings(db),
-    coverage: { enrolled: approvedIds.size, active, outdated },
-    pending: current.filter((r) => r.status === 'pending').map((r) => ({
+    coverage: { enrolled: approvedIds.size, active: activeRows.length, outdated },
+    missing,
+    pending: pendingRows.map((r) => ({
       ...publicTemplate(r), employeeId: r.employee_id, name: names.get(r.employee_id) ?? '-', photoKey: r.reference_photo_key, ktpKey: ktp.get(r.employee_id) ?? null, live: enrollLive(r.stats), replacing: approvedIds.has(r.employee_id) || oldApprovedIds.has(r.employee_id),
     })),
     approved: approved.map((r) => ({ ...publicTemplate(r), employeeId: r.employee_id, name: names.get(r.employee_id) ?? '-' })),
   });
+});
+
+/** HC: kirim notifikasi in-app + Web Push wajib daftar ulang wajah ke semua karyawan aktif yang belum mendaftar di model terbaru. */
+face.post('/remind-reenroll', async (c) => {
+  const db = drizzle(c.env.DB);
+  const me = await actor(c, db);
+  if (!me || !isAdmin(me.role)) return c.json({ error: 'Tidak diizinkan' }, 403);
+  const settings = await loadFaceSettings(db);
+  if (settings.mode === 'off') return c.json({ error: 'Verifikasi wajah sedang dimatikan.' }, 400);
+
+  const [activeRows, currentRows] = await Promise.all([
+    db.select({ id: employees.id }).from(employees).where(eq(employees.active, true)),
+    db.select({ employee_id: face_templates.employee_id }).from(face_templates)
+      .where(and(eq(face_templates.model_version, FACE_MODEL_VERSION), inArray(face_templates.status, ['approved', 'pending']))),
+  ]);
+  const covered = new Set(currentRows.map((r) => r.employee_id));
+  const targetIds = activeRows.map((e) => e.id).filter((id) => !covered.has(id));
+  if (!targetIds.length) return c.json({ ok: true, notified: 0, pushed: 0 });
+
+  const now = new Date().toISOString();
+  const notes = planFaceReenrollReminder(targetIds, FACE_MODEL_VERSION);
+  const clearOld = [];
+  for (let i = 0; i < targetIds.length; i += 80) {
+    clearOld.push(
+      db.update(notifications).set({ read_at: now }).where(and(
+        inArray(notifications.employee_id, targetIds.slice(i, i + 80)),
+        eq(notifications.type, 'face.reenroll_required'),
+        isNull(notifications.read_at),
+      )),
+    );
+  }
+  await batch(db, [
+    ...clearOld,
+    ...notifyStmts(db, notes),
+    db.insert(audit_log).values(auditRow({
+      actorId: me.id, actorName: me.name, action: 'face.reminded', targetType: 'face_template', targetId: FACE_MODEL_VERSION, targetLabel: `${targetIds.length} karyawan`, ip: ip(c),
+      details: { count: targetIds.length, model: FACE_MODEL_VERSION },
+    })),
+  ]);
+
+  let pushed = 0;
+  const vapid = vapidConfig(c.env);
+  if (vapid) {
+    const sample = notes[0]!;
+    pushed = await sendPushToEmployees(c.env, targetIds, () => [{
+      title: sample.title, body: sample.body, href: sample.href, tag: `${sample.type}:${sample.entityId ?? ''}`,
+    }], vapid).catch(() => 0);
+  }
+  return c.json({ ok: true, notified: targetIds.length, pushed });
 });
 
 /** HC memutuskan pendaftaran. Tidak boleh memutuskan pendaftaran sendiri kecuali super admin. Persetujuan menggantikan template lama. */

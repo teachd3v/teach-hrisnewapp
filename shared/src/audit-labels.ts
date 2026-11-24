@@ -63,6 +63,7 @@ export const AUDIT_ACTIONS: Record<string, { label: string; attention?: boolean 
   'face.decision': { label: 'Keputusan pendaftaran wajah' },
   'face.withdrawn': { label: 'Tarik persetujuan wajah (template dihapus)' },
   'face.reset': { label: 'Reset pendaftaran wajah karyawan', attention: true },
+  'face.reminded': { label: 'Kirim pengingat daftar ulang wajah' },
 };
 
 export const auditLabel = (action: string) => AUDIT_ACTIONS[action]?.label ?? action;

@@ -1,11 +1,12 @@
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarPlus, ChevronRight, ClipboardCheck, Hourglass } from 'lucide-react';
+import { CalendarPlus, ChevronRight, ClipboardCheck, Hourglass, ScanFace } from 'lucide-react';
 import { isAdmin } from '@hris/shared';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useBadges } from '../layouts';
 import { useProfileCard } from '../lib/profile';
+import { useFaceStatus } from '../lib/face-status';
 import { dotFor, todayWib, useRecordsByDate, workWeek } from '../lib/week';
 import type { LeaveMeta } from '../lib/leave-types';
 import ProfilePhoto from '../components/ProfilePhoto';
@@ -48,6 +49,7 @@ export default function Home() {
   const pct = annual?.quota ? Math.max(0, Math.min(100, ((annual.remaining ?? 0) / annual.quota) * 100)) : 0;
 
   const card = useProfileCard('me').data;
+  const face = useFaceStatus().data;
   const today = todayWib();
   const week = workWeek(today);
   const { byDate } = useRecordsByDate(week);
@@ -71,6 +73,33 @@ export default function Home() {
       </div>
 
       {birthday && <BirthdayBanner name={firstName} />}
+
+      {face && face.settings.mode !== 'off' && !face.active && (
+        <Card accent={face.pending ? 'info' : 'warn'} className="flex flex-col gap-2.5" role="status">
+          <div className="flex items-start gap-3">
+            <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${face.pending ? 'bg-info-bg text-info' : 'bg-warn-bg text-warn'}`} aria-hidden="true">
+              <ScanFace className="size-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-bold">
+                {face.pending ? 'Pendaftaran wajah menunggu persetujuan HC' : face.needsReenroll ? 'Wajib daftar ulang wajah' : 'Wajib daftarkan wajah'}
+              </p>
+              <p className="mt-0.5 text-sm text-muted">
+                {face.pending
+                  ? 'Presensi masuk dan pulang baru bisa dilakukan setelah HC menyetujui foto Anda.'
+                  : face.needsReenroll
+                    ? 'Sistem verifikasi wajah diperbarui. Daftar ulang 1 foto sekarang agar presensi masuk dan pulang tidak terhambat.'
+                    : 'Presensi masuk dan pulang memerlukan wajah yang terdaftar dan disetujui HC.'}
+              </p>
+            </div>
+          </div>
+          {!face.pending && (
+            <Link to="/profil/wajah" className="block">
+              <Button className="w-full">{face.needsReenroll || face.rejected ? 'Daftar ulang sekarang' : 'Daftarkan sekarang'}</Button>
+            </Link>
+          )}
+        </Card>
+      )}
 
       {admin && <Segmented value={tab} onChange={setTab} options={[{ value: 'me', label: 'Saya' }, { value: 'overview', label: 'Ringkasan' }]} />}
       {!admin && teamOn && <Segmented value={tab === 'team' ? 'team' : 'me'} onChange={setTab} options={[{ value: 'me', label: 'Saya' }, { value: 'team', label: 'Tim' }]} />}
